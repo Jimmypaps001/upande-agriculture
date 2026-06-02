@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{year}-{greenhouse}-{crop_variety}",
+ "creation": "2026-04-11 20:51:51.821141",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_inaq",
+  "amended_from",
+  "farm",
+  "company",
+  "greenhouse",
+  "year",
+  "column_break_itpq",
+  "crop_variety",
+  "crop_type",
+  "date_of_planting",
+  "colour",
+  "section_break_vxb9",
+  "from_week",
+  "generate_weeks",
+  "column_break_siso",
+  "to_week",
+  "section_break_tag4",
+  "projection_week",
+  "area",
+  "crop_cycle"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_inaq",
+   "fieldtype": "Section Break",
+   "placeholder": "Enter the Year"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Production Projection",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm"
+  },
+  {
+   "fetch_from": "greenhouse.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "year",
+   "fieldtype": "Data",
+   "label": "Year",
+   "placeholder": "Enter the year"
+  },
+  {
+   "fieldname": "column_break_itpq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "crop_variety",
+   "fieldtype": "Link",
+   "label": "Crop Variety",
+   "link_filters": "[]",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "crop_variety.item_group",
+   "fieldname": "crop_type",
+   "fieldtype": "Link",
+   "label": "Crop Type",
+   "link_filters": "[]",
+   "options": "Item Group",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "crop_cycle.planting_date",
+   "fieldname": "date_of_planting",
+   "fieldtype": "Date",
+   "label": "Date of Planting"
+  },
+  {
+   "fieldname": "colour",
+   "fieldtype": "Data",
+   "label": "Colour"
+  },
+  {
+   "fieldname": "section_break_vxb9",
+   "fieldtype": "Section Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "from_week",
+   "fieldtype": "Int",
+   "label": "From Week"
+  },
+  {
+   "allow_on_submit": 1,
+   "default": "0",
+   "fieldname": "generate_weeks",
+   "fieldtype": "Check",
+   "label": "Generate Weeks"
+  },
+  {
+   "fieldname": "column_break_siso",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "to_week",
+   "fieldtype": "Int",
+   "label": "To Week"
+  },
+  {
+   "fieldname": "section_break_tag4",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "projection_week",
+   "fieldtype": "Table",
+   "label": "Projection Week",
+   "options": "Projection Week"
+  },
+  {
+   "fetch_from": "crop_cycle.area_planted",
+   "fieldname": "area",
+   "fieldtype": "Float",
+   "label": "Area"
+  },
+  {
+   "fieldname": "crop_cycle",
+   "fieldtype": "Link",
+   "label": "Crop cycle",
+   "options": "Crop Cycle"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-03 01:28:52.450907",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Production Projection",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

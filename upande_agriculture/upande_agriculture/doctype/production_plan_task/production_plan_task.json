@@ -1,0 +1,102 @@
+{
+ "actions": [],
+ "autoname": "autoincrement",
+ "creation": "2026-04-11 19:53:00.211935",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "greenhouse",
+  "day",
+  "assigned_task",
+  "variety",
+  "task_purpose",
+  "target",
+  "actual",
+  "achievement",
+  "supervisor_notes",
+  "is_prepopulated"
+ ],
+ "fields": [
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Greenhouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "day",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Day",
+   "options": "Mon\nTue\nWed\nThu\nFri\nSat\nSun"
+  },
+  {
+   "fieldname": "assigned_task",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Assigned Task",
+   "options": "Task"
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Variety",
+   "options": "Item"
+  },
+  {
+   "fieldname": "task_purpose",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Purpose"
+  },
+  {
+   "fieldname": "target",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Target"
+  },
+  {
+   "fieldname": "actual",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Actual"
+  },
+  {
+   "fieldname": "achievement",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Achievement"
+  },
+  {
+   "fieldname": "supervisor_notes",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Supervisor's Remarks"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_prepopulated",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Is prepopulated"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-03 01:30:14.833226",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Production Plan Task",
+ "naming_rule": "Autoincrement",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-11 19:53:00.839189",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "day",
+  "greenhouse",
+  "assigned_task",
+  "purpose",
+  "target",
+  "actual",
+  "achievement",
+  "supervisors_remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "day",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Day",
+   "options": "Mon\nTue\nWed\nThu\nFri\nSat\nSun"
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Greenhouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "assigned_task",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Assigned Task",
+   "options": "Task"
+  },
+  {
+   "fieldname": "purpose",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Purpose"
+  },
+  {
+   "fieldname": "target",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Target"
+  },
+  {
+   "fieldname": "actual",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Actual"
+  },
+  {
+   "fieldname": "achievement",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Achievement"
+  },
+  {
+   "fieldname": "supervisors_remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Supervisor's Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-03 01:30:34.284709",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Irrigation Plan Task",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
