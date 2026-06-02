@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-11 19:33:19.433774",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_hjoy",
+  "bed_no",
+  "bed_width",
+  "bed_length",
+  "bed_area",
+  "variety_grown",
+  "plant_count",
+  "planting_date",
+  "seed_cb",
+  "seedling_source",
+  "breeder",
+  "propagation_batch",
+  "qty_planted",
+  "cost_per_plant"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_hjoy",
+   "fieldtype": "Section Break",
+   "label": "Bed"
+  },
+  {
+   "fieldname": "bed_no",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Bed No"
+  },
+  {
+   "fieldname": "bed_width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Bed Width"
+  },
+  {
+   "fieldname": "bed_length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Bed length"
+  },
+  {
+   "fieldname": "bed_area",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Bed Area",
+   "read_only": 1
+  },
+  {
+   "fieldname": "variety_grown",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Variety Grown",
+   "options": "Item"
+  },
+  {
+   "fieldname": "plant_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Plant Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date"
+  },
+  {
+   "fieldname": "seed_cb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "variety_grown.custom_default_seedling_source",
+   "fetch_if_empty": 1,
+   "fieldname": "seedling_source",
+   "fieldtype": "Select",
+   "label": "Seedling Source",
+   "options": "\nPurchased from Breeder\nIn-house Propagation\nMixed"
+  },
+  {
+   "fetch_from": "variety_grown.custom_default_breeder",
+   "fetch_if_empty": 1,
+   "fieldname": "breeder",
+   "fieldtype": "Link",
+   "label": "Breeder",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "propagation_batch",
+   "fieldtype": "Link",
+   "label": "Propagation Batch",
+   "options": "Propagation Batch"
+  },
+  {
+   "fieldname": "qty_planted",
+   "fieldtype": "Int",
+   "label": "Qty Planted"
+  },
+  {
+   "fieldname": "cost_per_plant",
+   "fieldtype": "Currency",
+   "label": "Cost Per Plant"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-03 01:24:02.456868",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Bed Number",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

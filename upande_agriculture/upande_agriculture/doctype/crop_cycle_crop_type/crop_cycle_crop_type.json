@@ -1,0 +1,36 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-02 21:34:57.645169",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "crop_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "crop_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Crop Type",
+   "options": "Crop Type",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-03 01:24:26.431755",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle Crop Type",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

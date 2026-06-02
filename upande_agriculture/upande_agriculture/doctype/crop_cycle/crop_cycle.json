@@ -1,0 +1,237 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:greenhouse",
+ "creation": "2026-06-02 20:51:05.048791",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "greenhouse",
+  "farm",
+  "company",
+  "cb_details",
+  "crop_type",
+  "uses_blocks",
+  "geometry_section",
+  "plants_per_sqm",
+  "gross_area",
+  "cb_geo2",
+  "number_of_bays",
+  "number_of_beds",
+  "varieties",
+  "area_planted",
+  "number_of_plants",
+  "varieties_grown_section",
+  "varieties_grown",
+  "bay_config_section",
+  "bay_configuration",
+  "bedconfig_section",
+  "bed_range",
+  "individual_beds_section",
+  "individual_beds",
+  "replanting_section",
+  "replanting_logs",
+  "last_replanting_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Greenhouse & Block"
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "greenhouse.custom_farm",
+   "fetch_if_empty": 1,
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "cb_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "crop_type",
+   "fieldtype": "Table MultiSelect",
+   "label": "Crop Type",
+   "options": "Crop Cycle Crop Type"
+  },
+  {
+   "default": "0",
+   "fieldname": "uses_blocks",
+   "fieldtype": "Check",
+   "label": "Uses Blocks (Summer Flowers)"
+  },
+  {
+   "fieldname": "geometry_section",
+   "fieldtype": "Section Break",
+   "label": "Greenhouse Geometry"
+  },
+  {
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Int",
+   "label": "Plants Per Sqm"
+  },
+  {
+   "fieldname": "gross_area",
+   "fieldtype": "Float",
+   "label": "Gross Area (m2)"
+  },
+  {
+   "fieldname": "cb_geo2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "number_of_bays",
+   "fieldtype": "Int",
+   "label": "Bays",
+   "read_only": 1
+  },
+  {
+   "fieldname": "number_of_beds",
+   "fieldtype": "Int",
+   "label": "Beds",
+   "read_only": 1
+  },
+  {
+   "fieldname": "varieties",
+   "fieldtype": "Int",
+   "label": "Varieties",
+   "read_only": 1
+  },
+  {
+   "fieldname": "area_planted",
+   "fieldtype": "Float",
+   "label": "Area Planted (m2)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "number_of_plants",
+   "fieldtype": "Int",
+   "label": "Number of Plants",
+   "read_only": 1
+  },
+  {
+   "fieldname": "varieties_grown_section",
+   "fieldtype": "Section Break",
+   "label": "Varieties Grown"
+  },
+  {
+   "fieldname": "varieties_grown",
+   "fieldtype": "Table",
+   "label": "Varieties Grown",
+   "options": "Crop Cycle Variety"
+  },
+  {
+   "fieldname": "bay_config_section",
+   "fieldtype": "Section Break",
+   "label": "Bay Configuration"
+  },
+  {
+   "fieldname": "bay_configuration",
+   "fieldtype": "Table",
+   "label": "Bay Configuration",
+   "options": "Crop Cycle Bay"
+  },
+  {
+   "fieldname": "bedconfig_section",
+   "fieldtype": "Section Break",
+   "label": "Bed Configuration"
+  },
+  {
+   "fieldname": "bed_range",
+   "fieldtype": "Table",
+   "label": "Bed Configuration",
+   "options": "Bed Range"
+  },
+  {
+   "fieldname": "individual_beds_section",
+   "fieldtype": "Section Break",
+   "label": "Individual Bed Tracking"
+  },
+  {
+   "fieldname": "individual_beds",
+   "fieldtype": "Table",
+   "label": "Individual Beds",
+   "options": "Crop Cycle Bed"
+  },
+  {
+   "fieldname": "replanting_section",
+   "fieldtype": "Section Break",
+   "label": "Replanting History"
+  },
+  {
+   "fieldname": "replanting_logs",
+   "fieldtype": "Table",
+   "label": "Replanting Logs",
+   "options": "Replanting Log"
+  },
+  {
+   "fieldname": "last_replanting_date",
+   "fieldtype": "Date",
+   "label": "Last Replanting Date",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-03 01:22:45.063930",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
