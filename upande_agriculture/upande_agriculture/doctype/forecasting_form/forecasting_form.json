@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "naming_series:BSF-FC-.YYYY.-",
+ "creation": "2026-04-11 19:53:01.218462",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "greenhouse",
+  "naming_series",
+  "column_break_mwgq",
+  "variety",
+  "sampling_date",
+  "column_break_hldq",
+  "custom_week_no",
+  "status",
+  "section_break_emsb",
+  "forecast_details",
+  "section_break_jbfw",
+  "forecast_analysis",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Data",
+   "label": "Greenhouse"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Naming Series",
+   "options": "BSF-FC-.YYYY.-",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mwgq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Data",
+   "label": "Crop Variety"
+  },
+  {
+   "fieldname": "sampling_date",
+   "fieldtype": "Date",
+   "label": "Sampling Date"
+  },
+  {
+   "fieldname": "column_break_hldq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "custom_week_no",
+   "fieldtype": "Data",
+   "label": "Week No"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Status",
+   "options": "Draft\nPending Approval\nApproved"
+  },
+  {
+   "fieldname": "section_break_emsb",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "forecast_details",
+   "fieldtype": "Table",
+   "label": "Forecast Details",
+   "options": "Forecasting Item"
+  },
+  {
+   "fieldname": "section_break_jbfw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "forecast_analysis",
+   "fieldtype": "Table",
+   "label": "Forecast Analysis",
+   "options": "Production Forecasting Analysis"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Forecasting Form",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:15.523100",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Forecasting Form",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

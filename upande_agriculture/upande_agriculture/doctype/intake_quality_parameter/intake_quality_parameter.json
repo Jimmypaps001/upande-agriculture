@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-17 07:34:41.376711",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "parameter_name",
+  "count",
+  "action",
+  "photo"
+ ],
+ "fields": [
+  {
+   "fieldname": "parameter_name",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Parameter Name",
+   "options": "Rust\nBotrytis\nDowny Mildew\nPowdery Mildew\nBlack Spot\nShort Stem\nLive Thrips\nLive Aphids\nBroken Stem\nLess Buds\nMixed Variety\nDrooping\nThrips Damage\nMite Damage\nWrong Length\nTight Cut Stage\nAdvanced Cut Stage\nBruises\nChlorosis\nScorching\nPoor Defoliation\nFCM Larvae\nFCM Egg\nFCM Damages\nHelicoverpa Larvae\nHelicoverpa Egg\nHelicoverpa Damage\nSpodoptera Egg\nSpodoptera Damage\nSpodoptera Larvae",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Count"
+  },
+  {
+   "fieldname": "action",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action",
+   "options": "Quarantined\nAccepted\nRejected\nMonitor"
+  },
+  {
+   "fieldname": "photo",
+   "fieldtype": "Attach",
+   "label": "Photo"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:16.717755",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Intake Quality Parameter",
+ "owner": "stephene@upande.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

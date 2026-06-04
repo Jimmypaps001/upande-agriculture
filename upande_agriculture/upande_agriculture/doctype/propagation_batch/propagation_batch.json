@@ -1,0 +1,477 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:PB-{iso_week}/{iso_year}-{####}",
+ "creation": "2026-05-29 09:46:04.711189",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "batch_title",
+  "iso_week",
+  "iso_year",
+  "start_date",
+  "column_break_1",
+  "variety",
+  "variety_name",
+  "propagation_method",
+  "current_stage",
+  "section_break_source",
+  "mother_block",
+  "seedling_request",
+  "column_break_source",
+  "bom",
+  "material_request",
+  "section_break_grafting",
+  "rootstock_variety",
+  "grafting_success_count",
+  "column_break_grafting",
+  "grafting_failure_count",
+  "grafting_success_rate",
+  "section_break_quantities",
+  "total_cuttings_planned",
+  "total_cuttings_actual",
+  "column_break_qty",
+  "total_mortality",
+  "total_survived",
+  "available_to_dispatch",
+  "total_dispatched",
+  "section_break_rates",
+  "success_rate",
+  "grade_a_count",
+  "column_break_rates",
+  "grade_b_count",
+  "cull_count",
+  "section_break_treatment",
+  "rooting_hormone",
+  "hormone_concentration",
+  "column_break_treatment",
+  "rooting_medium",
+  "propagation_unit",
+  "section_break_costing",
+  "material_cost",
+  "royalty_cost",
+  "labour_cost",
+  "column_break_costing",
+  "total_cost",
+  "cost_per_surviving_seedling",
+  "cost_per_dispatched_seedling",
+  "section_break_stages",
+  "stages",
+  "section_break_notes",
+  "company",
+  "notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "Batch {iso_week}/{iso_year} - {variety_name}",
+   "fieldname": "batch_title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Batch Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "iso_week",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "ISO Week",
+   "reqd": 1
+  },
+  {
+   "default": "2026",
+   "fieldname": "iso_year",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "ISO Year",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "variety.item_name",
+   "fieldname": "variety_name",
+   "fieldtype": "Data",
+   "label": "Variety Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "propagation_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Propagation Method",
+   "options": "Own-root Cutting\nGrafting (T-bud)\nGrafting (Splice)\nStenting",
+   "reqd": 1
+  },
+  {
+   "default": "Cutting",
+   "fieldname": "current_stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Current Stage",
+   "options": "Cutting\nSticking\nCallusing\nRooting\nNursery\nHardening\nReady for Dispatch\nCompleted",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_source",
+   "fieldtype": "Section Break",
+   "label": "Source & Materials"
+  },
+  {
+   "description": "Source of cuttings",
+   "fieldname": "mother_block",
+   "fieldtype": "Link",
+   "label": "Mother Block",
+   "options": "Mother Block"
+  },
+  {
+   "description": "The request this batch is fulfilling",
+   "fieldname": "seedling_request",
+   "fieldtype": "Link",
+   "label": "Seedling Request",
+   "options": "Seedling Request"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Bill of Materials for this variety",
+   "fieldname": "bom",
+   "fieldtype": "Link",
+   "label": "BOM",
+   "options": "BOM"
+  },
+  {
+   "description": "MR for propagation materials",
+   "fieldname": "material_request",
+   "fieldtype": "Link",
+   "label": "Material Request",
+   "options": "Material Request"
+  },
+  {
+   "depends_on": "eval:doc.propagation_method && doc.propagation_method != 'Own-root Cutting'",
+   "fieldname": "section_break_grafting",
+   "fieldtype": "Section Break",
+   "label": "Grafting Details"
+  },
+  {
+   "fieldname": "rootstock_variety",
+   "fieldtype": "Link",
+   "label": "Rootstock Variety",
+   "options": "Item"
+  },
+  {
+   "description": "Successful unions",
+   "fieldname": "grafting_success_count",
+   "fieldtype": "Int",
+   "label": "Grafting Success Count"
+  },
+  {
+   "fieldname": "column_break_grafting",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "grafting_failure_count",
+   "fieldtype": "Int",
+   "label": "Grafting Failure Count"
+  },
+  {
+   "fieldname": "grafting_success_rate",
+   "fieldtype": "Percent",
+   "label": "Grafting Success Rate %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_quantities",
+   "fieldtype": "Section Break",
+   "label": "Quantities & Mortality"
+  },
+  {
+   "fieldname": "total_cuttings_planned",
+   "fieldtype": "Int",
+   "label": "Total Cuttings Planned",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "description": "Sum from daily logs",
+   "fieldname": "total_cuttings_actual",
+   "fieldtype": "Int",
+   "label": "Total Cuttings Actual",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qty",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "total_mortality",
+   "fieldtype": "Int",
+   "label": "Total Mortality",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Actual cuttings minus mortality",
+   "fieldname": "total_survived",
+   "fieldtype": "Int",
+   "label": "Total Survived",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Survived minus already dispatched",
+   "fieldname": "available_to_dispatch",
+   "fieldtype": "Int",
+   "label": "Available to Dispatch",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "total_dispatched",
+   "fieldtype": "Int",
+   "label": "Total Dispatched",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_rates",
+   "fieldtype": "Section Break",
+   "label": "Rates & Quality"
+  },
+  {
+   "description": "Survived / Actual cuttings",
+   "fieldname": "success_rate",
+   "fieldtype": "Percent",
+   "label": "Success Rate %",
+   "read_only": 1
+  },
+  {
+   "description": "Strong root, vigorous shoot",
+   "fieldname": "grade_a_count",
+   "fieldtype": "Int",
+   "label": "Grade A Count"
+  },
+  {
+   "fieldname": "column_break_rates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Adequate but smaller",
+   "fieldname": "grade_b_count",
+   "fieldtype": "Int",
+   "label": "Grade B Count"
+  },
+  {
+   "description": "Alive but too weak",
+   "fieldname": "cull_count",
+   "fieldtype": "Int",
+   "label": "Culls Count"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_treatment",
+   "fieldtype": "Section Break",
+   "label": "Treatment & Environment"
+  },
+  {
+   "description": "Hormone product used",
+   "fieldname": "rooting_hormone",
+   "fieldtype": "Link",
+   "label": "Rooting Hormone",
+   "options": "Item"
+  },
+  {
+   "description": "e.g. 2000 ppm IBA",
+   "fieldname": "hormone_concentration",
+   "fieldtype": "Data",
+   "label": "Hormone Concentration"
+  },
+  {
+   "fieldname": "column_break_treatment",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "e.g. 50/50 perlite/peat",
+   "fieldname": "rooting_medium",
+   "fieldtype": "Data",
+   "label": "Rooting Medium"
+  },
+  {
+   "description": "Greenhouse/unit where propagation is done",
+   "fieldname": "propagation_unit",
+   "fieldtype": "Link",
+   "label": "Propagation Unit",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "section_break_costing",
+   "fieldtype": "Section Break",
+   "label": "Costing"
+  },
+  {
+   "description": "From BOM",
+   "fieldname": "material_cost",
+   "fieldtype": "Currency",
+   "label": "Material Cost",
+   "read_only": 1
+  },
+  {
+   "description": "Per-plant royalty \u00d7 actual cuttings",
+   "fieldname": "royalty_cost",
+   "fieldtype": "Currency",
+   "label": "Royalty Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "labour_cost",
+   "fieldtype": "Currency",
+   "label": "Labour Cost"
+  },
+  {
+   "fieldname": "column_break_costing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_per_surviving_seedling",
+   "fieldtype": "Currency",
+   "label": "Cost per Surviving Seedling",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_per_dispatched_seedling",
+   "fieldtype": "Currency",
+   "label": "Cost per Dispatched Seedling",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_stages",
+   "fieldtype": "Section Break",
+   "label": "Stage History"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Propagation Batch Stage"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Propagation Batch",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:09.992465",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Propagation Batch",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "batch_title"
+}

@@ -1,0 +1,352 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-04-28 12:43:45.773983",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "title",
+  "section_header",
+  "inspection_date",
+  "farm",
+  "greenhouse",
+  "column_break_h1",
+  "year",
+  "week",
+  "logged_by",
+  "section_summary",
+  "has_issues",
+  "column_break_s1",
+  "total_issues",
+  "section_structural",
+  "roof_torn",
+  "top_vent_torn",
+  "side_net_torn",
+  "skirting_torn",
+  "column_break_st1",
+  "quarter_moon_torn",
+  "half_moon_torn",
+  "bottom_polythene_not_tucked",
+  "side_net_torn_secondary",
+  "section_gaps",
+  "gaps_along_gutter",
+  "gaps_along_halfmoon",
+  "gaps_along_skirting",
+  "column_break_gp1",
+  "gaps_along_top_vent",
+  "gaps_along_quartermoon",
+  "section_doors",
+  "double_door_not_self_closing",
+  "door_cover_torn_holes",
+  "column_break_dr1",
+  "gaps_along_door_frames",
+  "gaps_along_door_ground",
+  "section_notes",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "default": "GHII-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "GHII-.YYYY.-.#####",
+   "reqd": 1
+  },
+  {
+   "default": "{greenhouse} - {inspection_date}",
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_header",
+   "fieldtype": "Section Break",
+   "label": "Inspection Details"
+  },
+  {
+   "default": "Today",
+   "fieldname": "inspection_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Inspection Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Farm",
+   "options": "Farm",
+   "reqd": 1
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_h1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Auto-derived from inspection date",
+   "fieldname": "year",
+   "fieldtype": "Int",
+   "label": "Year",
+   "read_only": 1
+  },
+  {
+   "description": "ISO week number",
+   "fieldname": "week",
+   "fieldtype": "Int",
+   "label": "Week",
+   "read_only": 1
+  },
+  {
+   "default": "__user",
+   "fieldname": "logged_by",
+   "fieldtype": "Link",
+   "label": "Logged By",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_summary",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "default": "0",
+   "description": "Auto-set if any check is YES",
+   "fieldname": "has_issues",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Has Issues",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_s1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Count of YES findings on this inspection",
+   "fieldname": "total_issues",
+   "fieldtype": "Int",
+   "label": "Total Issues",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_structural",
+   "fieldtype": "Section Break",
+   "label": "Structural Tears & Holes"
+  },
+  {
+   "default": "0",
+   "fieldname": "roof_torn",
+   "fieldtype": "Check",
+   "label": "Roof Torn"
+  },
+  {
+   "default": "0",
+   "fieldname": "top_vent_torn",
+   "fieldtype": "Check",
+   "label": "Top Vent Torn or Holes"
+  },
+  {
+   "default": "0",
+   "fieldname": "side_net_torn",
+   "fieldtype": "Check",
+   "label": "Side Net Torn or Holes"
+  },
+  {
+   "default": "0",
+   "fieldname": "skirting_torn",
+   "fieldtype": "Check",
+   "label": "Skirting Torn or Holes"
+  },
+  {
+   "fieldname": "column_break_st1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "quarter_moon_torn",
+   "fieldtype": "Check",
+   "label": "Quarter Moon Torn"
+  },
+  {
+   "default": "0",
+   "fieldname": "half_moon_torn",
+   "fieldtype": "Check",
+   "label": "Half Moon Torn"
+  },
+  {
+   "default": "0",
+   "fieldname": "bottom_polythene_not_tucked",
+   "fieldtype": "Check",
+   "label": "Bottom Polythene Not Tucked"
+  },
+  {
+   "default": "0",
+   "description": "Second side-net check from source form",
+   "fieldname": "side_net_torn_secondary",
+   "fieldtype": "Check",
+   "label": "Side Net Torn or Holes (Secondary)"
+  },
+  {
+   "fieldname": "section_gaps",
+   "fieldtype": "Section Break",
+   "label": "Gaps"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_gutter",
+   "fieldtype": "Check",
+   "label": "Gaps along/at the Gutter"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_halfmoon",
+   "fieldtype": "Check",
+   "label": "Gaps along Halfmoon"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_skirting",
+   "fieldtype": "Check",
+   "label": "Gaps along the Skirting"
+  },
+  {
+   "fieldname": "column_break_gp1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_top_vent",
+   "fieldtype": "Check",
+   "label": "Gaps along Top Vent"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_quartermoon",
+   "fieldtype": "Check",
+   "label": "Gaps along Quartermoon"
+  },
+  {
+   "fieldname": "section_doors",
+   "fieldtype": "Section Break",
+   "label": "Doors"
+  },
+  {
+   "default": "0",
+   "fieldname": "double_door_not_self_closing",
+   "fieldtype": "Check",
+   "label": "Double Door Not Self Closing"
+  },
+  {
+   "default": "0",
+   "fieldname": "door_cover_torn_holes",
+   "fieldtype": "Check",
+   "label": "Door Cover Torn/Holes"
+  },
+  {
+   "fieldname": "column_break_dr1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_door_frames",
+   "fieldtype": "Check",
+   "label": "Gaps along Door Frames"
+  },
+  {
+   "default": "0",
+   "fieldname": "gaps_along_door_ground",
+   "fieldtype": "Check",
+   "label": "Gaps along Door Ground"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:11.004131",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Integrity Inspection",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "james@upande.com",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "farm,greenhouse,inspection_date",
+ "sort_field": "inspection_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

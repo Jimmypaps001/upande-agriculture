@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-10 15:32:54.203019",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage_name",
+  "days_to_harvest",
+  "description",
+  "stage_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "stage_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Growth Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "days_to_harvest",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Days to Harvest",
+   "reqd": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "description": "Lower = earlier stage, further from harvest",
+   "fieldname": "stage_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Order"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:16.581846",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol Growth Stage",
+ "naming_rule": "Random",
+ "owner": "james@upande.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

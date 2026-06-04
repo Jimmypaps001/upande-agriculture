@@ -1,0 +1,48 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-25 16:15:41.253030",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "flush_number",
+  "stems_per_plant",
+  "weeks_after_previous"
+ ],
+ "fields": [
+  {
+   "fieldname": "flush_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Flush Number"
+  },
+  {
+   "fieldname": "stems_per_plant",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Stems Per Plant"
+  },
+  {
+   "fieldname": "weeks_after_previous",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Weeks After Previous"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:10.823050",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol Flush",
+ "owner": "james@upande.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,95 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-29 09:37:57.016259",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage",
+  "start_date",
+  "end_date",
+  "qty_entered",
+  "qty_exited",
+  "days_in_stage",
+  "expected_days",
+  "moved_by",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Stage",
+   "options": "Cutting\nSticking\nCallusing\nRooting\nNursery\nHardening\nReady for Dispatch",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "End Date"
+  },
+  {
+   "fieldname": "qty_entered",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty Entered Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_exited",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Qty Exited Stage"
+  },
+  {
+   "fieldname": "days_in_stage",
+   "fieldtype": "Int",
+   "label": "Days in Stage",
+   "read_only": 1
+  },
+  {
+   "description": "From Propagation Settings",
+   "fieldname": "expected_days",
+   "fieldtype": "Int",
+   "label": "Expected Days",
+   "read_only": 1
+  },
+  {
+   "fieldname": "moved_by",
+   "fieldtype": "Link",
+   "label": "Moved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:10.286770",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Propagation Batch Stage",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

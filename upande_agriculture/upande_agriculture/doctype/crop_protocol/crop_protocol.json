@@ -1,0 +1,129 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:protocol_name",
+ "creation": "2026-05-25 16:15:49.023869",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "protocol_name",
+  "plants_per_sqm",
+  "yield_stems_per_ha",
+  "column_break_1",
+  "weeks_to_pinch",
+  "weeks_pinch_to_first_harvest",
+  "total_weeks_in_ground",
+  "section_break_1",
+  "weeks_between_flushes",
+  "total_flushes",
+  "total_stems_per_plant_life",
+  "flush_schedule"
+ ],
+ "fields": [
+  {
+   "fieldname": "protocol_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Protocol Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Int",
+   "label": "Plants Per Sqm"
+  },
+  {
+   "fieldname": "yield_stems_per_ha",
+   "fieldtype": "Int",
+   "label": "Yield Stems Per Ha"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "weeks_to_pinch",
+   "fieldtype": "Int",
+   "label": "Weeks to Pinch"
+  },
+  {
+   "fieldname": "weeks_pinch_to_first_harvest",
+   "fieldtype": "Int",
+   "label": "Weeks Pinch to First Harvest"
+  },
+  {
+   "fieldname": "total_weeks_in_ground",
+   "fieldtype": "Int",
+   "label": "Total Weeks in Ground"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Flush Details"
+  },
+  {
+   "fieldname": "weeks_between_flushes",
+   "fieldtype": "Int",
+   "label": "Weeks Between Flushes"
+  },
+  {
+   "fieldname": "total_flushes",
+   "fieldtype": "Int",
+   "label": "Total Flushes"
+  },
+  {
+   "fieldname": "total_stems_per_plant_life",
+   "fieldtype": "Float",
+   "label": "Total Stems Per Plant Life"
+  },
+  {
+   "fieldname": "flush_schedule",
+   "fieldtype": "Table",
+   "label": "Flush Schedule",
+   "options": "Crop Protocol Flush"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:10.605699",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol",
+ "naming_rule": "By fieldname",
+ "owner": "james@upande.com",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

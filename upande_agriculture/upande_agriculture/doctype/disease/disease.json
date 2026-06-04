@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "autoname": "field:common_name",
+ "creation": "2026-04-11 19:53:02.317480",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "common_name",
+  "scientific_name",
+  "section_break_3",
+  "treatment_task",
+  "treatment_period",
+  "section_break_2",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "common_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Common Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "scientific_name",
+   "fieldtype": "Data",
+   "label": "Scientific Name"
+  },
+  {
+   "fieldname": "section_break_3",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "treatment_task",
+   "fieldtype": "Table",
+   "label": "Treatment Task",
+   "options": "Agriculture Task"
+  },
+  {
+   "fieldname": "treatment_period",
+   "fieldtype": "Int",
+   "label": "Treatment Period"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break",
+   "label": "Treatment Task"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Long Text",
+   "label": "Description"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-06-04 07:30:13.840516",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Disease",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "restrict_to_domain": "Agriculture",
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

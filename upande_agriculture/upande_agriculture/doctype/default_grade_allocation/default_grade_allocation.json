@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-20 15:22:43.933395",
+ "description": "Global default grade allocation percentages applied uniformly to all varieties on the Production Projection by Grade (global) report. Percentages should sum to 100.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_info",
+  "info_html",
+  "sb_pct",
+  "pct_40",
+  "pct_50",
+  "pct_60",
+  "cb_pct",
+  "pct_70",
+  "pct_80"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_info",
+   "fieldtype": "Section Break",
+   "label": "Global Grade Allocation"
+  },
+  {
+   "fieldname": "info_html",
+   "fieldtype": "HTML",
+   "options": "<div style=\"padding:10px 14px;background:#f5f3ff;border-left:3px solid #7c3aed;border-radius:6px;color:#1e293b;font-size:13px;\"><strong>Default Grade Allocation</strong><br>These percentages are applied to <em>every</em> variety on the Production Projection by Grade report (global version) when splitting Budget / Forecast / Actual stems by stem length. The five percentages should add up to <strong>100%</strong>.</div>"
+  },
+  {
+   "fieldname": "sb_pct",
+   "fieldtype": "Section Break",
+   "label": "Percentages"
+  },
+  {
+   "default": "20",
+   "fieldname": "pct_40",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "40 cm %",
+   "reqd": 1
+  },
+  {
+   "default": "20",
+   "fieldname": "pct_50",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "50 cm %",
+   "reqd": 1
+  },
+  {
+   "default": "20",
+   "fieldname": "pct_60",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "60 cm %",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb_pct",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "20",
+   "fieldname": "pct_70",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "70 cm %",
+   "reqd": 1
+  },
+  {
+   "default": "20",
+   "fieldname": "pct_80",
+   "fieldtype": "Percent",
+   "label": "80 cm %",
+   "reqd": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:11.250112",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Default Grade Allocation",
+ "owner": "james@upande.com",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

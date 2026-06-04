@@ -1,0 +1,75 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-11 19:33:25.623222",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "week_no",
+  "current_forecast",
+  "l42",
+  "l52",
+  "l62",
+  "l72",
+  "l82"
+ ],
+ "fields": [
+  {
+   "fieldname": "week_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Week No."
+  },
+  {
+   "fieldname": "current_forecast",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Current Forecast"
+  },
+  {
+   "fieldname": "l42",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "L42"
+  },
+  {
+   "fieldname": "l52",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "L52"
+  },
+  {
+   "fieldname": "l62",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "L62"
+  },
+  {
+   "fieldname": "l72",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "L72"
+  },
+  {
+   "fieldname": "l82",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "L82"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-04 07:30:15.702248",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Production Forecasting Analysis",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

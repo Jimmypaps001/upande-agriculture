@@ -1,0 +1,137 @@
+{
+ "actions": [],
+ "autoname": "AG-TEX-.YYYY.-.#####",
+ "creation": "2026-04-11 20:31:58.742192",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "location",
+  "column_break_2",
+  "collection_datetime",
+  "laboratory_testing_datetime",
+  "result_datetime",
+  "section_break_4",
+  "soil_type",
+  "clay_composition",
+  "sand_composition",
+  "silt_composition",
+  "column_break_6",
+  "ternary_plot",
+  "section_break_15",
+  "soil_texture_criteria"
+ ],
+ "fields": [
+  {
+   "fieldname": "location",
+   "fieldtype": "Geolocation",
+   "label": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "collection_datetime",
+   "fieldtype": "Datetime",
+   "label": "Collection Datetime",
+   "reqd": 1
+  },
+  {
+   "fieldname": "laboratory_testing_datetime",
+   "fieldtype": "Datetime",
+   "label": "Laboratory Testing Datetime"
+  },
+  {
+   "fieldname": "result_datetime",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Result Datetime"
+  },
+  {
+   "fieldname": "section_break_4",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "soil_type",
+   "fieldtype": "Select",
+   "label": "Soil Type",
+   "options": "Select\nSand\nLoamy Sand\nSandy Loam\nLoam\nSilt Loam\nSilt\nSandy Clay Loam\nClay Loam\nSilty Clay Loam\nSandy Clay\nSilty Clay\nClay"
+  },
+  {
+   "default": "0",
+   "fieldname": "clay_composition",
+   "fieldtype": "Percent",
+   "label": "Clay Composition (%)"
+  },
+  {
+   "default": "0",
+   "fieldname": "sand_composition",
+   "fieldtype": "Percent",
+   "label": "Sand Composition (%)"
+  },
+  {
+   "default": "0",
+   "fieldname": "silt_composition",
+   "fieldtype": "Percent",
+   "label": "Silt Composition (%)"
+  },
+  {
+   "fieldname": "column_break_6",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ternary_plot",
+   "fieldtype": "HTML",
+   "label": "Ternary Plot"
+  },
+  {
+   "fieldname": "section_break_15",
+   "fieldtype": "Section Break",
+   "label": "Soil Texture Criteria"
+  },
+  {
+   "fieldname": "soil_texture_criteria",
+   "fieldtype": "Table",
+   "options": "Soil Texture Criteria"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-06-04 07:30:13.052866",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Soil Texture",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "restrict_to_domain": "Agriculture",
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
