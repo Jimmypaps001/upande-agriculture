@@ -1,0 +1,58 @@
+{
+  "actions": [],
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Production Plan Variety",
+  "owner": "Administrator",
+  "field_order": [
+    "variety",
+    "planned_stems",
+    "forecast_stems",
+    "budget_stems",
+    "notes"
+  ],
+  "fields": [
+    {
+      "fieldname": "variety",
+      "fieldtype": "Link",
+      "label": "Variety",
+      "options": "Item",
+      "in_list_view": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "planned_stems",
+      "fieldtype": "Int",
+      "label": "Planned Stems",
+      "in_list_view": 1,
+      "reqd": 1
+    },
+    {
+      "fieldname": "forecast_stems",
+      "fieldtype": "Int",
+      "label": "Forecast Stems",
+      "read_only": 1,
+      "description": "Snapshot of active Production Forecast at creation"
+    },
+    {
+      "fieldname": "budget_stems",
+      "fieldtype": "Int",
+      "label": "Budget Stems",
+      "read_only": 1,
+      "description": "Snapshot of Production Projection at creation"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Notes"
+    }
+  ],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator",
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

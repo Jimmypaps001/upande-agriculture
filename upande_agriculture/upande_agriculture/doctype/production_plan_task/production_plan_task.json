@@ -1,0 +1,71 @@
+{
+  "actions": [],
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Production Plan Task",
+  "owner": "Administrator",
+  "field_order": [
+    "task_name",
+    "greenhouse",
+    "target",
+    "due_day",
+    "assigned_to",
+    "status",
+    "completion_note"
+  ],
+  "fields": [
+    {
+      "fieldname": "task_name",
+      "fieldtype": "Data",
+      "label": "Task",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "greenhouse",
+      "fieldtype": "Link",
+      "label": "Greenhouse",
+      "options": "Warehouse",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "target",
+      "fieldtype": "Int",
+      "label": "Target",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "due_day",
+      "fieldtype": "Select",
+      "label": "Due Day",
+      "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday"
+    },
+    {
+      "fieldname": "assigned_to",
+      "fieldtype": "Link",
+      "label": "Assigned To",
+      "options": "User"
+    },
+    {
+      "fieldname": "status",
+      "fieldtype": "Select",
+      "label": "Status",
+      "options": "Open\nIn Progress\nDone\nSkipped",
+      "default": "Open",
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "completion_note",
+      "fieldtype": "Small Text",
+      "label": "Completion Note"
+    }
+  ],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator",
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}
