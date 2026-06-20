@@ -146,6 +146,12 @@ app_license = "mit"
 # 	}
 # }
 
+doc_events = {
+    "Crop Cycle": {
+        "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
+    },
+}
+
 # Scheduled Tasks
 # ---------------
 
