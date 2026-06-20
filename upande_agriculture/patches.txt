@@ -5,3 +5,4 @@ upande_agriculture.patches.v1_0.take_ownership
 [post_model_sync]
 upande_agriculture.patches.v1_0.seed_existing_projection_source
 upande_agriculture.patches.v1_0.seed_existing_plan_tasks
+upande_agriculture.patches.v1_0.seed_agriculture_workspace

@@ -222,3 +222,31 @@ class TestApi(FrappeTestCase):
         )
         self.assertIn("crop_cycle", result)
         self.assertTrue(frappe.db.exists("Crop Cycle", result["crop_cycle"]))
+
+    # ------------------------------------------------------------------
+    # 7. rollup_actuals smoke test
+    # ------------------------------------------------------------------
+
+    def test_rollup_actuals_does_not_crash(self):
+        """rollup_actuals() must return a non-negative integer.
+
+        The function soft-fails (returns 0) when tabActual Harvest is absent,
+        or returns the count of Projection Week rows it touched.
+        """
+        from upande_agriculture.scheduled import rollup_actuals
+
+        result = rollup_actuals()
+        self.assertIsInstance(result, int, "rollup_actuals must return an int")
+        self.assertGreaterEqual(result, 0, "return value must be >= 0")
+
+    def test_rollup_actuals_populates_variance(self):
+        """After rollup, any Projection with weeks should have non-None variance."""
+        from upande_agriculture.scheduled import rollup_actuals
+
+        rollup_actuals()
+        proj = frappe.get_last_doc("Production Projection")
+        if proj.weeks:
+            self.assertIsNotNone(
+                proj.weeks[0].variance,
+                "variance should be populated after rollup_actuals",
+            )

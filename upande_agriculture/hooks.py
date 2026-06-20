@@ -176,6 +176,16 @@ doc_events = {
 # 	],
 # }
 
+scheduler_events = {
+    "daily": [
+        "upande_agriculture.scheduled.rollup_actuals",
+    ],
+}
+
+fixtures = [
+    {"dt": "Workspace", "filters": [["module", "=", "Upande Agriculture"]]},
+]
+
 # Testing
 # -------
 
