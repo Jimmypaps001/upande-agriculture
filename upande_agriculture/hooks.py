@@ -150,6 +150,9 @@ doc_events = {
     "Crop Cycle": {
         "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
     },
+    "Production Plan Form": {
+        "on_update": "upande_agriculture.controllers.production_plan_form_on_update",
+    },
 }
 
 # Scheduled Tasks

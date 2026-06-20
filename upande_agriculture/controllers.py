@@ -98,3 +98,39 @@ def _ensure_milestone_todos(cycle) -> None:
             reference_type="Crop Cycle", reference_name=cycle.name,
             tag=tag, description=desc, assigned_to=supervisor, due_date=due,
         )
+
+
+def production_plan_form_on_update(doc, method=None):
+    """Create one ToDo per task row, idempotent.
+
+    Production Plan Form is not submittable (plan stays editable; a banner
+    flags past-week plans). We use on_update so re-saves keep the ToDos in
+    sync via the idempotent (reference, tag) upsert.
+
+    Known v1 limitation: removing a task row does not auto-delete its
+    previously-created ToDo. Supervisor closes obsolete ToDos manually.
+    """
+    for i, task in enumerate(doc.tasks or []):
+        if not task.assigned_to:
+            continue
+        tag = f"task-{task.idx or i}"
+        upsert_todo(
+            reference_type="Production Plan Form",
+            reference_name=doc.name,
+            tag=tag,
+            description=f"{task.task_name} ({task.due_day or 'this week'})",
+            assigned_to=task.assigned_to,
+            due_date=_due_date_for_plan(doc, task.due_day),
+        )
+
+
+def _due_date_for_plan(plan, due_day: str | None) -> datetime.date | None:
+    if not (plan.plan_year and plan.plan_week):
+        return None
+    # ISO week -> Monday
+    monday = datetime.date.fromisocalendar(int(plan.plan_year), int(plan.plan_week), 1)
+    if not due_day:
+        return monday + datetime.timedelta(days=6)  # Sunday
+    days = ["Monday", "Tuesday", "Wednesday", "Thursday",
+            "Friday", "Saturday", "Sunday"]
+    return monday + datetime.timedelta(days=days.index(due_day))

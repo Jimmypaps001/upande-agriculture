@@ -72,3 +72,25 @@ class TestCropCycleController(FrappeTestCase):
             "reference_name": cycle.name,
         })
         self.assertEqual(len(todos), 3)
+
+    def test_plan_form_submit_creates_todos(self):
+        gh = self._make_warehouse()
+        plan = frappe.get_doc({
+            "doctype": "Production Plan Form",
+            "company": frappe.db.get_single_value("Global Defaults", "default_company"),
+            "greenhouse": gh,
+            "plan_year": 2026, "plan_week": 27,
+            "plan_period": "2026-W27",
+            "tasks": [
+                {"task_name": "Pinch top buds", "due_day": "Tuesday",
+                 "assigned_to": "Administrator", "status": "Pending"},
+                {"task_name": "Spray fungicide", "due_day": "Friday",
+                 "assigned_to": "Administrator", "status": "Pending"},
+            ],
+        }).insert(ignore_permissions=True, ignore_mandatory=True)
+
+        todos = frappe.db.get_all("ToDo", filters={
+            "reference_type": "Production Plan Form",
+            "reference_name": plan.name,
+        })
+        self.assertGreaterEqual(len(todos), 2)
