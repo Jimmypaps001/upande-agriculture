@@ -1,0 +1,21 @@
+{
+  "actions": [],
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Crop Protocol Growth Stage",
+  "owner": "Administrator",
+  "field_order": ["stage_name", "days_to_harvest", "description"],
+  "fields": [
+    {"fieldname": "stage_name", "fieldtype": "Data", "label": "Stage Name", "in_list_view": 1, "reqd": 1},
+    {"fieldname": "days_to_harvest", "fieldtype": "Int", "label": "Days to Harvest", "in_list_view": 1},
+    {"fieldname": "description", "fieldtype": "Small Text", "label": "Description"}
+  ],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator",
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}

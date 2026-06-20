@@ -1,0 +1,21 @@
+{
+  "actions": [],
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Crop Protocol Flush",
+  "owner": "Administrator",
+  "field_order": ["flush_number", "stems_per_plant", "weeks_after_pinch"],
+  "fields": [
+    {"fieldname": "flush_number", "fieldtype": "Int", "label": "Flush Number", "in_list_view": 1, "reqd": 1},
+    {"fieldname": "stems_per_plant", "fieldtype": "Float", "label": "Stems Per Plant", "in_list_view": 1, "reqd": 1},
+    {"fieldname": "weeks_after_pinch", "fieldtype": "Int", "label": "Weeks After Pinch", "in_list_view": 1, "reqd": 1}
+  ],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator",
+  "permissions": [],
+  "sort_field": "flush_number",
+  "sort_order": "ASC"
+}
