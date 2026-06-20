@@ -9,6 +9,8 @@ ABSORBED = [
     # Crop Cycle family added in Task 5
     "Flower Trial",
     # Flower Trial family added in Task 6
+    "Production Projection",
+    "Projection Week",
     # Production Projection family added in Task 7
     # Production Plan Form family added in Task 9
 ]

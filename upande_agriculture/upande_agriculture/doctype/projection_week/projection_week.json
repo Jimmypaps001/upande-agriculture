@@ -1,0 +1,62 @@
+{
+  "actions": [],
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "module": "Upande Agriculture",
+  "name": "Projection Week",
+  "owner": "Administrator",
+  "istable": 1,
+  "is_submittable": 0,
+  "track_changes": 0,
+  "issingle": 0,
+  "field_order": [
+    "week",
+    "projected_stems",
+    "actual_stems",
+    "variance",
+    "is_locked",
+    "manual_override"
+  ],
+  "fields": [
+    {
+      "fieldname": "week",
+      "fieldtype": "Int",
+      "label": "Week",
+      "reqd": 1
+    },
+    {
+      "fieldname": "projected_stems",
+      "fieldtype": "Int",
+      "label": "Projected Stems"
+    },
+    {
+      "fieldname": "actual_stems",
+      "fieldtype": "Int",
+      "label": "Actual Stems"
+    },
+    {
+      "fieldname": "variance",
+      "fieldtype": "Int",
+      "label": "Variance",
+      "read_only": 1
+    },
+    {
+      "fieldname": "is_locked",
+      "fieldtype": "Check",
+      "label": "Is Locked",
+      "default": "0"
+    },
+    {
+      "fieldname": "manual_override",
+      "fieldtype": "Check",
+      "label": "Manual Override",
+      "default": "0",
+      "read_only": 1
+    }
+  ],
+  "permissions": [],
+  "links": [],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator"
+}

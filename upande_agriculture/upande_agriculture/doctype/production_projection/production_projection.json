@@ -1,0 +1,130 @@
+{
+  "actions": [],
+  "autoname": "prompt",
+  "naming_rule": "Prompt",
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "module": "Upande Agriculture",
+  "name": "Production Projection",
+  "owner": "Administrator",
+  "is_submittable": 0,
+  "track_changes": 1,
+  "issingle": 0,
+  "field_order": [
+    "variety",
+    "greenhouse",
+    "crop_cycle",
+    "column_break_1",
+    "projection_year",
+    "planting_date",
+    "company",
+    "source",
+    "last_calculated_at",
+    "crop_protocol",
+    "notes",
+    "section_weeks",
+    "weeks"
+  ],
+  "fields": [
+    {
+      "fieldname": "variety",
+      "fieldtype": "Link",
+      "label": "Variety",
+      "options": "Item",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "greenhouse",
+      "fieldtype": "Link",
+      "label": "Greenhouse",
+      "options": "Warehouse"
+    },
+    {
+      "fieldname": "crop_cycle",
+      "fieldtype": "Link",
+      "label": "Crop Cycle",
+      "options": "Crop Cycle"
+    },
+    {
+      "fieldname": "column_break_1",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "projection_year",
+      "fieldtype": "Int",
+      "label": "Year"
+    },
+    {
+      "fieldname": "planting_date",
+      "fieldtype": "Date",
+      "label": "Planting Date"
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company"
+    },
+    {
+      "fieldname": "source",
+      "fieldtype": "Select",
+      "label": "Source",
+      "options": "Manual\nCalculated from Protocol\nHybrid",
+      "default": "Hybrid",
+      "reqd": 1
+    },
+    {
+      "fieldname": "last_calculated_at",
+      "fieldtype": "Datetime",
+      "label": "Last Calculated At",
+      "read_only": 1
+    },
+    {
+      "fieldname": "crop_protocol",
+      "fieldtype": "Link",
+      "label": "Crop Protocol",
+      "options": "Crop Protocol",
+      "fetch_from": "crop_cycle.custom_crop_protocol"
+    },
+    {
+      "fieldname": "notes",
+      "fieldtype": "Small Text",
+      "label": "Notes"
+    },
+    {
+      "fieldname": "section_weeks",
+      "fieldtype": "Section Break",
+      "label": "Weekly Projections"
+    },
+    {
+      "fieldname": "weeks",
+      "fieldtype": "Table",
+      "label": "Weeks",
+      "options": "Projection Week"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "permlevel": 0,
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "submit": 0,
+      "cancel": 0,
+      "amend": 0,
+      "report": 1,
+      "import": 0,
+      "export": 1,
+      "print": 1,
+      "email": 1,
+      "share": 1
+    }
+  ],
+  "links": [],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator"
+}
