@@ -1,0 +1,23 @@
+{
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Production Forecast Week",
+  "owner": "Administrator",
+  "creation": "2026-06-20 08:00:00",
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator",
+  "field_order": ["week_number", "forecasted_stems", "budget_stems", "reason", "note"],
+  "fields": [
+    {"fieldname": "week_number", "fieldtype": "Int", "label": "ISO Week", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "forecasted_stems", "fieldtype": "Int", "label": "Forecasted Stems", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "budget_stems", "fieldtype": "Int", "label": "Budget Stems", "read_only": 1, "in_list_view": 1, "description": "Snapshot of the Production Projection at creation"},
+    {"fieldname": "reason", "fieldtype": "Select", "label": "Reason",
+     "options": "\nWeather\nDisease\nPinch delay\nBud drop\nOther"},
+    {"fieldname": "note", "fieldtype": "Small Text", "label": "Note"}
+  ],
+  "permissions": [],
+  "sort_field": "week_number",
+  "sort_order": "ASC"
+}
