@@ -1,0 +1,363 @@
+{
+  "actions": [],
+  "autoname": "field:trial_name",
+  "naming_rule": "By fieldname",
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "module": "Upande Agriculture",
+  "name": "Flower Trial",
+  "owner": "Administrator",
+  "is_submittable": 0,
+  "track_changes": 1,
+  "issingle": 0,
+  "title_field": "trial_name",
+  "sort_field": "creation",
+  "sort_order": "DESC",
+  "field_order": [
+    "trial_name",
+    "greenhouse",
+    "column_break_hdr",
+    "crop_type",
+    "cycle_status",
+    "section_bed_range",
+    "bed_range",
+    "section_bed_details",
+    "bed_details",
+    "area",
+    "seedling_source",
+    "breeder",
+    "propagation_batch",
+    "column_break_seedling",
+    "qty_planted",
+    "cost_per_plant",
+    "current_live_plants",
+    "section_dates",
+    "planting_date",
+    "planting_week",
+    "pinch_date",
+    "actual_pinch_date",
+    "column_break_dates",
+    "first_bud_date",
+    "first_harvest_date",
+    "uprooting_date",
+    "cycle_end_date",
+    "column_break_dates2",
+    "plant_age_weeks",
+    "weeks_to_uprooting",
+    "expected_production_date",
+    "next_harvest_date",
+    "section_production",
+    "current_flush",
+    "total_stems_harvested",
+    "total_expected_stems",
+    "column_break_prod",
+    "avg_stem_length_cm",
+    "avg_head_size_mm",
+    "avg_vase_life_days",
+    "total_cuttings_taken",
+    "section_harvest_logs",
+    "harvest_logs",
+    "section_verdict",
+    "overall_rating",
+    "recommendation",
+    "column_break_verdict",
+    "variety_yield",
+    "section_notes",
+    "summary_notes"
+  ],
+  "fields": [
+    {
+      "fieldname": "trial_name",
+      "fieldtype": "Data",
+      "label": "Trial Name",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "greenhouse",
+      "fieldtype": "Link",
+      "label": "Greenhouse",
+      "options": "Warehouse",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "column_break_hdr",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "crop_type",
+      "fieldtype": "Select",
+      "label": "Crop Type",
+      "options": "\nTrial\nObservation\nPre-commercial",
+      "default": "Trial"
+    },
+    {
+      "fieldname": "cycle_status",
+      "fieldtype": "Select",
+      "label": "Cycle Status",
+      "options": "\nActive\nReplanting\nPartially Uprooted\nEnded",
+      "default": "Active"
+    },
+    {
+      "fieldname": "section_bed_range",
+      "fieldtype": "Section Break",
+      "label": "Beds / Varieties Planted"
+    },
+    {
+      "fieldname": "bed_range",
+      "fieldtype": "Table",
+      "label": "",
+      "options": "Flower Trial Bed Range"
+    },
+    {
+      "fieldname": "section_bed_details",
+      "fieldtype": "Section Break",
+      "label": "Individual Bed Overview"
+    },
+    {
+      "fieldname": "bed_details",
+      "fieldtype": "Table",
+      "label": "",
+      "options": "Flower Trial Bed Detail"
+    },
+    {
+      "fieldname": "area",
+      "fieldtype": "Float",
+      "label": "Total Area (m²)",
+      "read_only": 1
+    },
+    {
+      "fieldname": "seedling_source",
+      "fieldtype": "Select",
+      "label": "Seedling Source",
+      "options": "\nPurchased from Breeder\nIn-house Propagation"
+    },
+    {
+      "fieldname": "breeder",
+      "fieldtype": "Link",
+      "label": "Breeder (Supplier)",
+      "options": "Supplier"
+    },
+    {
+      "fieldname": "propagation_batch",
+      "fieldtype": "Link",
+      "label": "Propagation Batch",
+      "options": "Propagation Batch"
+    },
+    {
+      "fieldname": "column_break_seedling",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "qty_planted",
+      "fieldtype": "Int",
+      "label": "Total Qty Planted",
+      "read_only": 1
+    },
+    {
+      "fieldname": "cost_per_plant",
+      "fieldtype": "Currency",
+      "label": "Cost Per Plant"
+    },
+    {
+      "fieldname": "current_live_plants",
+      "fieldtype": "Int",
+      "label": "Current Live Plants",
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_dates",
+      "fieldtype": "Section Break",
+      "label": "Dates & Lifecycle"
+    },
+    {
+      "fieldname": "planting_date",
+      "fieldtype": "Date",
+      "label": "Planting Date"
+    },
+    {
+      "fieldname": "planting_week",
+      "fieldtype": "Int",
+      "label": "Planting Week"
+    },
+    {
+      "fieldname": "pinch_date",
+      "fieldtype": "Date",
+      "label": "Planned Pinch Date"
+    },
+    {
+      "fieldname": "actual_pinch_date",
+      "fieldtype": "Date",
+      "label": "Actual Pinch Date"
+    },
+    {
+      "fieldname": "column_break_dates",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "first_bud_date",
+      "fieldtype": "Date",
+      "label": "First Bud Date"
+    },
+    {
+      "fieldname": "first_harvest_date",
+      "fieldtype": "Date",
+      "label": "First Harvest Date"
+    },
+    {
+      "fieldname": "uprooting_date",
+      "fieldtype": "Date",
+      "label": "Uprooting Date"
+    },
+    {
+      "fieldname": "cycle_end_date",
+      "fieldtype": "Date",
+      "label": "Cycle End Date"
+    },
+    {
+      "fieldname": "column_break_dates2",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "plant_age_weeks",
+      "fieldtype": "Int",
+      "label": "Plant Age (weeks)",
+      "read_only": 1
+    },
+    {
+      "fieldname": "weeks_to_uprooting",
+      "fieldtype": "Int",
+      "label": "Weeks to Uprooting",
+      "read_only": 1
+    },
+    {
+      "fieldname": "expected_production_date",
+      "fieldtype": "Date",
+      "label": "Expected Production Date"
+    },
+    {
+      "fieldname": "next_harvest_date",
+      "fieldtype": "Date",
+      "label": "Next Harvest Date"
+    },
+    {
+      "fieldname": "section_production",
+      "fieldtype": "Section Break",
+      "label": "Production Summary"
+    },
+    {
+      "fieldname": "current_flush",
+      "fieldtype": "Int",
+      "label": "Current Flush"
+    },
+    {
+      "fieldname": "total_stems_harvested",
+      "fieldtype": "Int",
+      "label": "Total Stems Harvested",
+      "read_only": 1
+    },
+    {
+      "fieldname": "total_expected_stems",
+      "fieldtype": "Int",
+      "label": "Total Expected Stems",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_prod",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "avg_stem_length_cm",
+      "fieldtype": "Float",
+      "label": "Avg Stem Length (cm)",
+      "read_only": 1
+    },
+    {
+      "fieldname": "avg_head_size_mm",
+      "fieldtype": "Float",
+      "label": "Avg Head Size (mm)",
+      "read_only": 1
+    },
+    {
+      "fieldname": "avg_vase_life_days",
+      "fieldtype": "Float",
+      "label": "Avg Vase Life (days)",
+      "read_only": 1
+    },
+    {
+      "fieldname": "total_cuttings_taken",
+      "fieldtype": "Int",
+      "label": "Total Cuttings Taken",
+      "read_only": 1
+    },
+    {
+      "fieldname": "section_harvest_logs",
+      "fieldtype": "Section Break",
+      "label": "Harvest Logs"
+    },
+    {
+      "fieldname": "harvest_logs",
+      "fieldtype": "Table",
+      "label": "",
+      "options": "FT Harvest Grade"
+    },
+    {
+      "fieldname": "section_verdict",
+      "fieldtype": "Section Break",
+      "label": "Verdict"
+    },
+    {
+      "fieldname": "overall_rating",
+      "fieldtype": "Rating",
+      "label": "Overall Rating"
+    },
+    {
+      "fieldname": "recommendation",
+      "fieldtype": "Select",
+      "label": "Recommendation",
+      "options": "\nApprove for Production\nContinue Trial\nReject\nNeeds Further Testing"
+    },
+    {
+      "fieldname": "column_break_verdict",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "variety_yield",
+      "fieldtype": "Int",
+      "label": "Variety Yield (stems/m²/yr)"
+    },
+    {
+      "fieldname": "section_notes",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "summary_notes",
+      "fieldtype": "Text Editor",
+      "label": "Notes"
+    }
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "permlevel": 0,
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "submit": 0,
+      "cancel": 0,
+      "amend": 0,
+      "report": 1,
+      "import": 0,
+      "export": 1,
+      "print": 1,
+      "email": 1,
+      "share": 1
+    }
+  ],
+  "links": [],
+  "modified": "2026-06-20 08:00:00",
+  "modified_by": "Administrator"
+}
