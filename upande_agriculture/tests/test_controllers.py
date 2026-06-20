@@ -73,6 +73,77 @@ class TestCropCycleController(FrappeTestCase):
         })
         self.assertEqual(len(todos), 3)
 
+    def _make_cycle(self, gh, proto, variety, planting_date, status="Active", suffix=""):
+        # Use a distinct warehouse per test by creating a unique one when suffix given
+        actual_gh = gh
+        if suffix:
+            actual_gh = self._make_warehouse(name=f"TEST GH {suffix}", supervisor="Administrator")
+        return frappe.get_doc({
+            "doctype": "Crop Cycle",
+            "greenhouse": actual_gh,
+            "custom_crop_protocol": proto,
+            "variety": variety,
+            "planting_date": planting_date,
+            "cycle_status": status,
+            "custom_total_expected_stems": 0,
+        }).insert(ignore_permissions=True, ignore_mandatory=True)
+
+    def test_on_trash_deletes_cycle_todos(self):
+        proto = self._make_protocol()
+        variety = self._make_item()
+
+        cycle = self._make_cycle(None, proto, variety, datetime.date(2026, 1, 5), suffix="TRASH")
+
+        # Confirm 3 ToDos were created by on_update
+        todos_before = frappe.db.get_all("ToDo", filters={
+            "reference_type": "Crop Cycle",
+            "reference_name": cycle.name,
+        })
+        self.assertEqual(len(todos_before), 3)
+
+        # Remove linked Projection so Frappe's referential check doesn't block deletion
+        proj_name = frappe.db.get_value(
+            "Production Projection", {"crop_cycle": cycle.name}, "name"
+        )
+        if proj_name:
+            frappe.delete_doc("Production Projection", proj_name, ignore_permissions=True, force=True)
+
+        # Delete the cycle — on_trash should remove its ToDos
+        cycle.delete(ignore_permissions=True)
+
+        todos_after = frappe.db.get_all("ToDo", filters={
+            "reference_type": "Crop Cycle",
+            "reference_name": cycle.name,
+        })
+        self.assertEqual(len(todos_after), 0)
+
+    def test_autoseed_pinch_milestone_into_plan_form(self):
+        """A Plan Form saved for the week a cycle's pinch falls in should
+        auto-receive a 'Pinch <variety>' task row."""
+        proto = self._make_protocol()
+        variety = self._make_item()
+        # Use a unique greenhouse so this cycle doesn't collide with other tests
+        gh = self._make_warehouse(name="TEST GH SEED", supervisor="Administrator")
+
+        # Protocol: weeks_to_pinch=4. Planting 2026-06-01 (Mon) ->
+        # pinch_date = 2026-06-01 + 4 weeks = 2026-06-29.
+        # ISO week of 2026-06-29: week 27 of 2026.
+        planting = datetime.date(2026, 6, 1)
+        cycle = self._make_cycle(gh, proto, variety, planting)
+
+        plan = frappe.get_doc({
+            "doctype": "Production Plan Form",
+            "company": frappe.db.get_single_value("Global Defaults", "default_company"),
+            "greenhouse": gh,
+            "plan_year": 2026, "plan_week": 27,
+            "plan_period": "2026-W27",
+            "tasks": [],
+        }).insert(ignore_permissions=True, ignore_mandatory=True)
+
+        task_names = [t.task_name for t in plan.tasks]
+        pinch_task = [n for n in task_names if n and n.startswith("Pinch ")]
+        self.assertTrue(pinch_task, f"Expected a 'Pinch ...' task; got {task_names}")
+
     def test_plan_form_submit_creates_todos(self):
         gh = self._make_warehouse()
         plan = frappe.get_doc({

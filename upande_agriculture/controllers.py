@@ -15,6 +15,13 @@ def crop_cycle_on_update(doc, method=None):
     _ensure_milestone_todos(doc)
 
 
+def crop_cycle_on_trash(doc, method=None):
+    frappe.db.delete("ToDo", {
+        "reference_type": "Crop Cycle",
+        "reference_name": doc.name,
+    })
+
+
 def _ensure_projection(cycle) -> None:
     proj_name = frappe.db.get_value(
         "Production Projection", {"crop_cycle": cycle.name}, "name"
@@ -98,6 +105,61 @@ def _ensure_milestone_todos(cycle) -> None:
             reference_type="Crop Cycle", reference_name=cycle.name,
             tag=tag, description=desc, assigned_to=supervisor, due_date=due,
         )
+
+
+def _autoseed_milestone_tasks(doc):
+    """For each Active cycle in this greenhouse, append a task row for any
+    milestone date that falls within this plan's ISO week. Idempotent —
+    skips if a task with the same task_name already exists."""
+    if not (doc.greenhouse and doc.plan_year and doc.plan_week):
+        return
+    monday = datetime.date.fromisocalendar(int(doc.plan_year), int(doc.plan_week), 1)
+    sunday = monday + datetime.timedelta(days=6)
+    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday",
+                    "Friday", "Saturday", "Sunday"]
+
+    cycles = frappe.db.get_all(
+        "Crop Cycle",
+        filters={"greenhouse": doc.greenhouse, "cycle_status": "Active"},
+        fields=["name", "variety", "planting_date", "custom_crop_protocol"],
+    )
+
+    existing_names = {(t.task_name or "").strip() for t in (doc.tasks or [])}
+
+    for c in cycles:
+        if not c.get("custom_crop_protocol") or not c.get("planting_date"):
+            continue
+        proto = frappe.get_cached_doc("Crop Protocol", c["custom_crop_protocol"])
+        pdate = frappe.utils.getdate(c["planting_date"])
+        pinch_date = pdate + datetime.timedelta(weeks=int(proto.weeks_to_pinch or 0))
+        first_harvest = pinch_date + datetime.timedelta(
+            weeks=int(proto.weeks_pinch_to_first_harvest or 0)
+        )
+        uproot = pdate + datetime.timedelta(weeks=int(proto.total_weeks_in_ground or 52))
+
+        for _tag, label, date in [
+            ("pinch", f"Pinch {c.get('variety')}", pinch_date),
+            ("first_harvest", f"First harvest {c.get('variety')}", first_harvest),
+            ("uproot", f"Uproot {c.get('variety')}", uproot),
+        ]:
+            if monday <= date <= sunday and label not in existing_names:
+                doc.append("tasks", {
+                    "task_name": label,
+                    "due_day": days_of_week[(date - monday).days],
+                    "status": "Pending",
+                })
+                existing_names.add(label)
+
+
+def production_plan_form_before_save(doc, method=None):
+    _autoseed_milestone_tasks(doc)
+
+
+def production_plan_form_on_trash(doc, method=None):
+    frappe.db.delete("ToDo", {
+        "reference_type": "Production Plan Form",
+        "reference_name": doc.name,
+    })
 
 
 def production_plan_form_on_update(doc, method=None):

@@ -55,13 +55,16 @@ def calculate_weekly_projection(
 
     producing_idx = [i for i in range(WEEKS) if first_harvest <= i < total_in_ground]
 
+    def _in_window(idx, first_harvest, total_in_ground):
+        return first_harvest <= idx < total_in_ground
+
     if protocol.get("flush_schedule"):
         for flush in protocol["flush_schedule"]:
             peak_offset = weeks_to_pinch + int(flush.get("weeks_after_pinch") or 0)
             stems_total = float(flush.get("stems_per_plant") or 0) * plants_planted
-            if peak_offset < WEEKS:
+            if peak_offset < WEEKS and _in_window(peak_offset, first_harvest, total_in_ground):
                 rows[peak_offset]["projected_stems"] += stems_total * PEAK_PRIMARY
-            if peak_offset + 1 < WEEKS:
+            if peak_offset + 1 < WEEKS and _in_window(peak_offset + 1, first_harvest, total_in_ground):
                 rows[peak_offset + 1]["projected_stems"] += stems_total * PEAK_SECONDARY
     else:
         total_stems = float(protocol.get("total_stems_per_plant_life") or 0) * plants_planted

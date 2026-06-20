@@ -149,9 +149,12 @@ app_license = "mit"
 doc_events = {
     "Crop Cycle": {
         "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
+        "on_trash":  "upande_agriculture.controllers.crop_cycle_on_trash",
     },
     "Production Plan Form": {
-        "on_update": "upande_agriculture.controllers.production_plan_form_on_update",
+        "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
+        "on_update":   "upande_agriculture.controllers.production_plan_form_on_update",
+        "on_trash":    "upande_agriculture.controllers.production_plan_form_on_trash",
     },
 }
 

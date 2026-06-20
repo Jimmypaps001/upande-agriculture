@@ -63,6 +63,20 @@ class TestProjectionCalc(unittest.TestCase):
         self.assertEqual(rows[22]["projected_stems"], 3600)  # 6*1000*0.60
         self.assertEqual(rows[23]["projected_stems"], 2400)
 
+    def test_flush_before_harvest_window_is_dropped(self):
+        proto = self._base_protocol()
+        proto["flush_schedule"] = [
+            # weeks_after_pinch = 0 -> peak at week_to_pinch = 4, BEFORE harvest opens at week 12
+            {"flush_number": 1, "stems_per_plant": 5.0, "weeks_after_pinch": 0},
+        ]
+        rows = calculate_weekly_projection(
+            proto, plants_planted=1000,
+            planting_date=datetime.date(2026, 1, 5),
+        )
+        # Week 5 (peak_offset 4) and week 6 (peak_offset 5) are both pre-harvest -> should be 0
+        self.assertEqual(rows[4]["projected_stems"], 0)
+        self.assertEqual(rows[5]["projected_stems"], 0)
+
     def test_seasonal_factor_applied(self):
         rows = calculate_weekly_projection(
             self._base_protocol(), plants_planted=1000,
