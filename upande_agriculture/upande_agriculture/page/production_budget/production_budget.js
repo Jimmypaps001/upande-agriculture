@@ -1,13 +1,15 @@
 /**
  * Production Budget — annual spreadsheet view.
  *
- * Each row is ONE Production Projection (variety × greenhouse). 52 week
- * columns plus identifier columns on the left and a total on the right.
- * Click to edit, arrow nav, Cmd+C/V copy-paste, drag-fill from corner,
- * Cmd+Z undo. Manual / Auto toggle per row.
+ * Rows are aggregated by (greenhouse, base variety). Edits to a cell
+ * redistribute proportionally across the underlying length variants
+ * (e.g. editing "Athena W23" splits across Athena-50cm / -60cm / -70cm
+ * by their current proportions). Compact mode shows budget numbers
+ * with heatmap shading. Compare mode shows all four layers stacked
+ * (Budget / Forecast / Plan / Actual) in every cell, read-only.
  *
- * Skin: matches the Mona Flowers design system — ink shades on a cream
- * surface, Poppins/Fraunces/JetBrains Mono, signal teal #228883.
+ * Skin: Mona Flowers design system — ink shades on a cream surface,
+ * Poppins / Fraunces / JetBrains Mono, signal teal #228883.
  */
 
 frappe.pages["production_budget"].on_page_load = async function (wrapper) {
@@ -16,21 +18,19 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         title: __("Production Budget"),
         single_column: true,
     });
-
-    // Strip default page chrome — we render our own header.
     wrapper.classList.add("uagri-budget-page");
     $(wrapper).find(".page-head").hide();
 
     const state = {
         year: new Date().getFullYear(),
-        mode: "compact",   // "compact" | "compare"
-        primary: "budget", // "budget" | "forecast" | "plan" | "actual" — compare mode only
+        mode: "compact",        // "compact" | "compare"
         greenhouseFilter: "",
         varietyFilter: "",
+        showPriorYear: false,
         grid: null,
+        prior: {},              // {key: [52 ints]} prior-year actuals
         loading: false,
-        // pending edits buffered for debounced save
-        pendingEdits: new Map(),  // key: `${projection}::${week}` -> {projection, week, value}
+        pendingEdits: new Map(),    // key: `${row_key}::${week}` -> {row_key, week, value}
         saveTimer: null,
     };
 
@@ -39,7 +39,9 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     await loadGrid();
     bindShortcuts();
 
-    // --- asset loader --------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // assets
+    // -------------------------------------------------------------------------
 
     async function ensureAssetsLoaded() {
         const base = "/assets/upande_agriculture/lib/jspreadsheet";
@@ -48,31 +50,26 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             `${base}/jspreadsheet.css`,
             `${base}/jsuites.css`,
         ];
-        const jsFiles = [
-            `${base}/jsuites.js`,
-            `${base}/jspreadsheet.js`,
-        ];
+        const jsFiles = [`${base}/jsuites.js`, `${base}/jspreadsheet.js`];
         for (const href of cssFiles) {
-            if (!document.querySelector(`link[href="${href}"]`)) {
-                const l = document.createElement("link");
-                l.rel = "stylesheet";
-                l.href = href;
-                document.head.appendChild(l);
-            }
+            if (document.querySelector(`link[href="${href}"]`)) continue;
+            const l = document.createElement("link");
+            l.rel = "stylesheet"; l.href = href;
+            document.head.appendChild(l);
         }
         for (const src of jsFiles) {
             if (document.querySelector(`script[src="${src}"]`)) continue;
             await new Promise((resolve, reject) => {
                 const s = document.createElement("script");
-                s.src = src;
-                s.onload = resolve;
-                s.onerror = reject;
+                s.src = src; s.onload = resolve; s.onerror = reject;
                 document.head.appendChild(s);
             });
         }
     }
 
-    // --- shell ----------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // shell
+    // -------------------------------------------------------------------------
 
     function renderShell(page) {
         const $body = $(page.body).empty();
@@ -82,19 +79,17 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                     <div class="uagri-head__left">
                         <div class="uagri-head__eyebrow">Mona Flowers · Annual Plan</div>
                         <h1 class="uagri-head__title">Production Budget · <span class="uagri-year">${state.year}</span></h1>
-                        <p class="uagri-head__sub">Each row is one variety in one greenhouse. Edit cells directly — drag the corner to fill, ⌘C/⌘V to copy ranges.</p>
+                        <p class="uagri-head__sub">Each row is one variety in one greenhouse — summed across stem lengths. Edits redistribute proportionally to the underlying length variants. Drag the corner to fill, ⌘C/⌘V to copy ranges.</p>
                     </div>
                     <div class="uagri-head__tools">
                         <div class="uagri-pillgroup" data-target="mode">
                             <button data-val="compact" class="on">Compact</button>
                             <button data-val="compare">Compare 4 layers</button>
                         </div>
-                        <div class="uagri-pillgroup uagri-primary-pill" data-target="primary" style="display:none">
-                            <button data-val="budget" class="on">Budget</button>
-                            <button data-val="forecast">Forecast</button>
-                            <button data-val="plan">Plan</button>
-                            <button data-val="actual">Actual</button>
-                        </div>
+                        <label class="uagri-checkpill">
+                            <input type="checkbox" data-target="priorYear" />
+                            <span>Overlay ${state.year - 1} actuals</span>
+                        </label>
                         <input class="uagri-yearpill" type="number" value="${state.year}" />
                     </div>
                 </header>
@@ -110,50 +105,59 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 </div>
 
                 <footer class="uagri-foot">
-                    <span class="uagri-foot__hint">⌘C / ⌘V copy-paste · drag corner to fill · ⌘Z undo · auto-saves</span>
+                    <span class="uagri-foot__hint">⌘C / ⌘V copy-paste · drag the corner to fill · ⌘Z undo · auto-saves</span>
                     <span class="uagri-foot__legend" data-legend></span>
                 </footer>
+
+                <div class="uagri-bulk" data-bulk style="display:none">
+                    <span class="uagri-bulk__count" data-bulk-count>0 cells</span>
+                    <span class="uagri-bulk__sep"></span>
+                    <button data-bulk-op="percent_add">+ %</button>
+                    <button data-bulk-op="percent_sub">− %</button>
+                    <button data-bulk-op="add">+ N</button>
+                    <button data-bulk-op="subtract">− N</button>
+                    <button data-bulk-op="set">Set all to…</button>
+                </div>
             </div>
         `);
 
-        // mode toggle
         $body.on("click", ".uagri-pillgroup button", (ev) => {
             const $btn = $(ev.currentTarget);
             const target = $btn.parent().data("target");
             $btn.siblings().removeClass("on");
             $btn.addClass("on");
             state[target] = $btn.data("val");
-            if (target === "mode") {
-                $(".uagri-primary-pill", $body).toggle(state.mode === "compare");
-                loadGrid();
-            } else if (target === "primary") {
-                rerenderGridOnly();
-            }
+            loadGrid();
         });
-
-        // year
+        $body.on("change", 'input[data-target="priorYear"]', (ev) => {
+            state.showPriorYear = ev.currentTarget.checked;
+            loadGrid();
+        });
         $body.on("change", ".uagri-yearpill", (ev) => {
             state.year = parseInt($(ev.currentTarget).val()) || new Date().getFullYear();
             $(".uagri-year", $body).text(state.year);
             loadGrid();
         });
-
-        // filters (re-render only)
         $body.on("change", ".uagri-filter", (ev) => {
             const t = $(ev.currentTarget).data("target");
             if (t === "greenhouse") state.greenhouseFilter = ev.currentTarget.value;
             if (t === "variety") state.varietyFilter = ev.currentTarget.value;
             rerenderGridOnly();
         });
+
+        $body.on("click", ".uagri-bulk [data-bulk-op]", async (ev) => {
+            const op = ev.currentTarget.dataset.bulkOp;
+            await applyBulkFormula(op);
+        });
     }
 
-    function setStatus(msg) {
-        $('[data-status]').text(msg || "");
-    }
+    function setStatus(msg) { $('[data-status]').text(msg || ""); }
 
     function renderLegend() {
         if (state.mode !== "compare") {
-            $('[data-legend]').empty();
+            $('[data-legend]').html(`
+                <span><i style="background:rgba(34,136,131,0.45)"></i>cell heat = actual ÷ budget</span>
+            `);
             return;
         }
         $('[data-legend]').html(`
@@ -164,7 +168,9 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         `);
     }
 
-    // --- data loading --------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // data
+    // -------------------------------------------------------------------------
 
     async function loadGrid() {
         if (state.loading) return;
@@ -176,10 +182,21 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 args: { year: state.year, mode: state.mode },
             });
             state.grid = r.message;
+            if (state.showPriorYear) {
+                try {
+                    const pr = await frappe.call({
+                        method: "upande_agriculture.api.get_prior_year_actuals",
+                        args: { year: state.year },
+                    });
+                    state.prior = pr.message?.rows || {};
+                } catch (e) { state.prior = {}; }
+            } else {
+                state.prior = {};
+            }
             populateFilterOptions();
             renderGrid();
             renderLegend();
-            setStatus(`${state.grid.rows.length} projections loaded`);
+            setStatus(`${state.grid.rows.length} variety×greenhouse rows`);
         } catch (e) {
             setStatus("Load failed: " + (e?.message || e));
         } finally {
@@ -191,7 +208,6 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         if (!state.grid) return;
         const ghSet = new Set(), varSet = new Set();
         state.grid.rows.forEach(r => { ghSet.add(r.greenhouse); varSet.add(r.variety); });
-
         const fillSel = (sel, values, current) => {
             const $s = $(sel);
             const placeholder = $s.find("option:first").text();
@@ -203,8 +219,6 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         fillSel('[data-target="greenhouse"]', ghSet, state.greenhouseFilter);
         fillSel('[data-target="variety"]', varSet, state.varietyFilter);
     }
-
-    // --- spreadsheet render --------------------------------------------------
 
     function visibleRows() {
         if (!state.grid) return [];
@@ -220,6 +234,70 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         setStatus(`${visibleRows().length} of ${state.grid?.rows.length || 0} shown`);
     }
 
+    // -------------------------------------------------------------------------
+    // sparkline & cell renderers
+    // -------------------------------------------------------------------------
+
+    function sparklineSVG(weeks, priorWeeks) {
+        const max = Math.max(1, ...weeks, ...(priorWeeks || []));
+        const W = 92, H = 26, P = 2;
+        const pts = (arr) => arr.map((v, i) => {
+            const x = P + (i / 51) * (W - P * 2);
+            const y = H - P - (v / max) * (H - P * 2);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(" ");
+        const prior = priorWeeks && priorWeeks.length
+            ? `<polyline points="${pts(priorWeeks)}" fill="none" stroke="#b8b6ae" stroke-width="1" stroke-dasharray="2,2"/>`
+            : "";
+        return `<svg class="uagri-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${prior}
+            <polyline points="${pts(weeks)}" fill="none" stroke="#0a0a0a" stroke-width="1.5"/>
+        </svg>`;
+    }
+
+    function compareCell(b, f, p, a) {
+        // Compact 4-line stack — colour-coded dots, tabular nums.
+        const cell = (cls, dot, value) =>
+            `<span class="uagri-cmp__line ${cls}"><i class="uagri-cmp__dot" style="background:${dot}"></i><b>${fmt(value)}</b></span>`;
+        return `<div class="uagri-cmp">
+            ${cell("uagri-cmp--b", "#0a0a0a", b)}
+            ${cell("uagri-cmp--f", "#0ea5e9", f)}
+            ${cell("uagri-cmp--p", "#f59e0b", p)}
+            ${cell("uagri-cmp--a", "#10b981", a)}
+        </div>`;
+    }
+
+    function fmt(n) {
+        if (!n) return "·";
+        return Number(n).toLocaleString();
+    }
+
+    function varianceHTML(budget, actual) {
+        const b = Number(budget) || 0;
+        const a = Number(actual) || 0;
+        if (!b && !a) return `<span class="uagri-var uagri-var--flat">—</span>`;
+        if (!b) return `<span class="uagri-var uagri-var--up">+∞</span>`;
+        const pct = ((a - b) / b) * 100;
+        const sign = pct >= 0 ? "+" : "";
+        const cls = pct >= -2 ? "up" : (pct >= -15 ? "warn" : "down");
+        return `<span class="uagri-var uagri-var--${cls}">${sign}${pct.toFixed(0)}%</span>`;
+    }
+
+    function heatClass(actual, budget) {
+        // Returns a heat band 0..4 for budget cell shading when in compact mode.
+        // ratio = actual/budget; 0 if no actual.
+        if (!budget) return "";
+        if (!actual) return "";
+        const r = actual / budget;
+        if (r >= 1.10) return "uagri-heat-best";
+        if (r >= 0.95) return "uagri-heat-good";
+        if (r >= 0.80) return "uagri-heat-warn";
+        return "uagri-heat-bad";
+    }
+
+    // -------------------------------------------------------------------------
+    // grid render
+    // -------------------------------------------------------------------------
+
     function renderGrid() {
         const host = document.getElementById("uagri-grid");
         if (!host) return;
@@ -231,47 +309,63 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             return;
         }
 
-        // Build the data matrix
-        const layer = (r) => {
-            if (state.mode === "compact") return r.weeks;
-            const arr = { budget: r.weeks, forecast: r.forecast, plan: r.plan, actual: r.actual }[state.primary] || r.weeks;
-            return arr || new Array(52).fill(0);
-        };
+        const isCompare = state.mode === "compare";
         const data = rows.map(r => {
-            const cells = [r.greenhouse || "—", r.variety || "—"];
-            const weeks = layer(r);
-            for (let i = 0; i < 52; i++) cells.push(weeks[i] || 0);
+            const priorArr = state.prior[r.key];
+            const cells = [
+                r.greenhouse || "—",
+                r.variety || "—",
+                sparklineSVG(r.weeks, priorArr),
+            ];
+            for (let i = 0; i < 52; i++) {
+                if (isCompare) {
+                    cells.push(compareCell(
+                        r.weeks[i], r.forecast?.[i] || 0, r.plan?.[i] || 0, r.actual?.[i] || 0));
+                } else {
+                    cells.push(r.weeks[i] || 0);
+                }
+            }
             cells.push(r.total);
+            // Variance: actual sum vs budget sum
+            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
+            cells.push(varianceHTML(r.total, actualTotal));
             cells.push(r.source);
             return cells;
         });
 
-        // Column defs — 2 identifier + 52 week + total + source
+        // Columns: 0=GH, 1=Variety, 2=Sparkline, 3..54=Weeks, 55=Total, 56=Var%, 57=Mode
         const columns = [
-            { type: "text", title: "Greenhouse", width: 130, readOnly: true },
-            { type: "text", title: "Variety", width: 170, readOnly: true },
+            { type: "text", title: "Greenhouse", width: 140, readOnly: true },
+            { type: "text", title: "Variety",    width: 130, readOnly: true },
+            { type: "html", title: "Pattern",    width: 100, readOnly: true, align: "left" },
         ];
         for (let w = 1; w <= 52; w++) {
-            columns.push({ type: "numeric", title: `W${w}`, width: 56, mask: "#,##" });
+            columns.push({
+                type: isCompare ? "html" : "numeric",
+                title: `W${w}`,
+                width: isCompare ? 64 : 56,
+                readOnly: isCompare,
+                mask: isCompare ? undefined : "#,##",
+                align: "right",
+            });
         }
-        columns.push({ type: "numeric", title: "Total", width: 88, readOnly: true, mask: "#,##" });
-        columns.push({ type: "dropdown", title: "Mode", width: 100,
-                       source: ["Manual", "Hybrid", "Calculated from Protocol"] });
+        columns.push({ type: "numeric", title: "Total", width: 92, readOnly: true, mask: "#,##" });
+        columns.push({ type: "html", title: "Var %", width: 76, readOnly: true });
+        columns.push({ type: "dropdown", title: "Mode", width: 110,
+                       source: ["Manual", "Hybrid", "Calculated from Protocol", "Mixed"] });
 
-        // Nested headers (months above weeks)
         const monthLabels = state.grid.month_labels;
-        const monthOffsets = state.grid.month_offsets;  // start week of each month
+        const monthOffsets = state.grid.month_offsets;
         const nestedHeaders = [[
-            { title: "", colspan: 2 },
+            { title: "", colspan: 3 },
             ...monthLabels.map((m, i) => {
                 const start = monthOffsets[i];
                 const end = i < 11 ? monthOffsets[i + 1] - 1 : 52;
                 return { title: m, colspan: end - start + 1 };
             }),
-            { title: "", colspan: 2 },
+            { title: "", colspan: 3 },
         ]];
 
-        // Instantiate jspreadsheet
         if (window.uagriSheet) {
             try { window.uagriSheet.destroy(); } catch (e) { /* noop */ }
         }
@@ -280,9 +374,9 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             columns,
             nestedHeaders,
             tableOverflow: true,
-            tableHeight: "calc(100vh - 320px)",
+            tableHeight: "calc(100vh - 360px)",
             tableWidth: "100%",
-            freezeColumns: 2,
+            freezeColumns: 3,
             columnSorting: false,
             columnDrag: false,
             allowInsertColumn: false,
@@ -291,54 +385,64 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             allowDeleteRow: false,
             allowExport: true,
             csvFileName: `mona-budget-${state.year}`,
-            contextMenu: function (obj, x, y) {
-                return [
-                    { title: "Copy", onclick: () => obj.copy(true) },
-                    { title: "Paste", onclick: () => obj.paste(x, y, "") },
-                    { type: "line" },
-                    { title: "Set row to Manual",
-                      onclick: () => bulkSetSource(x, y, "Manual") },
-                    { title: "Set row to Hybrid (auto-recalc)",
-                      onclick: () => bulkSetSource(x, y, "Hybrid") },
-                ];
-            },
+            contextMenu: (obj, x, y) => buildContextMenu(obj, x, y, rows),
             onchange: handleCellChange,
-            onpaste: () => { scheduleSave(); },
+            onpaste: () => { scheduleSave(); updateBulkBarVisibility(); },
+            onselection: (instance, x1, y1, x2, y2) => updateBulkBarVisibility(x1, y1, x2, y2),
         });
 
-        // Save the projection name keyed by row index for handlers
-        window.uagriRowProjections = rows.map(r => r.projection);
-        decorateHeader();
+        window.uagriRowsRef = rows;
+        applyHeatmapClasses();
+        decorateBulkBar();
     }
 
-    function decorateHeader() {
-        // Re-style the nested header band based on month
-        const head = document.querySelector("#uagri-grid table thead");
-        if (!head) return;
-        head.classList.add("uagri-thead");
+    function applyHeatmapClasses() {
+        if (state.mode !== "compact") return;
+        const rows = window.uagriRowsRef || [];
+        // td[data-x] attribute is set by jspreadsheet; week columns are x = 3..54
+        const tbody = document.querySelector("#uagri-grid table tbody");
+        if (!tbody) return;
+        rows.forEach((r, rowIdx) => {
+            const actuals = r.actual || [];
+            for (let i = 0; i < 52; i++) {
+                const td = tbody.querySelector(`tr:nth-child(${rowIdx + 1}) td[data-x="${i + 3}"]`);
+                if (!td) continue;
+                td.classList.remove("uagri-heat-best", "uagri-heat-good", "uagri-heat-warn", "uagri-heat-bad", "uagri-zero");
+                if (!r.weeks[i]) td.classList.add("uagri-zero");
+                const hc = heatClass(actuals[i] || 0, r.weeks[i] || 0);
+                if (hc) td.classList.add(hc);
+            }
+        });
     }
+
+    // -------------------------------------------------------------------------
+    // edit handling
+    // -------------------------------------------------------------------------
 
     function handleCellChange(instance, cell, x, y, value) {
         const col = parseInt(x);
         const row = parseInt(y);
-        const projection = window.uagriRowProjections?.[row];
-        if (!projection) return;
-
-        // columns 0,1 = identifiers; 2..53 = weeks; 54 = total; 55 = source
-        if (col >= 2 && col <= 53) {
-            const week = col - 1;  // col 2 -> week 1
+        const r = window.uagriRowsRef?.[row];
+        if (!r) return;
+        // x: 0=GH, 1=Variety, 2=Sparkline, 3..54=Weeks, 55=Total, 56=Var%, 57=Mode
+        if (col >= 3 && col <= 54) {
+            const week = col - 2;  // x=3 -> week 1
             const numeric = parseInt(String(value).replace(/[, ]/g, "")) || 0;
-            queueEdit(projection, week, numeric);
-        } else if (col === 55) {
-            changeSource(projection, value);
+            queueEdit(r, week, numeric);
+        } else if (col === 57) {
+            changeSource(r, value);
         }
     }
 
-    // --- buffered save -------------------------------------------------------
-
-    function queueEdit(projection, week, value) {
-        state.pendingEdits.set(`${projection}::${week}`,
-                                { projection, week, value });
+    function queueEdit(r, week, value) {
+        const key = `${r.key}::${week}`;
+        state.pendingEdits.set(key, {
+            greenhouse: r.greenhouse,
+            variety_base: r.variety,
+            year: state.year,
+            week,
+            value,
+        });
         setStatus(`Pending ${state.pendingEdits.size} edits…`);
         scheduleSave();
     }
@@ -355,24 +459,31 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         setStatus("Saving…");
         try {
             await frappe.call({
-                method: "upande_agriculture.api.bulk_update_projection_weeks",
+                method: "upande_agriculture.api.bulk_update_aggregated_weeks",
                 args: { updates },
             });
             setStatus(`Saved ${updates.length} cells · ${new Date().toLocaleTimeString()}`);
+            // Refresh underlying weeks so totals and sparkline update.
+            await refreshAffectedRows(updates);
         } catch (e) {
             setStatus("Save failed: " + (e?.message || e));
-            // requeue so user doesn't lose data
-            updates.forEach(u => state.pendingEdits.set(`${u.projection}::${u.week}`, u));
+            updates.forEach(u => state.pendingEdits.set(`${u.greenhouse}||${u.variety_base}::${u.week}`, u));
         }
     }
 
-    async function changeSource(projection, source) {
+    async function refreshAffectedRows(updates) {
+        // Cheap: reload the whole grid. With 90-ish rows this is fast.
+        await loadGrid();
+    }
+
+    async function changeSource(r, source) {
         await flushSave();
-        setStatus(`Switching ${projection} to ${source}…`);
+        setStatus(`Setting ${r.variety} @ ${r.greenhouse} → ${source}…`);
         try {
             await frappe.call({
-                method: "upande_agriculture.api.set_projection_source",
-                args: { projection, source },
+                method: "upande_agriculture.api.bulk_set_aggregated_source",
+                args: { rows: [{ greenhouse: r.greenhouse, variety_base: r.variety, year: state.year }],
+                        source },
             });
             await loadGrid();
         } catch (e) {
@@ -380,21 +491,190 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         }
     }
 
-    async function bulkSetSource(x, y, source) {
-        const sel = window.uagriSheet?.getSelectedRows?.() || [];
-        const projections = (sel.length ? sel : [parseInt(y)])
-            .map(i => window.uagriRowProjections[i])
-            .filter(Boolean);
-        for (const p of projections) {
-            await frappe.call({
-                method: "upande_agriculture.api.set_projection_source",
-                args: { projection: p, source },
-            });
-        }
-        await loadGrid();
+    // -------------------------------------------------------------------------
+    // bulk operations
+    // -------------------------------------------------------------------------
+
+    function getSelection() {
+        // Returns {x1, y1, x2, y2} of the currently-selected range or null.
+        const sheet = window.uagriSheet;
+        if (!sheet) return null;
+        const sel = sheet.getSelection ? sheet.getSelection() : null;
+        if (!sel || sel.length < 4) return null;
+        const [x1, y1, x2, y2] = sel;
+        return { x1, y1, x2, y2 };
     }
 
-    // --- keyboard shortcuts --------------------------------------------------
+    function updateBulkBarVisibility(x1, y1, x2, y2) {
+        const bar = document.querySelector("[data-bulk]");
+        if (!bar) return;
+        let cells = 0;
+        if (x1 !== undefined) {
+            const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+            const ylo = Math.min(y1, y2), yhi = Math.max(y1, y2);
+            // Only count week cells (x 3..54)
+            const xspan = Math.max(0, Math.min(hi, 54) - Math.max(lo, 3) + 1);
+            const yspan = yhi - ylo + 1;
+            if (xspan > 0 && yspan > 0) cells = xspan * yspan;
+        }
+        if (cells > 1 && state.mode === "compact") {
+            bar.style.display = "flex";
+            bar.querySelector("[data-bulk-count]").textContent = `${cells} cells`;
+            bar.dataset.selX1 = x1; bar.dataset.selY1 = y1;
+            bar.dataset.selX2 = x2; bar.dataset.selY2 = y2;
+        } else {
+            bar.style.display = "none";
+        }
+    }
+
+    function decorateBulkBar() {
+        document.querySelector("[data-bulk]")?.style.setProperty("display", "none");
+    }
+
+    async function applyBulkFormula(op) {
+        const bar = document.querySelector("[data-bulk]");
+        if (!bar) return;
+        const x1 = parseInt(bar.dataset.selX1), y1 = parseInt(bar.dataset.selY1);
+        const x2 = parseInt(bar.dataset.selX2), y2 = parseInt(bar.dataset.selY2);
+        if (isNaN(x1)) return;
+
+        const promptMap = {
+            percent_add: "Add what percent? (e.g. 10 → +10%)",
+            percent_sub: "Subtract what percent? (e.g. 10 → −10%)",
+            add: "Add how many stems?",
+            subtract: "Subtract how many stems?",
+            set: "Set every selected cell to which value?",
+        };
+        const input = window.prompt(promptMap[op] || "Value?", "0");
+        if (input == null) return;
+        const operand = parseFloat(String(input).replace(/[, ]/g, ""));
+        if (!isFinite(operand)) {
+            frappe.show_alert({ message: "Not a number.", indicator: "red" });
+            return;
+        }
+
+        const xlo = Math.max(3, Math.min(x1, x2));
+        const xhi = Math.min(54, Math.max(x1, x2));
+        const ylo = Math.min(y1, y2);
+        const yhi = Math.max(y1, y2);
+        const rowsRef = window.uagriRowsRef || [];
+        const updates = [];
+        for (let y = ylo; y <= yhi; y++) {
+            const r = rowsRef[y];
+            if (!r) continue;
+            for (let x = xlo; x <= xhi; x++) {
+                const w = x - 2;
+                updates.push({
+                    greenhouse: r.greenhouse,
+                    variety_base: r.variety,
+                    year: state.year,
+                    week: w,
+                    current: r.weeks[w - 1] || 0,
+                });
+            }
+        }
+        if (!updates.length) return;
+        await flushSave();
+        setStatus(`Applying ${op} (${operand}) to ${updates.length} cells…`);
+        try {
+            await frappe.call({
+                method: "upande_agriculture.api.bulk_apply_formula",
+                args: { updates, operation: op, operand },
+            });
+            await loadGrid();
+            setStatus(`Applied ${op} (${operand}) to ${updates.length} cells.`);
+        } catch (e) {
+            setStatus("Bulk apply failed: " + (e?.message || e));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // context menu
+    // -------------------------------------------------------------------------
+
+    function buildContextMenu(obj, x, y, rows) {
+        const r = rows[y];
+        const items = [
+            { title: "Copy", onclick: () => obj.copy(true) },
+            { title: "Paste", onclick: () => obj.paste(x, y, "") },
+            { type: "line" },
+            { title: "Recalc from Crop Protocol",
+              onclick: () => bulkSetSourceForSelection("Hybrid") },
+            { title: "Set selected rows to Manual",
+              onclick: () => bulkSetSourceForSelection("Manual") },
+        ];
+        if (r) {
+            items.push({ type: "line" });
+            items.push({
+                title: `Copy this row to another greenhouse…`,
+                onclick: () => copyRowToGreenhouse(r),
+            });
+        }
+        return items;
+    }
+
+    async function bulkSetSourceForSelection(source) {
+        const sheet = window.uagriSheet;
+        const sel = sheet?.getSelectedRows?.() || [];
+        const rowsRef = window.uagriRowsRef || [];
+        const targets = (sel.length ? sel : []).map(i => rowsRef[i]).filter(Boolean);
+        if (!targets.length) return frappe.show_alert("Select rows first.");
+        await flushSave();
+        setStatus(`Updating ${targets.length} rows → ${source}…`);
+        try {
+            await frappe.call({
+                method: "upande_agriculture.api.bulk_set_aggregated_source",
+                args: {
+                    rows: targets.map(r => ({
+                        greenhouse: r.greenhouse, variety_base: r.variety, year: state.year,
+                    })),
+                    source,
+                },
+            });
+            await loadGrid();
+        } catch (e) {
+            setStatus("Failed: " + (e?.message || e));
+        }
+    }
+
+    async function copyRowToGreenhouse(r) {
+        const ghs = [...new Set((state.grid?.rows || []).map(x => x.greenhouse).filter(Boolean))]
+            .filter(g => g !== r.greenhouse);
+        if (!ghs.length) return frappe.show_alert("No other greenhouses to copy to.");
+        const target = await new Promise(resolve => {
+            const d = new frappe.ui.Dialog({
+                title: __("Copy '{0}' to another greenhouse", [r.variety]),
+                fields: [
+                    { fieldname: "target_greenhouse", label: __("Target Greenhouse"),
+                      fieldtype: "Select", options: ghs.join("\n"), reqd: 1 },
+                ],
+                primary_action_label: __("Copy 52-week pattern"),
+                primary_action: (v) => { d.hide(); resolve(v.target_greenhouse); },
+            });
+            d.show();
+        });
+        if (!target) return;
+        setStatus(`Copying ${r.variety} pattern to ${target}…`);
+        try {
+            await frappe.call({
+                method: "upande_agriculture.api.copy_aggregated_row",
+                args: {
+                    source_greenhouse: r.greenhouse,
+                    source_variety_base: r.variety,
+                    target_greenhouse: target,
+                    year: state.year,
+                },
+            });
+            await loadGrid();
+            setStatus(`Copied to ${target}.`);
+        } catch (e) {
+            setStatus("Copy failed: " + (e?.message || e));
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // keyboard
+    // -------------------------------------------------------------------------
 
     function bindShortcuts() {
         document.addEventListener("keydown", async (ev) => {
@@ -403,7 +683,6 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 await flushSave();
             }
         });
-        // Flush on page hide too — operators close tabs without warning.
         window.addEventListener("beforeunload", () => {
             if (state.pendingEdits.size) flushSave();
         });

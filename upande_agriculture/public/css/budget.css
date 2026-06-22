@@ -30,12 +30,14 @@
     --display: 'Fraunces', Georgia, serif;
     --mono: 'JetBrains Mono', ui-monospace, monospace;
 
+    /* Cell padding centralised so editor + cell stay aligned. */
+    --cellpad-x: 8px;
+    --cellpad-y: 6px;
+
     background: var(--bg);
     min-height: 100vh;
 }
 
-/* Frappe wraps everything in .layout-main-section etc. — defang anything
-   that would add chrome inside our page. */
 .uagri-budget-page .layout-main-section,
 .uagri-budget-page .page-wrapper,
 .uagri-budget-page .page-body {
@@ -74,12 +76,7 @@
     align-items: center;
     gap: 10px;
 }
-.uagri-head__eyebrow::before {
-    content: "";
-    width: 18px;
-    height: 1px;
-    background: var(--ink-3);
-}
+.uagri-head__eyebrow::before { content: ""; width: 18px; height: 1px; background: var(--ink-3); }
 .uagri-head__title {
     font: 600 38px/1.05 var(--sans);
     color: var(--ink);
@@ -96,7 +93,7 @@
     margin: 8px 0 0;
     font-size: 14px;
     color: var(--ink-4);
-    max-width: 600px;
+    max-width: 620px;
 }
 .uagri-head__tools {
     display: flex;
@@ -106,7 +103,7 @@
     justify-content: flex-end;
 }
 
-/* --- pill controls --- */
+/* --- pills --- */
 .uagri-pillgroup {
     display: inline-flex;
     background: rgba(10, 10, 10, 0.04);
@@ -124,14 +121,25 @@
     border-radius: 999px;
     transition: all 0.2s;
 }
-.uagri-pillgroup button:hover {
-    color: var(--ink);
-}
+.uagri-pillgroup button:hover { color: var(--ink); }
 .uagri-pillgroup button.on {
     background: var(--ink);
     color: #fafaf6;
     box-shadow: 0 2px 8px rgba(10, 10, 10, 0.15);
 }
+.uagri-checkpill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font: 500 12px var(--sans);
+    color: var(--ink-3);
+    cursor: pointer;
+    box-shadow: var(--shadow-card);
+}
+.uagri-checkpill input { margin: 0; accent-color: var(--signal); }
 .uagri-yearpill {
     background: var(--surface-2);
     border: 0;
@@ -143,10 +151,7 @@
     text-align: center;
     box-shadow: var(--shadow-card);
 }
-.uagri-yearpill:focus {
-    outline: 2px solid var(--signal);
-    outline-offset: 1px;
-}
+.uagri-yearpill:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
 
 /* --- filters / status --- */
 .uagri-filters {
@@ -165,7 +170,7 @@
     color: var(--ink);
     box-shadow: var(--shadow-card);
     cursor: pointer;
-    min-width: 180px;
+    min-width: 200px;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8780' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -178,7 +183,7 @@
     margin-left: auto;
 }
 
-/* --- grid wrap --- */
+/* --- grid container --- */
 .uagri-grid-wrap {
     background: var(--surface-2);
     border-radius: 20px;
@@ -186,9 +191,7 @@
     box-shadow: var(--shadow-card);
     overflow: hidden;
 }
-.uagri-grid {
-    width: 100%;
-}
+.uagri-grid { width: 100%; }
 .uagri-empty {
     padding: 60px 24px;
     text-align: center;
@@ -196,7 +199,7 @@
     font-size: 14px;
 }
 
-/* --- foot --- */
+/* --- footer --- */
 .uagri-foot {
     margin-top: 14px;
     display: flex;
@@ -206,56 +209,74 @@
     color: var(--ink-mute);
     padding: 4px 8px;
 }
-.uagri-foot__hint {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.2px;
-}
-.uagri-foot__legend {
-    display: flex;
-    gap: 16px;
-}
-.uagri-foot__legend span {
-    display: inline-flex;
+.uagri-foot__hint { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2px; }
+.uagri-foot__legend { display: flex; gap: 16px; }
+.uagri-foot__legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.uagri-foot__legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* --- floating bulk-action bar --- */
+.uagri-bulk {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fafaf6;
+    border-radius: 999px;
+    padding: 8px 12px;
+    display: none;
     align-items: center;
-    gap: 6px;
-    font-size: 11px;
+    gap: 8px;
+    box-shadow: 0 12px 40px -8px rgba(10,10,10,0.40);
+    z-index: 1000;
+    font-family: var(--sans);
 }
-.uagri-foot__legend i {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-    display: inline-block;
+.uagri-bulk__count {
+    font: 500 12px var(--mono);
+    color: #c0bdb3;
+    padding: 0 10px;
 }
+.uagri-bulk__sep { width: 1px; height: 20px; background: rgba(255,255,255,0.12); }
+.uagri-bulk button {
+    background: transparent;
+    color: #fafaf6;
+    border: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font: 500 12px var(--sans);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.uagri-bulk button:hover { background: rgba(255,255,255,0.08); }
 
 /* =========================================================================
-   jspreadsheet overrides — strip its default Excel look, ink-it-up.
+   jspreadsheet skin
    ======================================================================== */
 
 .uagri-grid .jexcel_container {
     font-family: var(--sans);
     background: transparent;
 }
-
 .uagri-grid table.jexcel {
     border: 0;
     border-spacing: 0;
     background: var(--surface-2);
 }
 
-/* All cell borders → ultra-hairline */
+/* All cells — base */
 .uagri-grid table.jexcel > tbody > tr > td,
 .uagri-grid table.jexcel > thead > tr > td,
 .uagri-grid table.jexcel > thead > tr > th {
     border: 1px solid var(--hairline) !important;
-    padding: 6px 8px;
+    padding: var(--cellpad-y) var(--cellpad-x);
     font: 500 12px var(--sans);
     color: var(--ink-2);
     background: var(--surface-2);
     height: 30px;
+    box-sizing: border-box;
 }
 
-/* Column headers (W1, W2, …) */
+/* Week column headers (W1...W52) */
 .uagri-grid table.jexcel > thead > tr > td {
     background: var(--surface);
     color: var(--ink-mute);
@@ -266,10 +287,9 @@
     text-align: center;
     height: auto;
 }
-
 /* Month band (nested header row) */
 .uagri-grid table.jexcel > thead > tr:first-child > td {
-    font: 500 11px var(--display);
+    font: 500 12px var(--display);
     font-style: italic;
     color: var(--ink);
     background: var(--surface);
@@ -278,8 +298,7 @@
     padding: 10px 4px;
     border-bottom: 1px solid var(--hairline-2) !important;
 }
-
-/* Row header column (the 1, 2, 3 index column on far left) */
+/* Row-number column far left */
 .uagri-grid table.jexcel > tbody > tr > td.jexcel_row {
     background: var(--surface);
     color: var(--ink-faint);
@@ -290,31 +309,39 @@
     min-width: 34px;
 }
 
-/* Identifier cells (greenhouse, variety) — read-only, slightly emphasised */
-.uagri-grid table.jexcel > tbody > tr > td:nth-child(2),
-.uagri-grid table.jexcel > tbody > tr > td:nth-child(3) {
+/* Identifier cells (Greenhouse, Variety, Pattern) */
+.uagri-grid table.jexcel > tbody > tr > td[data-x="0"],
+.uagri-grid table.jexcel > tbody > tr > td[data-x="1"] {
     background: var(--surface);
     color: var(--ink);
     font: 600 12px var(--sans);
     border-right: 1px solid var(--hairline-2) !important;
 }
+.uagri-grid table.jexcel > tbody > tr > td[data-x="2"] {
+    background: var(--surface);
+    border-right: 1px solid var(--hairline-2) !important;
+    padding: 2px 4px;
+    text-align: center;
+}
+.uagri-grid table.jexcel > tbody > tr > td[data-x="2"] svg {
+    display: block; margin: 0 auto;
+}
 
-/* Editable week cells — tabular numerics, mono */
-.uagri-grid table.jexcel > tbody > tr > td:nth-child(n+4):nth-child(-n+55) {
+/* Editable week cells: tabular mono, right-aligned */
+.uagri-grid table.jexcel > tbody > tr > td:not([data-x="0"]):not([data-x="1"]):not([data-x="2"]):not([data-x="55"]):not([data-x="56"]):not([data-x="57"]) {
     font: 500 12px var(--mono);
     color: var(--ink-2);
     text-align: right;
     font-variant-numeric: tabular-nums;
     background: var(--surface-2);
+    padding: var(--cellpad-y) var(--cellpad-x);
 }
-
-/* Zero cells fade out so non-zero numbers pop */
-.uagri-grid table.jexcel > tbody > tr > td:nth-child(n+4):nth-child(-n+55).uagri-zero {
+.uagri-grid table.jexcel > tbody > tr > td.uagri-zero {
     color: var(--ink-faint);
 }
 
-/* Total column — strong ink with a subtle wash */
-.uagri-grid table.jexcel > tbody > tr > td:nth-last-child(2) {
+/* Total column (x=55), Var% (x=56), Mode (x=57) */
+.uagri-grid table.jexcel > tbody > tr > td[data-x="55"] {
     background: var(--surface);
     font: 600 12px var(--mono);
     color: var(--ink);
@@ -322,73 +349,187 @@
     border-left: 1px solid var(--hairline-2) !important;
     font-variant-numeric: tabular-nums;
 }
-
-/* Mode column (dropdown) */
-.uagri-grid table.jexcel > tbody > tr > td:last-child {
+.uagri-grid table.jexcel > tbody > tr > td[data-x="56"] {
+    background: var(--surface);
+    padding: 4px 6px;
+    text-align: center;
+}
+.uagri-grid table.jexcel > tbody > tr > td[data-x="57"] {
     font: 500 11px var(--sans);
     color: var(--ink-3);
     background: var(--surface);
     text-align: center;
 }
 
-/* Selection */
-.uagri-grid table.jexcel > tbody > tr > td.highlight {
-    background: rgba(34, 136, 131, 0.10) !important;
-    box-shadow: inset 0 0 0 1px var(--signal);
+/* Heatmap shading on compact mode cells. Subtle backgrounds layered
+   beneath the cell text. */
+.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-best { background: rgba(16,185,129,0.16); color: #065f46; }
+.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-good { background: rgba(16,185,129,0.07); }
+.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-warn { background: rgba(245,158,11,0.10); }
+.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-bad  { background: rgba(225,29,72,0.12); }
+
+/* Variance pill */
+.uagri-var {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 4px 10px; border-radius: 999px;
+    font: 600 11px var(--mono); font-variant-numeric: tabular-nums;
+    min-width: 52px;
 }
-.uagri-grid table.jexcel > tbody > tr > td.highlight-selected,
-.uagri-grid table.jexcel > tbody > tr > td.editor {
-    background: rgba(34, 136, 131, 0.18) !important;
+.uagri-var--up   { color: #065f46; background: rgba(16,185,129,0.14); }
+.uagri-var--warn { color: #92400e; background: rgba(245,158,11,0.16); }
+.uagri-var--down { color: #9f1239; background: rgba(225,29,72,0.14); }
+.uagri-var--flat { color: var(--ink-mute); background: rgba(10,10,10,0.04); }
+
+/* Sparkline */
+.uagri-spark {
+    width: 92px; height: 26px;
+    overflow: visible;
 }
 
-/* Selected border */
+/* Compare-mode 4-stack cell */
+.uagri-cmp {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 1px;
+    width: 100%;
+    height: 100%;
+    line-height: 1;
+}
+.uagri-cmp__line {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 1px 3px;
+    font: 500 9px var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    border-radius: 3px;
+}
+.uagri-cmp__dot {
+    width: 4px; height: 4px; border-radius: 50%; flex: 0 0 4px;
+}
+.uagri-cmp--b b { color: var(--c-budget); font-weight: 600; }
+.uagri-cmp--f b { color: var(--c-forecast); }
+.uagri-cmp--p b { color: var(--c-plan); }
+.uagri-cmp--a b { color: var(--c-actual); font-weight: 600; }
+/* Compare cells get taller and tighter padding */
+.uagri-grid table.jexcel > tbody > tr > td:has(.uagri-cmp) {
+    padding: 2px 3px;
+    height: 44px;
+    background: var(--surface-2);
+}
+
+/* =========================================================================
+   Selection + drag-fill highlighting (THE bug fix)
+   The default jspreadsheet styles are weak; bump them so the user
+   actually sees the cells being filled.
+   ======================================================================== */
+
+/* Currently-focused single cell */
+.uagri-grid table.jexcel > tbody > tr > td.highlight {
+    background: rgba(34, 136, 131, 0.16) !important;
+    box-shadow: inset 0 0 0 1px var(--signal);
+    position: relative;
+    z-index: 2;
+}
+
+/* Range selection */
+.uagri-grid table.jexcel > tbody > tr > td.highlight-selected,
+.uagri-grid table.jexcel > tbody > tr > td.highlight-top,
+.uagri-grid table.jexcel > tbody > tr > td.highlight-bottom,
+.uagri-grid table.jexcel > tbody > tr > td.highlight-left,
+.uagri-grid table.jexcel > tbody > tr > td.highlight-right {
+    background: rgba(34, 136, 131, 0.22) !important;
+    color: var(--ink);
+    position: relative;
+    z-index: 2;
+}
+.uagri-grid table.jexcel > tbody > tr > td.highlight-top    { border-top:    2px solid var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.highlight-bottom { border-bottom: 2px solid var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.highlight-left   { border-left:   2px solid var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.highlight-right  { border-right:  2px solid var(--signal) !important; }
+
+/* Drag-fill destination band (jexcel adds .selection-* classes during drag) */
+.uagri-grid table.jexcel > tbody > tr > td.selection,
+.uagri-grid table.jexcel > tbody > tr > td.selection-top,
+.uagri-grid table.jexcel > tbody > tr > td.selection-bottom,
+.uagri-grid table.jexcel > tbody > tr > td.selection-left,
+.uagri-grid table.jexcel > tbody > tr > td.selection-right {
+    background: rgba(34, 136, 131, 0.10) !important;
+    z-index: 2;
+}
+.uagri-grid table.jexcel > tbody > tr > td.selection-top    { border-top:    2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.selection-bottom { border-bottom: 2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.selection-left   { border-left:   2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel > tbody > tr > td.selection-right  { border-right:  2px dashed var(--signal) !important; }
+
+/* Drag corner */
 .uagri-grid .jexcel_corner {
     background: var(--signal) !important;
     border: 2px solid var(--surface-2) !important;
-    box-shadow: 0 0 0 1px var(--signal);
+    box-shadow: 0 0 0 1px var(--signal), 0 2px 6px rgba(34,136,131,0.40);
+    width: 9px !important;
+    height: 9px !important;
+    cursor: crosshair !important;
+}
+.uagri-grid .jexcel_corner:hover {
+    transform: scale(1.25);
+    transition: transform 0.12s;
 }
 
-/* Hover */
+/* Row hover (skip in compare mode to keep heat colours readable) */
 .uagri-grid table.jexcel > tbody > tr:hover > td {
-    background: rgba(10, 10, 10, 0.015);
+    background: rgba(10, 10, 10, 0.02);
 }
 
-/* Frozen first columns shadow */
+/* Frozen columns shadow */
 .uagri-grid table.jexcel > tbody > tr > td.jexcel_freezed,
 .uagri-grid table.jexcel > thead > tr > td.jexcel_freezed {
-    box-shadow: 4px 0 12px -8px rgba(10, 10, 10, 0.10);
+    box-shadow: 4px 0 12px -8px rgba(10, 10, 10, 0.12);
 }
 
-/* Scrollbars — slim ink */
-.uagri-grid .jexcel_content::-webkit-scrollbar {
-    height: 10px;
-    width: 10px;
-}
-.uagri-grid .jexcel_content::-webkit-scrollbar-track {
-    background: transparent;
-}
+/* Scrollbars */
+.uagri-grid .jexcel_content::-webkit-scrollbar { height: 10px; width: 10px; }
+.uagri-grid .jexcel_content::-webkit-scrollbar-track { background: transparent; }
 .uagri-grid .jexcel_content::-webkit-scrollbar-thumb {
     background: var(--ink-faint);
     border-radius: 999px;
     border: 2px solid var(--surface-2);
 }
-.uagri-grid .jexcel_content::-webkit-scrollbar-thumb:hover {
-    background: var(--ink-mute);
-}
+.uagri-grid .jexcel_content::-webkit-scrollbar-thumb:hover { background: var(--ink-mute); }
 
-/* Editor input */
-.uagri-grid table.jexcel > tbody > tr > td.editor input {
+/* =========================================================================
+   Editor input alignment (THE off-by-a-few-millimeters bug fix)
+   jspreadsheet positions the editor input absolutely inside the td.
+   By default the input has its own padding which causes a visible shift
+   versus the rendered cell text. We match the input padding exactly to
+   the cell padding so the text doesn't jump.
+   ======================================================================== */
+
+.uagri-grid table.jexcel > tbody > tr > td.editor {
+    padding: 0 !important;            /* let the input own the padding */
+    background: var(--surface-2) !important;
+    box-shadow: inset 0 0 0 2px var(--signal);
+}
+.uagri-grid table.jexcel > tbody > tr > td.editor input,
+.uagri-grid table.jexcel > tbody > tr > td.editor textarea {
     font: 500 12px var(--mono);
     color: var(--ink);
     text-align: right;
     background: var(--surface-2);
     border: 0;
-    outline: 2px solid var(--signal);
-    outline-offset: -2px;
-    padding: 4px 6px;
+    outline: 0;
+    padding: var(--cellpad-y) var(--cellpad-x);
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Context menu — pull into our design language */
+/* Context menu */
 .jexcel_contextmenu {
     background: var(--surface-2) !important;
     border: 0 !important;
@@ -407,10 +548,7 @@
     background: rgba(10, 10, 10, 0.04) !important;
     color: var(--ink) !important;
 }
-.jexcel_contextmenu hr {
-    border-color: var(--hairline) !important;
-    margin: 6px 4px !important;
-}
+.jexcel_contextmenu hr { border-color: var(--hairline) !important; margin: 6px 4px !important; }
 
 /* Dropdown source list (jSuites) */
 .jdropdown-container {
@@ -418,22 +556,12 @@
     box-shadow: 0 12px 40px -12px rgba(10, 10, 10, 0.25) !important;
     border: 0 !important;
 }
-.jdropdown-item {
-    font: 500 13px var(--sans) !important;
-}
+.jdropdown-item { font: 500 13px var(--sans) !important; }
 
 /* Responsive */
 @media (max-width: 1000px) {
-    .uagri-head {
-        grid-template-columns: 1fr;
-    }
-    .uagri-head__tools {
-        justify-content: flex-start;
-    }
-    .uagri-head__title {
-        font-size: 30px;
-    }
-    .uagri-shell {
-        padding: 24px 18px;
-    }
+    .uagri-head { grid-template-columns: 1fr; }
+    .uagri-head__tools { justify-content: flex-start; }
+    .uagri-head__title { font-size: 30px; }
+    .uagri-shell { padding: 24px 18px; }
 }
