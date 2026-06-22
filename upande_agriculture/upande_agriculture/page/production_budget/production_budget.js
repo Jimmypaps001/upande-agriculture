@@ -260,7 +260,13 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     function renderLegend() {
         if (state.mode !== "compare") {
             $('[data-legend]').html(`
-                <span><i style="background:rgba(34,136,131,0.45)"></i>cell heat = actual ÷ budget</span>
+                <span class="uagri-legend-heat">
+                    <em>cell heat = actual ÷ budget</em>
+                    <i style="background:rgba(225,29,72,0.34)"   title="<40%"></i>
+                    <i style="background:rgba(245,158,11,0.34)"  title="40–70%"></i>
+                    <i style="background:rgba(16,185,129,0.20)"  title="70–100%"></i>
+                    <i style="background:rgba(16,185,129,0.40)"  title="≥100%"></i>
+                </span>
             `);
             return;
         }
@@ -411,15 +417,15 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     }
 
     function heatClass(actual, budget) {
-        // Returns a heat band 0..4 for budget cell shading when in compact mode.
-        // ratio = actual/budget; 0 if no actual.
-        if (!budget) return "";
-        if (!actual) return "";
+        // cell heat = actual ÷ budget. Returns the class for a 4-band
+        // visualisation. No class returned if either side is 0 (no
+        // actuals yet for a planned week — cell stays neutral).
+        if (!budget || !actual) return "";
         const r = actual / budget;
-        if (r >= 1.10) return "uagri-heat-best";
-        if (r >= 0.95) return "uagri-heat-good";
-        if (r >= 0.80) return "uagri-heat-warn";
-        return "uagri-heat-bad";
+        if (r >= 1.00) return "uagri-heat-best";   // hitting or beating budget
+        if (r >= 0.70) return "uagri-heat-good";   // close
+        if (r >= 0.40) return "uagri-heat-warn";   // behind
+        return "uagri-heat-bad";                    // well behind
     }
 
     // -------------------------------------------------------------------------

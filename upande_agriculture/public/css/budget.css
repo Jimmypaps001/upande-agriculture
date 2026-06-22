@@ -340,6 +340,27 @@
 .uagri-foot__legend { display: flex; gap: 16px; }
 .uagri-foot__legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
 .uagri-foot__legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.uagri-legend-heat {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    background: var(--surface-2);
+    padding: 6px 10px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-card);
+}
+.uagri-legend-heat em {
+    font-style: normal;
+    font: 500 11px var(--sans);
+    color: var(--ink-3);
+    margin-right: 4px;
+}
+.uagri-legend-heat i {
+    width: 16px !important;
+    height: 14px !important;
+    border-radius: 3px !important;
+    display: inline-block;
+}
 
 /* --- floating bulk-action bar --- */
 .uagri-bulk {
@@ -495,12 +516,28 @@
     text-align: center;
 }
 
-/* Heatmap shading on compact mode cells. Subtle backgrounds layered
-   beneath the cell text. */
-.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-best { background: rgba(16,185,129,0.16); color: #065f46; }
-.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-good { background: rgba(16,185,129,0.07); }
-.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-warn { background: rgba(245,158,11,0.10); }
-.uagri-grid table.jexcel > tbody > tr > td.uagri-heat-bad  { background: rgba(225,29,72,0.12); }
+/* Heatmap shading on compact-mode cells — cell background = actual ÷ budget.
+   Uses !important to beat the base week-cell `background: var(--surface-2)`
+   rule which has higher selector specificity due to its :not() chain. */
+.uagri-budget-page .uagri-grid table.jexcel > tbody > tr > td.uagri-heat-best {
+    background: rgba(16, 185, 129, 0.28) !important;
+    color: #065f46 !important;
+    font-weight: 700 !important;
+}
+.uagri-budget-page .uagri-grid table.jexcel > tbody > tr > td.uagri-heat-good {
+    background: rgba(16, 185, 129, 0.14) !important;
+    color: #047857 !important;
+}
+.uagri-budget-page .uagri-grid table.jexcel > tbody > tr > td.uagri-heat-warn {
+    background: rgba(245, 158, 11, 0.22) !important;
+    color: #92400e !important;
+    font-weight: 600 !important;
+}
+.uagri-budget-page .uagri-grid table.jexcel > tbody > tr > td.uagri-heat-bad {
+    background: rgba(225, 29, 72, 0.22) !important;
+    color: #9f1239 !important;
+    font-weight: 700 !important;
+}
 
 /* Variance pill */
 .uagri-var {
