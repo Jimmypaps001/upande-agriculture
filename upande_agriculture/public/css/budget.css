@@ -328,7 +328,7 @@
 }
 
 /* Editable week cells: tabular mono, right-aligned */
-.uagri-grid table.jexcel > tbody > tr > td:not([data-x="0"]):not([data-x="1"]):not([data-x="2"]):not([data-x="55"]):not([data-x="56"]):not([data-x="57"]) {
+.uagri-grid table.jexcel > tbody > tr > td:not([data-x="0"]):not([data-x="1"]):not([data-x="2"]):not([data-x="55"]):not([data-x="56"]):not([data-x="57"]):not([data-x="58"]) {
     font: 500 12px var(--mono);
     color: var(--ink-2);
     text-align: right;
@@ -340,7 +340,7 @@
     color: var(--ink-faint);
 }
 
-/* Total column (x=55), Var% (x=56), Mode (x=57) */
+/* Right-side trailing columns: Budget=55, Actual=56, Var%=57, Mode=58 */
 .uagri-grid table.jexcel > tbody > tr > td[data-x="55"] {
     background: var(--surface);
     font: 600 12px var(--mono);
@@ -351,10 +351,17 @@
 }
 .uagri-grid table.jexcel > tbody > tr > td[data-x="56"] {
     background: var(--surface);
+    font: 600 12px var(--mono);
+    color: var(--c-actual);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.uagri-grid table.jexcel > tbody > tr > td[data-x="57"] {
+    background: var(--surface);
     padding: 4px 6px;
     text-align: center;
 }
-.uagri-grid table.jexcel > tbody > tr > td[data-x="57"] {
+.uagri-grid table.jexcel > tbody > tr > td[data-x="58"] {
     font: 500 11px var(--sans);
     color: var(--ink-3);
     background: var(--surface);
@@ -386,39 +393,47 @@
     overflow: visible;
 }
 
-/* Compare-mode 4-stack cell */
+/* Compare-mode 4-stack cell — laid out as a tight 2x2 grid */
 .uagri-cmp {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-auto-rows: 1fr;
-    gap: 1px;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px 4px;
     width: 100%;
     height: 100%;
-    line-height: 1;
+    line-height: 1.1;
+    align-content: center;
 }
 .uagri-cmp__line {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
-    padding: 1px 3px;
-    font: 500 9px var(--mono);
+    gap: 3px;
+    padding: 0 2px;
+    font: 500 10px var(--mono);
     font-variant-numeric: tabular-nums;
-    color: var(--ink-2);
-    border-radius: 3px;
+    color: var(--ink-mute);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.uagri-cmp__line b {
+    font-weight: 600;
 }
 .uagri-cmp__dot {
-    width: 4px; height: 4px; border-radius: 50%; flex: 0 0 4px;
+    width: 5px; height: 5px; border-radius: 50%; flex: 0 0 5px;
+    display: inline-block;
 }
-.uagri-cmp--b b { color: var(--c-budget); font-weight: 600; }
+.uagri-cmp--b b { color: var(--c-budget); }
 .uagri-cmp--f b { color: var(--c-forecast); }
 .uagri-cmp--p b { color: var(--c-plan); }
-.uagri-cmp--a b { color: var(--c-actual); font-weight: 600; }
-/* Compare cells get taller and tighter padding */
-.uagri-grid table.jexcel > tbody > tr > td:has(.uagri-cmp) {
-    padding: 2px 3px;
-    height: 44px;
-    background: var(--surface-2);
+.uagri-cmp--a b { color: var(--c-actual); font-weight: 700; }
+
+/* In compare mode, week-column cells get bigger + remove default padding */
+.uagri-budget-page.uagri-compare .uagri-grid table.jexcel > tbody > tr > td[data-x]:not([data-x="0"]):not([data-x="1"]):not([data-x="2"]):not([data-x="55"]):not([data-x="56"]):not([data-x="57"]):not([data-x="58"]) {
+    padding: 3px 4px !important;
+    height: 48px;
+    background: var(--surface-2) !important;
+    text-align: left;
 }
 
 /* =========================================================================

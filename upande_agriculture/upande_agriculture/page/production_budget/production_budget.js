@@ -310,47 +310,60 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         }
 
         const isCompare = state.mode === "compare";
-        const data = rows.map(r => {
+        // Store cell HTML for compare cells / sparkline / variance pill so we
+        // can DOM-inject after render (jspreadsheet's "html" type renders
+        // inconsistently across versions; post-render injection is reliable).
+        const htmlOverrides = [];   // [{x, y, html}]
+        const data = rows.map((r, rIdx) => {
             const priorArr = state.prior[r.key];
+            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
+            // Numeric placeholders kept in the data; HTML applied post-render.
             const cells = [
                 r.greenhouse || "—",
                 r.variety || "—",
-                sparklineSVG(r.weeks, priorArr),
+                "",   // sparkline cell — placeholder, populated below
             ];
+            htmlOverrides.push({ x: 2, y: rIdx, html: sparklineSVG(r.weeks, priorArr) });
+
             for (let i = 0; i < 52; i++) {
                 if (isCompare) {
-                    cells.push(compareCell(
-                        r.weeks[i], r.forecast?.[i] || 0, r.plan?.[i] || 0, r.actual?.[i] || 0));
+                    cells.push("");
+                    htmlOverrides.push({
+                        x: i + 3, y: rIdx,
+                        html: compareCell(r.weeks[i], r.forecast?.[i] || 0,
+                                          r.plan?.[i] || 0, r.actual?.[i] || 0),
+                    });
                 } else {
                     cells.push(r.weeks[i] || 0);
                 }
             }
             cells.push(r.total);
-            // Variance: actual sum vs budget sum
-            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
-            cells.push(varianceHTML(r.total, actualTotal));
+            cells.push(actualTotal);
+            cells.push("");
+            htmlOverrides.push({ x: 57, y: rIdx, html: varianceHTML(r.total, actualTotal) });
             cells.push(r.source);
             return cells;
         });
 
-        // Columns: 0=GH, 1=Variety, 2=Sparkline, 3..54=Weeks, 55=Total, 56=Var%, 57=Mode
+        // Columns: 0=GH 1=Variety 2=Pattern 3..54=Weeks 55=Total 56=Actual 57=Var% 58=Mode
         const columns = [
             { type: "text", title: "Greenhouse", width: 140, readOnly: true },
             { type: "text", title: "Variety",    width: 130, readOnly: true },
-            { type: "html", title: "Pattern",    width: 100, readOnly: true, align: "left" },
+            { type: "text", title: "Pattern",    width: 104, readOnly: true, align: "left" },
         ];
         for (let w = 1; w <= 52; w++) {
             columns.push({
-                type: isCompare ? "html" : "numeric",
+                type: isCompare ? "text" : "numeric",
                 title: `W${w}`,
-                width: isCompare ? 64 : 56,
+                width: isCompare ? 68 : 56,
                 readOnly: isCompare,
                 mask: isCompare ? undefined : "#,##",
                 align: "right",
             });
         }
-        columns.push({ type: "numeric", title: "Total", width: 92, readOnly: true, mask: "#,##" });
-        columns.push({ type: "html", title: "Var %", width: 76, readOnly: true });
+        columns.push({ type: "numeric", title: "Budget",  width: 92, readOnly: true, mask: "#,##" });
+        columns.push({ type: "numeric", title: "Actual",  width: 92, readOnly: true, mask: "#,##" });
+        columns.push({ type: "text",    title: "Var %",   width: 80, readOnly: true, align: "center" });
         columns.push({ type: "dropdown", title: "Mode", width: 110,
                        source: ["Manual", "Hybrid", "Calculated from Protocol", "Mixed"] });
 
@@ -363,7 +376,7 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 const end = i < 11 ? monthOffsets[i + 1] - 1 : 52;
                 return { title: m, colspan: end - start + 1 };
             }),
-            { title: "", colspan: 3 },
+            { title: "", colspan: 4 },
         ]];
 
         if (window.uagriSheet) {
@@ -392,14 +405,27 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         });
 
         window.uagriRowsRef = rows;
+        injectHTMLOverrides(htmlOverrides);
         applyHeatmapClasses();
         decorateBulkBar();
+        wrapper.classList.toggle("uagri-compare", isCompare);
+    }
+
+    function injectHTMLOverrides(overrides) {
+        // jspreadsheet escapes HTML in 'text' type cells; we punch the HTML
+        // back in via innerHTML after render so cells reliably display
+        // sparklines, compare-stacks, and variance pills.
+        const tbody = document.querySelector("#uagri-grid table tbody");
+        if (!tbody) return;
+        overrides.forEach(({ x, y, html }) => {
+            const td = tbody.querySelector(`tr:nth-child(${y + 1}) td[data-x="${x}"]`);
+            if (td) td.innerHTML = html;
+        });
     }
 
     function applyHeatmapClasses() {
         if (state.mode !== "compact") return;
         const rows = window.uagriRowsRef || [];
-        // td[data-x] attribute is set by jspreadsheet; week columns are x = 3..54
         const tbody = document.querySelector("#uagri-grid table tbody");
         if (!tbody) return;
         rows.forEach((r, rowIdx) => {
@@ -424,12 +450,12 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         const row = parseInt(y);
         const r = window.uagriRowsRef?.[row];
         if (!r) return;
-        // x: 0=GH, 1=Variety, 2=Sparkline, 3..54=Weeks, 55=Total, 56=Var%, 57=Mode
+        // x: 0=GH 1=Variety 2=Pattern 3..54=Weeks 55=Budget 56=Actual 57=Var% 58=Mode
         if (col >= 3 && col <= 54) {
             const week = col - 2;  // x=3 -> week 1
             const numeric = parseInt(String(value).replace(/[, ]/g, "")) || 0;
             queueEdit(r, week, numeric);
-        } else if (col === 57) {
+        } else if (col === 58) {
             changeSource(r, value);
         }
     }
