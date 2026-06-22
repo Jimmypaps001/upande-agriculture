@@ -507,17 +507,61 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 args: { updates },
             });
             setStatus(`Saved ${updates.length} cells · ${new Date().toLocaleTimeString()}`);
-            // Refresh underlying weeks so totals and sparkline update.
-            await refreshAffectedRows(updates);
+            refreshTotalsLocally(updates);
         } catch (e) {
             setStatus("Save failed: " + (e?.message || e));
             updates.forEach(u => state.pendingEdits.set(`${u.greenhouse}||${u.variety_base}::${u.week}`, u));
         }
     }
 
-    async function refreshAffectedRows(updates) {
-        // Cheap: reload the whole grid. With 90-ish rows this is fast.
-        await loadGrid();
+    function refreshTotalsLocally(updates) {
+        // Update in-memory rows and just the derived columns (Total,
+        // Actual, Var%, Pattern). DO NOT destroy/recreate the sheet —
+        // that's the full-screen flicker the user reported.
+        const rowsRef = window.uagriRowsRef || [];
+        const touchedRowIdx = new Set();
+        // Apply each update to the in-memory row's weeks array.
+        for (const u of updates) {
+            const idx = rowsRef.findIndex(r =>
+                r.greenhouse === u.greenhouse && r.variety === u.variety_base);
+            if (idx < 0) continue;
+            const r = rowsRef[idx];
+            const w = parseInt(u.week);
+            if (w >= 1 && w <= 52) {
+                r.weeks[w - 1] = parseInt(u.value) || 0;
+                touchedRowIdx.add(idx);
+            }
+        }
+        // Recompute totals + repaint trailing columns + sparkline.
+        const tbody = document.querySelector("#uagri-grid table tbody");
+        if (!tbody) return;
+        for (const idx of touchedRowIdx) {
+            const r = rowsRef[idx];
+            const newTotal = r.weeks.reduce((s, v) => s + (v || 0), 0);
+            r.total = newTotal;
+            // Total column (x=55)
+            const tdTotal = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="55"]`);
+            if (tdTotal) tdTotal.textContent = fmtFull(newTotal);
+            // Var% column (x=57)
+            const tdVar = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="57"]`);
+            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
+            if (tdVar) tdVar.innerHTML = varianceHTML(newTotal, actualTotal);
+            // Sparkline (x=2)
+            const tdSpark = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="2"]`);
+            if (tdSpark) tdSpark.innerHTML = sparklineSVG(r.weeks, state.prior[r.key]);
+            // Heatmap reshade for this row
+            if (state.mode === "compact") {
+                for (let i = 0; i < 52; i++) {
+                    const td = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="${i + 3}"]`);
+                    if (!td) continue;
+                    td.classList.remove("uagri-heat-best", "uagri-heat-good",
+                                         "uagri-heat-warn", "uagri-heat-bad", "uagri-zero");
+                    if (!r.weeks[i]) td.classList.add("uagri-zero");
+                    const hc = heatClass((r.actual || [])[i] || 0, r.weeks[i] || 0);
+                    if (hc) td.classList.add(hc);
+                }
+            }
+        }
     }
 
     async function changeSource(r, source) {

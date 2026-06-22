@@ -504,19 +504,38 @@
 .uagri-grid table.jexcel > tbody > tr > td.highlight-left   { border-left:   2px solid var(--signal) !important; }
 .uagri-grid table.jexcel > tbody > tr > td.highlight-right  { border-right:  2px solid var(--signal) !important; }
 
-/* Drag-fill destination band (jexcel adds .selection-* classes during drag) */
-.uagri-grid table.jexcel > tbody > tr > td.selection,
-.uagri-grid table.jexcel > tbody > tr > td.selection-top,
-.uagri-grid table.jexcel > tbody > tr > td.selection-bottom,
-.uagri-grid table.jexcel > tbody > tr > td.selection-left,
-.uagri-grid table.jexcel > tbody > tr > td.selection-right {
-    background: rgba(34, 136, 131, 0.10) !important;
-    z-index: 2;
+/* Drag-fill destination band — jspreadsheet sets `.selection*` on the
+   target cells while the user is dragging the corner. We use a stronger
+   teal background so the destination is unmistakable, plus a dashed
+   border around the perimeter of the drag region. */
+.uagri-grid table.jexcel tbody tr td[class*="selection"] {
+    background: rgba(34, 136, 131, 0.18) !important;
+    color: var(--ink) !important;
+    position: relative;
+    z-index: 3;
 }
-.uagri-grid table.jexcel > tbody > tr > td.selection-top    { border-top:    2px dashed var(--signal) !important; }
-.uagri-grid table.jexcel > tbody > tr > td.selection-bottom { border-bottom: 2px dashed var(--signal) !important; }
-.uagri-grid table.jexcel > tbody > tr > td.selection-left   { border-left:   2px dashed var(--signal) !important; }
-.uagri-grid table.jexcel > tbody > tr > td.selection-right  { border-right:  2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel tbody tr td.selection-top    { border-top:    2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel tbody tr td.selection-bottom { border-bottom: 2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel tbody tr td.selection-left   { border-left:   2px dashed var(--signal) !important; }
+.uagri-grid table.jexcel tbody tr td.selection-right  { border-right:  2px dashed var(--signal) !important; }
+
+/* Copy source (after ⌘C) — animated marching-ants border in ink */
+.uagri-grid table.jexcel tbody tr td[class*="copying"] {
+    background: rgba(34, 136, 131, 0.08) !important;
+    position: relative;
+    z-index: 3;
+}
+.uagri-grid table.jexcel tbody tr td.copying-top    { border-top:    2px dashed var(--ink) !important; }
+.uagri-grid table.jexcel tbody tr td.copying-bottom { border-bottom: 2px dashed var(--ink) !important; }
+.uagri-grid table.jexcel tbody tr td.copying-left   { border-left:   2px dashed var(--ink) !important; }
+.uagri-grid table.jexcel tbody tr td.copying-right  { border-right:  2px dashed var(--ink) !important; }
+
+/* Live dragging (while pointer is held + moving) */
+.uagri-grid table.jexcel tbody tr td.dragging,
+.uagri-grid table.jexcel tbody tr td.dragging-left,
+.uagri-grid table.jexcel tbody tr td.dragging-right {
+    background: rgba(34, 136, 131, 0.10) !important;
+}
 
 /* Drag corner */
 .uagri-grid .jexcel_corner {
