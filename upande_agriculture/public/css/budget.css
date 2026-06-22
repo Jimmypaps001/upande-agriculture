@@ -504,10 +504,43 @@
 .uagri-grid table.jexcel > tbody > tr > td.highlight-left   { border-left:   2px solid var(--signal) !important; }
 .uagri-grid table.jexcel > tbody > tr > td.highlight-right  { border-right:  2px solid var(--signal) !important; }
 
-/* Drag-fill destination band — jspreadsheet sets `.selection*` on the
-   target cells while the user is dragging the corner. We use a stronger
-   teal background so the destination is unmistakable, plus a dashed
-   border around the perimeter of the drag region. */
+/* Our own selection paint (set via onselection in JS). Used both for
+   click-drag range selects and corner drag-fill destinations, because
+   this build of jspreadsheet doesn't reliably emit visual classes on
+   the dragged cells. */
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel {
+    background: rgba(34, 136, 131, 0.20) !important;
+    color: var(--ink) !important;
+    position: relative;
+    z-index: 4;
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-t {
+    box-shadow: inset 0 2px 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-b {
+    box-shadow: inset 0 -2px 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-l {
+    box-shadow: inset 2px 0 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-r {
+    box-shadow: inset -2px 0 0 var(--signal);
+}
+/* Stack edges when a cell is a corner of the selection */
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-t.uagri-sel--edge-l {
+    box-shadow: inset 2px 0 0 var(--signal), inset 0 2px 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-t.uagri-sel--edge-r {
+    box-shadow: inset -2px 0 0 var(--signal), inset 0 2px 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-b.uagri-sel--edge-l {
+    box-shadow: inset 2px 0 0 var(--signal), inset 0 -2px 0 var(--signal);
+}
+.uagri-budget-page .uagri-grid table.jexcel tbody tr td.uagri-sel--edge-b.uagri-sel--edge-r {
+    box-shadow: inset -2px 0 0 var(--signal), inset 0 -2px 0 var(--signal);
+}
+
+/* Legacy jspreadsheet selection classes (kept as fallback) */
 .uagri-grid table.jexcel tbody tr td[class*="selection"] {
     background: rgba(34, 136, 131, 0.18) !important;
     color: var(--ink) !important;

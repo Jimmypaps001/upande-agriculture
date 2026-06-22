@@ -419,7 +419,10 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             contextMenu: (obj, x, y) => buildContextMenu(obj, x, y, rows),
             onchange: handleCellChange,
             onpaste: () => { scheduleSave(); updateBulkBarVisibility(); },
-            onselection: (instance, x1, y1, x2, y2) => updateBulkBarVisibility(x1, y1, x2, y2),
+            onselection: (instance, x1, y1, x2, y2) => {
+                paintSelection(x1, y1, x2, y2);
+                updateBulkBarVisibility(x1, y1, x2, y2);
+            },
         });
 
         window.uagriRowsRef = rows;
@@ -427,6 +430,30 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         applyHeatmapClasses();
         decorateBulkBar();
         wrapper.classList.toggle("uagri-compare", isCompare);
+    }
+
+    // jspreadsheet's own drag-fill highlight is unreliable in this build —
+    // it tags cells with `highlight-selected` but the cascade conflicts with
+    // our cell-specific styles. We paint our own class on the cells in the
+    // current selection so the user always sees the range light up.
+    function paintSelection(x1, y1, x2, y2) {
+        const tbody = document.querySelector("#uagri-grid table tbody");
+        if (!tbody) return;
+        tbody.querySelectorAll(".uagri-sel").forEach(el => el.classList.remove("uagri-sel", "uagri-sel--edge-t", "uagri-sel--edge-b", "uagri-sel--edge-l", "uagri-sel--edge-r"));
+        if (x1 === undefined) return;
+        const xlo = Math.min(x1, x2), xhi = Math.max(x1, x2);
+        const ylo = Math.min(y1, y2), yhi = Math.max(y1, y2);
+        for (let y = ylo; y <= yhi; y++) {
+            for (let x = xlo; x <= xhi; x++) {
+                const td = tbody.querySelector(`tr:nth-child(${y + 1}) td[data-x="${x}"]`);
+                if (!td) continue;
+                td.classList.add("uagri-sel");
+                if (y === ylo) td.classList.add("uagri-sel--edge-t");
+                if (y === yhi) td.classList.add("uagri-sel--edge-b");
+                if (x === xlo) td.classList.add("uagri-sel--edge-l");
+                if (x === xhi) td.classList.add("uagri-sel--edge-r");
+            }
+        }
     }
 
     function injectHTMLOverrides(overrides) {
