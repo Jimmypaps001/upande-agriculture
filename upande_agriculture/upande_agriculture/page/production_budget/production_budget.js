@@ -255,14 +255,19 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     }
 
     function compareCell(b, f, p, a) {
-        // Compact 4-line stack — colour-coded dots, tabular nums.
-        const cell = (cls, dot, value) =>
-            `<span class="uagri-cmp__line ${cls}"><i class="uagri-cmp__dot" style="background:${dot}"></i><b>${fmt(value)}</b></span>`;
+        // Each layer rendered as a strongly-coloured span, with a coloured
+        // dot AND a coloured number. Inline colour set on the number itself
+        // so no CSS specificity battle is needed.
+        const line = (cls, color, value) =>
+            `<span class="uagri-cmp__line ${cls}">
+                <span class="uagri-cmp__dot" style="background:${color}"></span>
+                <b style="color:${color}">${fmt(value)}</b>
+            </span>`;
         return `<div class="uagri-cmp">
-            ${cell("uagri-cmp--b", "#0a0a0a", b)}
-            ${cell("uagri-cmp--f", "#0ea5e9", f)}
-            ${cell("uagri-cmp--p", "#f59e0b", p)}
-            ${cell("uagri-cmp--a", "#10b981", a)}
+            ${line("uagri-cmp--b", "#0a0a0a", b)}
+            ${line("uagri-cmp--f", "#0ea5e9", f)}
+            ${line("uagri-cmp--p", "#f59e0b", p)}
+            ${line("uagri-cmp--a", "#10b981", a)}
         </div>`;
     }
 
