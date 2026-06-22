@@ -268,7 +268,7 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                 <span class="uagri-cbar__track">
                     <span class="uagri-cbar__fill" style="width:${w.toFixed(1)}%;background:${color}"></span>
                 </span>
-                <span class="uagri-cbar__value" style="color:${color}">${fmtShort(value)}</span>
+                <span class="uagri-cbar__value" style="color:${color}">${fmtFull(value)}</span>
             </div>`;
         };
         return `<div class="uagri-cstack">
@@ -279,13 +279,9 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         </div>`;
     }
 
-    function fmtShort(n) {
+    function fmtFull(n) {
         if (!n) return "·";
-        const abs = Math.abs(n);
-        if (abs >= 1000000) return (n / 1000000).toFixed(1) + "M";
-        if (abs >= 10000)   return Math.round(n / 1000) + "k";
-        if (abs >= 1000)    return (n / 1000).toFixed(1) + "k";
-        return String(n);
+        return Number(n).toLocaleString();
     }
 
     function fmt(n) {
@@ -377,7 +373,7 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             columns.push({
                 type: isCompare ? "text" : "numeric",
                 title: `W${w}`,
-                width: isCompare ? 96 : 56,
+                width: isCompare ? 132 : 56,
                 readOnly: isCompare,
                 mask: isCompare ? undefined : "#,##",
                 align: "right",

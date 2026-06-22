@@ -413,12 +413,12 @@
 }
 .uagri-cbar {
     display: grid;
-    grid-template-columns: 9px 1fr 30px;
+    grid-template-columns: 10px 1fr 56px;
     align-items: center;
-    gap: 4px;
-    font: 600 9px var(--mono) !important;
+    gap: 5px;
+    font: 600 10px var(--mono) !important;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.1px;
 }
 .uagri-cbar__label {
     font-family: var(--display) !important;
@@ -444,10 +444,11 @@
 }
 .uagri-cbar__value {
     font-family: var(--mono) !important;
-    font-size: 9px !important;
-    font-weight: 700 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
     text-align: right;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 /* Zero-value layer: muted so eye skips it */
 .uagri-cbar--zero .uagri-cbar__label,
