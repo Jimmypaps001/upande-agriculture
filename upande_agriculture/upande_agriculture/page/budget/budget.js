@@ -238,7 +238,7 @@ frappe.pages["budget"].on_page_load = async function (wrapper) {
             return arr || new Array(52).fill(0);
         };
         const data = rows.map(r => {
-            const cells = [r.greenhouse, r.variety];
+            const cells = [r.greenhouse || "—", r.variety || "—"];
             const weeks = layer(r);
             for (let i = 0; i < 52; i++) cells.push(weeks[i] || 0);
             cells.push(r.total);
