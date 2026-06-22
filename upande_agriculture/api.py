@@ -336,10 +336,28 @@ _LENGTH_SUFFIX = re.compile(r"-\d+cm$", re.IGNORECASE)
 
 
 def _variety_base(variety: str | None) -> str:
-    """'Athena-50cm' -> 'Athena'.  Falls back to the input on no match."""
+    """'Athena-50cm' -> 'Athena'.  Falls back to the input on no match.
+
+    Used only for legacy / display fall-backs. The canonical mapping
+    from variant to template comes from ERPNext's Item.variant_of.
+    """
     if not variety:
         return ""
     return _LENGTH_SUFFIX.sub("", variety)
+
+
+def _variant_codes(template: str) -> list[str]:
+    """Item codes that belong to this variety template (template itself +
+    every Item whose `variant_of` points at it). Used to aggregate harvest
+    receipts (which are posted against the length-specific variant) up to
+    the template-keyed Projection."""
+    if not template:
+        return []
+    rows = frappe.db.sql_list(
+        "SELECT name FROM `tabItem` WHERE name = %s OR variant_of = %s",
+        (template, template),
+    )
+    return list(rows) or [template]
 
 
 @frappe.whitelist()
@@ -373,6 +391,8 @@ def get_budget_grid(year: int, mode: str = "compact") -> dict:
         }
     """
     year = int(year)
+    # After the variant→template migration, each row in the spreadsheet
+    # corresponds 1:1 with a Production Projection keyed by variety template.
     projections = frappe.db.sql(
         """
         SELECT pp.name, pp.greenhouse, pp.variety, pp.source
@@ -384,48 +404,25 @@ def get_budget_grid(year: int, mode: str = "compact") -> dict:
         as_dict=True,
     )
 
-    # Group by (greenhouse, base_variety)
-    groups: dict[tuple, dict] = {}
-    for p in projections:
-        base = _variety_base(p["variety"])
-        if not base:
-            continue
-        key = (p["greenhouse"] or "", base)
-        g = groups.setdefault(key, {
-            "key": f"{p['greenhouse'] or ''}||{base}",
-            "greenhouse": p["greenhouse"],
-            "variety": base,
-            "variants": [],
-            "projections": [],
-            "sources": set(),
-            "weeks": [0] * 52,
-        })
-        g["variants"].append(p["variety"])
-        g["projections"].append(p["name"])
-        g["sources"].add(p["source"] or "Manual")
-        for i, v in enumerate(_projection_week_array(p["name"])):
-            g["weeks"][i] += v
-
     rows: list[dict] = []
-    for (gh, base), g in groups.items():
-        sources = g.pop("sources")
-        g["source"] = next(iter(sources)) if len(sources) == 1 else "Mixed"
-        g["total"] = sum(g["weeks"])
+    for p in projections:
+        gh = p["greenhouse"]
+        template = p["variety"]
+        row = {
+            "key": f"{gh or ''}||{template}",
+            "greenhouse": gh,
+            "variety": template,
+            "projection": p["name"],
+            "variants": _variant_codes(template),
+            "source": p["source"] or "Manual",
+            "weeks": _projection_week_array(p["name"]),
+        }
+        row["total"] = sum(row["weeks"])
         if mode == "compare":
-            f_arr = [0] * 52
-            p_arr = [0] * 52
-            a_arr = [0] * 52
-            for variant in g["variants"]:
-                for i, v in enumerate(_forecast_week_array(gh, variant, year)):
-                    f_arr[i] += v
-                for i, v in enumerate(_plan_week_array(gh, variant, year)):
-                    p_arr[i] += v
-                for i, v in enumerate(_actual_week_array(gh, variant, year)):
-                    a_arr[i] += v
-            g["forecast"] = f_arr
-            g["plan"] = p_arr
-            g["actual"] = a_arr
-        rows.append(g)
+            row["forecast"] = _forecast_week_array(gh, template, year)
+            row["plan"] = _plan_week_array(gh, template, year)
+            row["actual"] = _actual_week_array(gh, template, year)
+        rows.append(row)
 
     rows.sort(key=lambda r: (r["greenhouse"] or "ZZZ", r["variety"]))
 
@@ -457,36 +454,49 @@ def _projection_week_array(projection_name: str) -> list[int]:
 
 
 def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
+    """Sum forecasted stems across all variants of `variety` (treated as a
+    template). Forecasts in mona2 were imported per-variant (e.g.
+    `Ever-Red-50cm`), so we look up the template's variant codes and SUM."""
+    codes = _variant_codes(variety)
+    if not codes:
+        return [0] * 52
+    placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
-        """
-        SELECT fw.week_number, fw.forecasted_stems
+        f"""
+        SELECT fw.week_number, SUM(fw.forecasted_stems) AS s
         FROM `tabProduction Forecast` pf
         JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
-        WHERE pf.greenhouse = %s AND pf.variety = %s
+        WHERE pf.greenhouse = %s AND pf.variety IN ({placeholders})
           AND pf.forecast_year = %s AND pf.status = 'Active'
+        GROUP BY fw.week_number
         """,
-        (greenhouse, variety, year),
+        (greenhouse, *codes, year),
         as_dict=True,
     )
     weeks = [0] * 52
     for r in rows:
         w = int(r["week_number"] or 0)
         if 1 <= w <= 52:
-            weeks[w - 1] = int(r["forecasted_stems"] or 0)
+            weeks[w - 1] = int(r["s"] or 0)
     return weeks
 
 
 def _plan_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
+    """Same as forecast — sum across the template's variants."""
+    codes = _variant_codes(variety)
+    if not codes:
+        return [0] * 52
+    placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
-        """
+        f"""
         SELECT pf.plan_week, SUM(pv.planned_stems) AS s
         FROM `tabProduction Plan Form` pf
         JOIN `tabProduction Plan Variety` pv ON pv.parent = pf.name
-        WHERE pf.greenhouse = %s AND pv.variety = %s
+        WHERE pf.greenhouse = %s AND pv.variety IN ({placeholders})
           AND pf.plan_year = %s AND pf.docstatus < 2
         GROUP BY pf.plan_week
         """,
-        (greenhouse, variety, year),
+        (greenhouse, *codes, year),
         as_dict=True,
     )
     weeks = [0] * 52
@@ -522,8 +532,12 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
     prefix = _gh_prefix(greenhouse)
     if not prefix:
         return [0] * 52
+    codes = _variant_codes(variety)
+    if not codes:
+        return [0] * 52
+    placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
-        """
+        f"""
         SELECT WEEK(se.posting_date, 3) AS w, SUM(sed.qty) AS s
         FROM `tabStock Entry` se
         JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
@@ -531,11 +545,11 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
           AND se.stock_entry_type = 'Harvesting'
           AND (se.custom_quality_section IS NULL OR se.custom_quality_section = '')
           AND TRIM(REPLACE(se.custom_greenhouse, ' - MFK', '')) = %s
-          AND sed.item_code = %s
+          AND sed.item_code IN ({placeholders})
           AND YEAR(se.posting_date) = %s
         GROUP BY WEEK(se.posting_date, 3)
         """,
-        (prefix, variety, year),
+        (prefix, *codes, year),
         as_dict=True,
     )
     weeks = [0] * 52
@@ -630,65 +644,49 @@ def bulk_update_aggregated_weeks(updates: str | list[dict]) -> dict:
     touched_projections: set[str] = set()
     week_count = 0
 
-    # Group by (greenhouse, variety_base, year) so we open each set of
-    # projections once.
+    # Group updates by (greenhouse, variety_template, year) → one Projection.
     by_group: dict[tuple, list[dict]] = {}
     for u in updates or []:
         key = (u.get("greenhouse") or "", u["variety_base"], int(u["year"]))
         by_group.setdefault(key, []).append(u)
 
-    for (gh, vbase, year), changes in by_group.items():
-        # Find underlying projections (all length variants of `vbase`).
-        projs = frappe.db.sql(
-            """SELECT name FROM `tabProduction Projection`
-               WHERE projection_year = %s
-                 AND (greenhouse <=> %s)
-                 AND (variety = %s OR variety LIKE %s)
-            """,
-            (year, gh or None, vbase, f"{vbase}-%"),
-            as_dict=True,
-        )
-        if not projs:
-            continue
-        docs = [frappe.get_doc("Production Projection", p["name"]) for p in projs]
+    for (gh, template, year), changes in by_group.items():
+        proj_name = frappe.db.get_value("Production Projection", {
+            "projection_year": year,
+            "greenhouse": gh or None,
+            "variety": template,
+        }, "name")
+        if not proj_name:
+            # No existing projection for this (gh, template, year) — create
+            # one so the operator's edits don't get silently dropped.
+            doc = frappe.get_doc({
+                "doctype": "Production Projection",
+                "greenhouse": gh or None,
+                "variety": template,
+                "projection_year": year,
+                "source": "Manual",
+            })
+        else:
+            doc = frappe.get_doc("Production Projection", proj_name)
 
+        week_map = {int(w.week or 0): w for w in doc.weeks}
         for ch in changes:
             wnum = int(ch["week"])
-            new_total = int(ch["value"] or 0)
-            current = []
-            for d in docs:
-                # find the row for this week (or 0 if not yet present)
-                v = next((int(w.projected_stems or 0) for w in d.weeks if int(w.week or 0) == wnum), 0)
-                current.append(v)
-            cur_sum = sum(current)
+            new_val = int(ch["value"] or 0)
+            row = week_map.get(wnum)
+            if not row:
+                row = doc.append("weeks", {"week": wnum})
+                week_map[wnum] = row
+            row.projected_stems = new_val
+            if doc.source == "Hybrid":
+                row.manual_override = 1
+            week_count += 1
 
-            if cur_sum > 0:
-                # Proportional redistribution.
-                new_values = [round(c * new_total / cur_sum) for c in current]
-                # Fix rounding drift by absorbing into the largest contributor.
-                drift = new_total - sum(new_values)
-                if drift and new_values:
-                    idx = new_values.index(max(new_values))
-                    new_values[idx] += drift
-            else:
-                # All zeros: split equally, drift on the first.
-                n = len(docs)
-                per = new_total // n
-                rem = new_total - per * n
-                new_values = [per + (1 if i < rem else 0) for i in range(n)]
-
-            for d, v in zip(docs, new_values):
-                row = next((w for w in d.weeks if int(w.week or 0) == wnum), None)
-                if not row:
-                    row = d.append("weeks", {"week": wnum})
-                row.projected_stems = v
-                if d.source == "Hybrid":
-                    row.manual_override = 1
-                touched_projections.add(d.name)
-                week_count += 1
-
-        for d in docs:
-            d.save(ignore_permissions=True)
+        if proj_name:
+            doc.save(ignore_permissions=True)
+        else:
+            doc.insert(ignore_permissions=True)
+        touched_projections.add(doc.name)
 
     return {"ok": True, "projections_touched": len(touched_projections),
             "weeks_touched": week_count}
@@ -756,23 +754,23 @@ def bulk_set_aggregated_source(rows: str | list[dict], source: str) -> dict:
     touched = 0
     for r in rows or []:
         gh = r.get("greenhouse") or None
-        vbase = r["variety_base"]
+        template = r["variety_base"]
         year = int(r["year"])
-        projs = frappe.db.sql_list(
-            """SELECT name FROM `tabProduction Projection`
-               WHERE projection_year=%s AND (greenhouse <=> %s)
-                 AND (variety=%s OR variety LIKE %s)""",
-            (year, gh, vbase, f"{vbase}-%"),
-        )
-        for p in projs:
-            frappe.db.set_value("Production Projection", p, "source", source,
-                                 update_modified=False)
-            if source != "Manual":
-                try:
-                    regenerate_projection(p)
-                except Exception:
-                    frappe.log_error(frappe.get_traceback(), "bulk_set source recalc")
-            touched += 1
+        proj_name = frappe.db.get_value("Production Projection", {
+            "projection_year": year,
+            "greenhouse": gh,
+            "variety": template,
+        }, "name")
+        if not proj_name:
+            continue
+        frappe.db.set_value("Production Projection", proj_name, "source",
+                             source, update_modified=False)
+        if source != "Manual":
+            try:
+                regenerate_projection(proj_name)
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), "bulk_set source recalc")
+        touched += 1
     frappe.db.commit()
     return {"ok": True, "projections_touched": touched}
 
@@ -790,36 +788,19 @@ def copy_aggregated_row(source_greenhouse: str, source_variety_base: str,
     year = int(year)
     target_variety_base = target_variety_base or source_variety_base
 
-    src_weeks = [0] * 52
-    src_projs = frappe.db.sql_list(
-        """SELECT name FROM `tabProduction Projection`
-           WHERE projection_year=%s AND (greenhouse <=> %s)
-             AND (variety=%s OR variety LIKE %s)""",
-        (year, source_greenhouse or None, source_variety_base,
-         f"{source_variety_base}-%"),
-    )
-    for p in src_projs:
-        for i, v in enumerate(_projection_week_array(p)):
-            src_weeks[i] += v
+    src_proj = frappe.db.get_value("Production Projection", {
+        "projection_year": year,
+        "greenhouse": source_greenhouse or None,
+        "variety": source_variety_base,
+    }, "name")
+    if not src_proj:
+        frappe.throw(_("No source projection found."))
+    src_weeks = _projection_week_array(src_proj)
 
     if not any(src_weeks):
         frappe.throw(_("Source row has no data to copy."))
 
-    # Find the target projections. If none exist, refuse — creating them
-    # requires picking lengths and a Crop Cycle, which is more than this
-    # endpoint should do silently.
-    tgt_projs = frappe.db.sql_list(
-        """SELECT name FROM `tabProduction Projection`
-           WHERE projection_year=%s AND (greenhouse <=> %s)
-             AND (variety=%s OR variety LIKE %s)""",
-        (year, target_greenhouse or None, target_variety_base,
-         f"{target_variety_base}-%"),
-    )
-    if not tgt_projs:
-        frappe.throw(_("No matching projections at target — create a Crop Cycle there first."))
-
-    # Distribute weekly source totals across target projections proportionally
-    # to their current weekly values (or equally when target is all-zero).
+    # Write to the target template projection (creating it if missing).
     updates = []
     for w in range(1, 53):
         updates.append({
