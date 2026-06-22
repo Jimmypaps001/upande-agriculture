@@ -26,12 +26,16 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         mode: "compact",        // "compact" | "compare"
         greenhouseFilter: "",
         varietyFilter: "",
+        findText: "",
         showPriorYear: false,
+        fullscreen: false,
+        zoomLevel: 0,           // -2..+3 widens/narrows week cell widths
         grid: null,
-        prior: {},              // {key: [52 ints]} prior-year actuals
+        prior: {},
         loading: false,
-        pendingEdits: new Map(),    // key: `${row_key}::${week}` -> {row_key, week, value}
+        pendingEdits: new Map(),
         saveTimer: null,
+        lastSelection: null,    // {x1,y1,x2,y2}
     };
 
     await ensureAssetsLoaded();
@@ -91,13 +95,45 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
                             <span>Overlay ${state.year - 1} actuals</span>
                         </label>
                         <input class="uagri-yearpill" type="number" value="${state.year}" />
+                        <button class="uagri-iconbtn" data-action="fullscreen" title="Fullscreen (F)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 9 4 4 9 4"/><polyline points="20 9 20 4 15 4"/><polyline points="4 15 4 20 9 20"/><polyline points="20 15 20 20 15 20"/></svg>
+                        </button>
                     </div>
                 </header>
 
                 <div class="uagri-filters">
                     <select class="uagri-filter" data-target="greenhouse"><option value="">All greenhouses</option></select>
                     <select class="uagri-filter" data-target="variety"><option value="">All varieties</option></select>
+                    <input class="uagri-find" data-target="find" placeholder="Find row by variety / greenhouse…" />
                     <span class="uagri-status" data-status></span>
+                </div>
+
+                <div class="uagri-tools" data-tools>
+                    <div class="uagri-fxbar">
+                        <label class="uagri-fx-label" title="Formula bar — supports = arithmetic, W12 refs, SUM/AVG/MAX/MIN(W1:W52)">
+                            <span class="uagri-fx-icon">ƒx</span>
+                            <input class="uagri-fx-input" data-target="fxinput"
+                                placeholder='e.g. =W23*1.1   or   =AVG(W18:W30)   or   =1500'
+                                spellcheck="false" />
+                        </label>
+                        <button class="uagri-tool-btn" data-tool="apply-formula">Apply to selection</button>
+                    </div>
+
+                    <div class="uagri-stats" data-stats>
+                        <span class="uagri-stats__sep"></span>
+                        <span class="uagri-stat" data-stat="sum"><b>Σ</b> <em>—</em></span>
+                        <span class="uagri-stat" data-stat="avg"><b>μ</b> <em>—</em></span>
+                        <span class="uagri-stat" data-stat="max"><b>↑</b> <em>—</em></span>
+                        <span class="uagri-stat" data-stat="min"><b>↓</b> <em>—</em></span>
+                        <span class="uagri-stat" data-stat="count"><b>n</b> <em>—</em></span>
+                    </div>
+
+                    <div class="uagri-tool-cluster">
+                        <button class="uagri-tool-btn" data-tool="export-csv">Export CSV</button>
+                        <button class="uagri-tool-btn" data-tool="zoom-out" title="Narrower week columns">−</button>
+                        <button class="uagri-tool-btn" data-tool="zoom-in" title="Wider week columns">+</button>
+                        <button class="uagri-tool-btn" data-tool="exit-fs">Exit fullscreen</button>
+                    </div>
                 </div>
 
                 <div class="uagri-grid-wrap">
@@ -149,6 +185,74 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             const op = ev.currentTarget.dataset.bulkOp;
             await applyBulkFormula(op);
         });
+
+        // Fullscreen toggle
+        $body.on("click", '[data-action="fullscreen"]', () => toggleFullscreen());
+        $body.on("click", '[data-tool="exit-fs"]', () => toggleFullscreen(false));
+
+        // Find / filter
+        $body.on("input", '[data-target="find"]', (ev) => {
+            state.findText = String(ev.currentTarget.value || "").toLowerCase().trim();
+            rerenderGridOnly();
+        });
+
+        // Zoom buttons
+        $body.on("click", '[data-tool="zoom-in"]', () => bumpZoom(1));
+        $body.on("click", '[data-tool="zoom-out"]', () => bumpZoom(-1));
+
+        // Export CSV
+        $body.on("click", '[data-tool="export-csv"]', () => exportCSV());
+
+        // Formula bar: pressing Enter applies the formula to selection
+        $body.on("keydown", '[data-target="fxinput"]', (ev) => {
+            if (ev.key === "Enter") {
+                ev.preventDefault();
+                applyFormulaToSelection();
+            }
+        });
+        $body.on("click", '[data-tool="apply-formula"]', () => applyFormulaToSelection());
+    }
+
+    function toggleFullscreen(forceState) {
+        state.fullscreen = (forceState === undefined) ? !state.fullscreen : !!forceState;
+        wrapper.classList.toggle("uagri-fs", state.fullscreen);
+        document.body.classList.toggle("uagri-fs-locked", state.fullscreen);
+        // Resize the sheet so the new viewport size is used.
+        if (window.uagriSheet) {
+            try { window.uagriSheet.updateTable && window.uagriSheet.updateTable(); }
+            catch (_) {}
+        }
+    }
+
+    function bumpZoom(delta) {
+        state.zoomLevel = Math.max(-2, Math.min(4, state.zoomLevel + delta));
+        rerenderGridOnly();
+    }
+
+    function exportCSV() {
+        const rows = visibleRows();
+        if (!rows.length) return;
+        const header = ["Greenhouse", "Variety", ...Array.from({length: 52}, (_, i) => `W${i+1}`), "Budget Total", "Actual Total", "Source"];
+        const lines = [header.join(",")];
+        for (const r of rows) {
+            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
+            const cells = [
+                `"${(r.greenhouse || "").replace(/"/g, '""')}"`,
+                `"${(r.variety || "").replace(/"/g, '""')}"`,
+                ...r.weeks.map(v => v || 0),
+                r.total || 0,
+                actualTotal,
+                `"${(r.source || "").replace(/"/g, '""')}"`,
+            ];
+            lines.push(cells.join(","));
+        }
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `mona-budget-${state.year}-${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setStatus(`Exported ${rows.length} rows to CSV`);
     }
 
     function setStatus(msg) { $('[data-status]').text(msg || ""); }
@@ -222,10 +326,16 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
 
     function visibleRows() {
         if (!state.grid) return [];
-        return state.grid.rows.filter(r =>
-            (!state.greenhouseFilter || r.greenhouse === state.greenhouseFilter) &&
-            (!state.varietyFilter || r.variety === state.varietyFilter)
-        );
+        const needle = state.findText;
+        return state.grid.rows.filter(r => {
+            if (state.greenhouseFilter && r.greenhouse !== state.greenhouseFilter) return false;
+            if (state.varietyFilter && r.variety !== state.varietyFilter) return false;
+            if (needle) {
+                const hay = `${r.greenhouse || ""} ${r.variety || ""}`.toLowerCase();
+                if (!hay.includes(needle)) return false;
+            }
+            return true;
+        });
     }
 
     function rerenderGridOnly() {
@@ -369,11 +479,13 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             { type: "text", title: "Variety",    width: 130, readOnly: true },
             { type: "text", title: "Pattern",    width: 104, readOnly: true, align: "left" },
         ];
+        const baseWidth = isCompare ? 132 : 56;
+        const zoom = baseWidth + (state.zoomLevel * (isCompare ? 16 : 8));
         for (let w = 1; w <= 52; w++) {
             columns.push({
                 type: isCompare ? "text" : "numeric",
                 title: `W${w}`,
-                width: isCompare ? 132 : 56,
+                width: Math.max(40, zoom),
                 readOnly: isCompare,
                 mask: isCompare ? undefined : "#,##",
                 align: "right",
@@ -420,8 +532,10 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             onchange: handleCellChange,
             onpaste: () => { scheduleSave(); updateBulkBarVisibility(); },
             onselection: (instance, x1, y1, x2, y2) => {
+                state.lastSelection = { x1, y1, x2, y2 };
                 paintSelection(x1, y1, x2, y2);
                 updateBulkBarVisibility(x1, y1, x2, y2);
+                updateStats(x1, y1, x2, y2);
             },
         });
 
@@ -497,12 +611,167 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
         if (!r) return;
         // x: 0=GH 1=Variety 2=Pattern 3..54=Weeks 55=Budget 56=Actual 57=Var% 58=Mode
         if (col >= 3 && col <= 54) {
-            const week = col - 2;  // x=3 -> week 1
-            const numeric = parseInt(String(value).replace(/[, ]/g, "")) || 0;
+            const week = col - 2;
+            const raw = String(value || "").trim();
+            let numeric;
+            if (raw.startsWith("=")) {
+                try {
+                    numeric = evalFormula(raw, r.weeks);
+                    // Write the evaluated number back into the cell display.
+                    if (window.uagriSheet?.setValueFromCoords) {
+                        window.uagriSheet.setValueFromCoords(col, row, numeric, true);
+                    }
+                } catch (e) {
+                    setStatus(`Formula error in W${week}: ${e.message || e}`);
+                    return;
+                }
+            } else {
+                numeric = parseInt(raw.replace(/[, ]/g, "")) || 0;
+            }
             queueEdit(r, week, numeric);
         } else if (col === 58) {
             changeSource(r, value);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // formula evaluator
+    // -------------------------------------------------------------------------
+    //
+    // Supported syntax (whitelisted, no eval injection):
+    //   - integers and floats
+    //   - + - * / ( )
+    //   - W<n>            references the same row's week <n> projected stems
+    //   - SUM(W<a>:W<b>)  inclusive range sum
+    //   - AVG(...)        inclusive range mean
+    //   - MAX(...) / MIN(...)
+    //   - PCT(p, base)    same as base * p / 100
+    //   - ROW_TOTAL()     sum of all 52 weeks
+    function evalFormula(expr, rowWeeks) {
+        let e = expr.replace(/^=/, "").trim();
+        if (!e) throw new Error("empty");
+
+        // Functions over ranges
+        e = e.replace(/\bSUM\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
+            String(_rangeAgg(rowWeeks, +a, +b, "sum")));
+        e = e.replace(/\bAVG\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
+            String(_rangeAgg(rowWeeks, +a, +b, "avg")));
+        e = e.replace(/\bMAX\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
+            String(_rangeAgg(rowWeeks, +a, +b, "max")));
+        e = e.replace(/\bMIN\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
+            String(_rangeAgg(rowWeeks, +a, +b, "min")));
+        e = e.replace(/\bROW_TOTAL\(\s*\)/gi, () =>
+            String(rowWeeks.reduce((s, v) => s + (v || 0), 0)));
+        e = e.replace(/\bPCT\(\s*([\d.]+)\s*,\s*([^)]+?)\s*\)/gi, (_, p, base) => {
+            const bnum = _safeEval(base);
+            return String((bnum * parseFloat(p)) / 100);
+        });
+
+        // Single-cell W<n> references
+        e = e.replace(/\bW(\d+)\b/gi, (_, n) => {
+            const idx = parseInt(n) - 1;
+            return String(rowWeeks[idx] || 0);
+        });
+
+        return Math.round(_safeEval(e));
+    }
+
+    function _rangeAgg(weeks, a, b, op) {
+        if (a > b) [a, b] = [b, a];
+        const lo = Math.max(1, a) - 1, hi = Math.min(52, b) - 1;
+        const slice = weeks.slice(lo, hi + 1).map(v => v || 0);
+        if (op === "sum") return slice.reduce((s, v) => s + v, 0);
+        if (op === "avg") return slice.length ? slice.reduce((s, v) => s + v, 0) / slice.length : 0;
+        if (op === "max") return slice.length ? Math.max(...slice) : 0;
+        if (op === "min") return slice.length ? Math.min(...slice) : 0;
+        return 0;
+    }
+
+    function _safeEval(expr) {
+        const cleaned = String(expr).replace(/\s+/g, "");
+        // Whitelist: digits, decimals, + - * / parens
+        if (!/^[\d+\-*/().]+$/.test(cleaned)) {
+            throw new Error(`bad syntax: ${cleaned}`);
+        }
+        // Compute via Function constructor in strict mode — the regex above
+        // prevents any identifier reaching the evaluator.
+        return Function(`"use strict"; return (${cleaned});`)();
+    }
+
+    async function applyFormulaToSelection() {
+        const fxInput = document.querySelector('[data-target="fxinput"]');
+        if (!fxInput || !fxInput.value.trim()) return;
+        const sel = state.lastSelection;
+        if (!sel) { setStatus("Select a cell range first"); return; }
+        const formula = fxInput.value.trim();
+        const rowsRef = window.uagriRowsRef || [];
+        const xlo = Math.max(3, Math.min(sel.x1, sel.x2));
+        const xhi = Math.min(54, Math.max(sel.x1, sel.x2));
+        const ylo = Math.min(sel.y1, sel.y2);
+        const yhi = Math.max(sel.y1, sel.y2);
+
+        let count = 0;
+        for (let y = ylo; y <= yhi; y++) {
+            const r = rowsRef[y];
+            if (!r) continue;
+            for (let x = xlo; x <= xhi; x++) {
+                const week = x - 2;
+                let val;
+                try {
+                    val = formula.startsWith("=")
+                        ? evalFormula(formula, r.weeks)
+                        : parseInt(String(formula).replace(/[, ]/g, "")) || 0;
+                } catch (e) {
+                    setStatus(`Formula error: ${e.message}`);
+                    return;
+                }
+                if (window.uagriSheet?.setValueFromCoords) {
+                    window.uagriSheet.setValueFromCoords(x, y, val, true);
+                }
+                queueEdit(r, week, val);
+                count++;
+            }
+        }
+        setStatus(`Applied formula to ${count} cells`);
+    }
+
+    // -------------------------------------------------------------------------
+    // selection stats
+    // -------------------------------------------------------------------------
+    function updateStats(x1, y1, x2, y2) {
+        const wrapEl = document.querySelector("[data-stats]");
+        if (!wrapEl) return;
+        const set = (key, val) => {
+            const el = wrapEl.querySelector(`[data-stat="${key}"] em`);
+            if (el) el.textContent = val;
+        };
+        if (x1 === undefined) {
+            ["sum", "avg", "max", "min", "count"].forEach(k => set(k, "—"));
+            return;
+        }
+        const xlo = Math.max(3, Math.min(x1, x2));
+        const xhi = Math.min(54, Math.max(x1, x2));
+        const ylo = Math.min(y1, y2);
+        const yhi = Math.max(y1, y2);
+        const rowsRef = window.uagriRowsRef || [];
+        const vals = [];
+        for (let y = ylo; y <= yhi; y++) {
+            const r = rowsRef[y];
+            if (!r) continue;
+            for (let x = xlo; x <= xhi; x++) {
+                vals.push(r.weeks[x - 3] || 0);
+            }
+        }
+        if (!vals.length) {
+            ["sum", "avg", "max", "min", "count"].forEach(k => set(k, "—"));
+            return;
+        }
+        const sum = vals.reduce((s, v) => s + v, 0);
+        set("sum",   fmtFull(sum));
+        set("avg",   fmtFull(Math.round(sum / vals.length)));
+        set("max",   fmtFull(Math.max(...vals)));
+        set("min",   fmtFull(Math.min(...vals)));
+        set("count", String(vals.length));
     }
 
     function queueEdit(r, week, value) {
@@ -793,9 +1062,15 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
 
     function bindShortcuts() {
         document.addEventListener("keydown", async (ev) => {
+            const t = ev.target;
+            const inEditor = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
             if ((ev.metaKey || ev.ctrlKey) && ev.key === "s") {
                 ev.preventDefault();
                 await flushSave();
+            } else if (ev.key === "F" && !inEditor) {
+                toggleFullscreen();
+            } else if (ev.key === "Escape" && state.fullscreen) {
+                toggleFullscreen(false);
             }
         });
         window.addEventListener("beforeunload", () => {

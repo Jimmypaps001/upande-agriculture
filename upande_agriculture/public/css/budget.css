@@ -153,6 +153,133 @@
 }
 .uagri-yearpill:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
 
+/* --- icon button (e.g. fullscreen toggle) --- */
+.uagri-iconbtn {
+    width: 40px; height: 40px;
+    border: 0;
+    background: var(--surface-2);
+    border-radius: 50%;
+    display: grid; place-items: center;
+    cursor: pointer;
+    color: var(--ink-4);
+    box-shadow: var(--shadow-card);
+    transition: all 0.2s;
+}
+.uagri-iconbtn:hover { color: var(--ink); transform: translateY(-1px); }
+
+/* --- toolbar (formula bar + stats + tools) — visible only in fullscreen --- */
+.uagri-tools {
+    display: none;
+    background: var(--ink);
+    color: #fafaf6;
+    border-radius: 16px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: 0 8px 24px -10px rgba(10,10,10,0.30);
+}
+.uagri-budget-page.uagri-fs .uagri-tools {
+    display: flex;
+}
+.uagri-fxbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 360px;
+    min-width: 320px;
+}
+.uagri-fx-label {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0 12px;
+    transition: background 0.15s;
+}
+.uagri-fx-label:focus-within { background: rgba(255, 255, 255, 0.14); }
+.uagri-fx-icon {
+    font: italic 700 14px var(--display);
+    color: var(--signal);
+    margin-right: 10px;
+    letter-spacing: -0.5px;
+}
+.uagri-fx-input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: #fafaf6;
+    font: 500 13px var(--mono);
+    padding: 10px 0;
+    min-width: 0;
+}
+.uagri-fx-input::placeholder { color: #807d75; font-style: italic; }
+.uagri-tool-btn {
+    background: rgba(255, 255, 255, 0.10);
+    border: 0;
+    color: #fafaf6;
+    font: 500 12px var(--sans);
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.uagri-tool-btn:hover { background: rgba(255, 255, 255, 0.18); }
+.uagri-tool-cluster {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: auto;
+}
+.uagri-stats {
+    display: inline-flex;
+    align-items: center;
+    gap: 18px;
+    padding-left: 8px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+}
+.uagri-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+}
+.uagri-stat b {
+    font-family: var(--display);
+    font-style: italic;
+    font-weight: 700;
+    color: var(--signal);
+    font-size: 14px;
+}
+.uagri-stat em {
+    font-style: normal;
+    color: #fafaf6;
+    font-weight: 600;
+}
+
+/* --- find input --- */
+.uagri-find {
+    flex: 1;
+    min-width: 220px;
+    max-width: 340px;
+    background: var(--surface-2);
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 14px 10px 36px;
+    font: 500 13px var(--sans);
+    color: var(--ink);
+    box-shadow: var(--shadow-card);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8780' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 12px center;
+}
+.uagri-find:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
+.uagri-find::placeholder { color: var(--ink-mute); font-style: italic; }
+
 /* --- filters / status --- */
 .uagri-filters {
     display: flex;
@@ -662,6 +789,43 @@
     border: 0 !important;
 }
 .jdropdown-item { font: 500 13px var(--sans) !important; }
+
+/* ========================================================================
+   Fullscreen mode — covers the viewport, hides Frappe chrome,
+   exposes the spreadsheet toolbar.
+   ======================================================================== */
+
+body.uagri-fs-locked { overflow: hidden !important; }
+body.uagri-fs-locked .navbar,
+body.uagri-fs-locked .desk-sidebar,
+body.uagri-fs-locked .layout-side-section,
+body.uagri-fs-locked .standard-sidebar { display: none !important; }
+
+.uagri-budget-page.uagri-fs {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 9998;
+    background: var(--bg);
+    overflow: auto;
+}
+.uagri-budget-page.uagri-fs .uagri-shell {
+    padding: 22px 32px 18px;
+    min-height: 100vh;
+}
+.uagri-budget-page.uagri-fs .uagri-head { margin-bottom: 18px; }
+.uagri-budget-page.uagri-fs .uagri-head__title { font-size: 32px; }
+.uagri-budget-page.uagri-fs .uagri-head__sub { display: none; }
+.uagri-budget-page.uagri-fs .uagri-filters { margin-bottom: 10px; }
+.uagri-budget-page.uagri-fs .uagri-grid {
+    /* Use almost the entire fullscreen viewport for the grid */
+    --grid-vh-offset: 280px;
+}
+.uagri-budget-page.uagri-fs .uagri-grid table.jexcel_overflow {
+    max-height: calc(100vh - var(--grid-vh-offset)) !important;
+}
+.uagri-budget-page.uagri-fs .uagri-iconbtn[data-action="fullscreen"] svg {
+    color: var(--signal);
+}
 
 /* Responsive */
 @media (max-width: 1000px) {
