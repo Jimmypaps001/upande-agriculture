@@ -509,13 +509,15 @@ def _gh_prefix(greenhouse: str | None) -> str | None:
 
 
 def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
-    """Sum harvested stems per ISO week from submitted Stock Entry receipts.
+    """Sum harvested stems per ISO week using the same source the Harvest
+    Dashboard reads — `stock_entry_type='Harvesting'` rows keyed by
+    `se.custom_greenhouse`, excluding QC-rejected entries (those have
+    `custom_quality_section` populated).
 
-    Mona's harvest workflow posts Material Receipt entries whose
-    t_warehouse is the greenhouse the stems were cut from. Projections
-    live under the `MFL` company while production-floor warehouses use
-    `MFK` — so we match by the `Main GH NN` prefix and accept either
-    company suffix.
+    The harvest dashboard normalises `custom_greenhouse` by stripping
+    the trailing ` - MFK` suffix before comparison; we apply the same
+    normalisation so we can match `Main GH 01 - MFL` projections to
+    `Main GH 01 - MFK` harvest entries via the shared prefix.
     """
     prefix = _gh_prefix(greenhouse)
     if not prefix:
@@ -526,13 +528,14 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
         FROM `tabStock Entry` se
         JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
         WHERE se.docstatus = 1
-          AND se.purpose = 'Material Receipt'
-          AND sed.t_warehouse LIKE %s
+          AND se.stock_entry_type = 'Harvesting'
+          AND (se.custom_quality_section IS NULL OR se.custom_quality_section = '')
+          AND TRIM(REPLACE(se.custom_greenhouse, ' - MFK', '')) = %s
           AND sed.item_code = %s
           AND YEAR(se.posting_date) = %s
         GROUP BY WEEK(se.posting_date, 3)
         """,
-        (f"{prefix}%", variety, year),
+        (prefix, variety, year),
         as_dict=True,
     )
     weeks = [0] * 52
@@ -834,22 +837,25 @@ def copy_aggregated_row(source_greenhouse: str, source_variety_base: str,
 def get_prior_year_actuals(year: int) -> dict:
     """Prior-year actuals per (greenhouse, base variety) for overlay charts.
 
-    Aggregates Stock Entry Material Receipt qty by ISO week, normalised to
-    the `Main GH NN` prefix so it joins to either MFK or MFL projections.
+    Mirrors the Harvest Dashboard's canonical source: Harvesting Stock
+    Entries with `custom_quality_section` empty (i.e. not QC-rejected).
     """
     prev = int(year) - 1
     rows = frappe.db.sql(
         """
-        SELECT sed.t_warehouse AS gh, sed.item_code AS variety,
-               WEEK(se.posting_date, 3) AS w, SUM(sed.qty) AS s
+        SELECT TRIM(REPLACE(se.custom_greenhouse, ' - MFK', '')) AS gh_prefix,
+               sed.item_code AS variety,
+               WEEK(se.posting_date, 3) AS w,
+               SUM(sed.qty) AS s
         FROM `tabStock Entry` se
         JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
         WHERE se.docstatus = 1
-          AND se.purpose = 'Material Receipt'
-          AND sed.t_warehouse LIKE 'Main GH%%'
+          AND se.stock_entry_type = 'Harvesting'
+          AND (se.custom_quality_section IS NULL OR se.custom_quality_section = '')
+          AND se.custom_greenhouse IS NOT NULL
           AND sed.item_code LIKE '%%cm'
           AND YEAR(se.posting_date) = %s
-        GROUP BY sed.t_warehouse, sed.item_code, w
+        GROUP BY gh_prefix, sed.item_code, w
         """,
         (prev,),
         as_dict=True,
@@ -857,7 +863,7 @@ def get_prior_year_actuals(year: int) -> dict:
     out: dict[str, list[int]] = {}
     for r in rows:
         base = _variety_base(r["variety"])
-        prefix = _gh_prefix(r["gh"]) or ""
+        prefix = r["gh_prefix"] or ""
         # Index by both MFL and MFK candidates so the JS lookup works no
         # matter which suffix the projection greenhouse uses.
         for suffix in ("MFL", "MFK"):

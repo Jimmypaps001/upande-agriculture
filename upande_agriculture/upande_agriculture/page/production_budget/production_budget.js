@@ -255,20 +255,37 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     }
 
     function compareCell(b, f, p, a) {
-        // Each layer rendered as a strongly-coloured span, with a coloured
-        // dot AND a coloured number. Inline colour set on the number itself
-        // so no CSS specificity battle is needed.
-        const line = (cls, color, value) =>
-            `<span class="uagri-cmp__line ${cls}">
-                <span class="uagri-cmp__dot" style="background:${color}"></span>
-                <b style="color:${color}">${fmt(value)}</b>
-            </span>`;
-        return `<div class="uagri-cmp">
-            ${line("uagri-cmp--b", "#0a0a0a", b)}
-            ${line("uagri-cmp--f", "#0ea5e9", f)}
-            ${line("uagri-cmp--p", "#f59e0b", p)}
-            ${line("uagri-cmp--a", "#10b981", a)}
+        // 4 horizontal sparkbars, each colored layer + abbreviated number.
+        // Bar lengths are proportional within the cell so the comparison
+        // reads at a glance — equal bars = on plan, mismatched = off.
+        const max = Math.max(1, b, f, p, a);
+        const pct = (v) => Math.max(0, Math.min(100, (v / max) * 100));
+        const bar = (cls, color, label, value) => {
+            const w = pct(value);
+            const visible = value > 0 ? "" : "uagri-cbar--zero";
+            return `<div class="uagri-cbar ${cls} ${visible}">
+                <span class="uagri-cbar__label" style="color:${color}">${label}</span>
+                <span class="uagri-cbar__track">
+                    <span class="uagri-cbar__fill" style="width:${w.toFixed(1)}%;background:${color}"></span>
+                </span>
+                <span class="uagri-cbar__value" style="color:${color}">${fmtShort(value)}</span>
+            </div>`;
+        };
+        return `<div class="uagri-cstack">
+            ${bar("uagri-cbar--b", "#0a0a0a", "B", b)}
+            ${bar("uagri-cbar--f", "#0ea5e9", "F", f)}
+            ${bar("uagri-cbar--p", "#f59e0b", "P", p)}
+            ${bar("uagri-cbar--a", "#10b981", "A", a)}
         </div>`;
+    }
+
+    function fmtShort(n) {
+        if (!n) return "·";
+        const abs = Math.abs(n);
+        if (abs >= 1000000) return (n / 1000000).toFixed(1) + "M";
+        if (abs >= 10000)   return Math.round(n / 1000) + "k";
+        if (abs >= 1000)    return (n / 1000).toFixed(1) + "k";
+        return String(n);
     }
 
     function fmt(n) {
@@ -360,7 +377,7 @@ frappe.pages["production_budget"].on_page_load = async function (wrapper) {
             columns.push({
                 type: isCompare ? "text" : "numeric",
                 title: `W${w}`,
-                width: isCompare ? 68 : 56,
+                width: isCompare ? 96 : 56,
                 readOnly: isCompare,
                 mask: isCompare ? undefined : "#,##",
                 align: "right",

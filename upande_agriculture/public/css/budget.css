@@ -393,56 +393,84 @@
     overflow: visible;
 }
 
-/* Compare-mode 4-stack cell — laid out as a tight 2x2 grid */
-.uagri-cmp {
+/* ========================================================================
+   Compare mode — 4 horizontal sparkbars stacked per cell.
+   Each layer (Budget/Forecast/Plan/Actual) gets:
+     label  ████████░░  4.2k
+   where the bar length is the value's share of the cell's max layer.
+   Equal bars = the layers agree (good). Mismatched bars draw the eye.
+   ======================================================================== */
+
+.uagri-cstack {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 2px 6px;
+    grid-template-rows: repeat(4, 1fr);
+    gap: 2px;
     width: 100%;
     height: 100%;
-    line-height: 1.1;
-    align-content: center;
+    padding: 4px 2px;
+    box-sizing: border-box;
+    line-height: 1;
 }
-.uagri-cmp__line {
-    display: inline-flex !important;
+.uagri-cbar {
+    display: grid;
+    grid-template-columns: 9px 1fr 30px;
     align-items: center;
-    justify-content: flex-end;
     gap: 4px;
-    padding: 1px 3px;
-    font-family: var(--mono) !important;
-    font-size: 10px !important;
-    font-weight: 500 !important;
+    font: 600 9px var(--mono) !important;
     font-variant-numeric: tabular-nums;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border-radius: 3px;
+    letter-spacing: 0.2px;
 }
-.uagri-cmp__line b {
+.uagri-cbar__label {
+    font-family: var(--display) !important;
+    font-style: italic;
+    font-size: 9px !important;
     font-weight: 700 !important;
-    font-style: normal !important;   /* defensive vs UA italic-on-<b> resets */
+    text-align: center;
+    opacity: 0.85;
 }
-.uagri-cmp__dot {
-    width: 6px !important;
-    height: 6px !important;
-    border-radius: 50% !important;
-    display: inline-block !important;
-    flex: 0 0 6px;
-    /* inline background colour is supplied on each element */
+.uagri-cbar__track {
+    height: 6px;
+    background: rgba(10, 10, 10, 0.06);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
 }
-/* Subtle background tints to differentiate the 4 layers even when the
-   cell is small. The bold number colours already differ. */
-.uagri-cmp--b { background: rgba(10,10,10,0.05); }
-.uagri-cmp--f { background: rgba(14,165,233,0.10); }
-.uagri-cmp--p { background: rgba(245,158,11,0.12); }
-.uagri-cmp--a { background: rgba(16,185,129,0.12); }
+.uagri-cbar__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.25s ease;
+}
+.uagri-cbar__value {
+    font-family: var(--mono) !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    text-align: right;
+    white-space: nowrap;
+}
+/* Zero-value layer: muted so eye skips it */
+.uagri-cbar--zero .uagri-cbar__label,
+.uagri-cbar--zero .uagri-cbar__value {
+    opacity: 0.30;
+}
+.uagri-cbar--zero .uagri-cbar__fill { background: transparent !important; }
 
-/* In compare mode, week-column cells get bigger + remove default padding */
+/* Compare-mode week cells: taller, neutral bg, no right-align, no padding */
 .uagri-budget-page.uagri-compare .uagri-grid table.jexcel > tbody > tr > td[data-x]:not([data-x="0"]):not([data-x="1"]):not([data-x="2"]):not([data-x="55"]):not([data-x="56"]):not([data-x="57"]):not([data-x="58"]) {
-    padding: 3px 4px !important;
-    height: 48px;
+    padding: 0 !important;
+    height: 62px;
     background: var(--surface-2) !important;
     text-align: left;
+    vertical-align: middle;
+}
+/* Visual band between rows in compare mode so rows separate cleanly */
+.uagri-budget-page.uagri-compare .uagri-grid table.jexcel > tbody > tr > td {
+    border-color: rgba(10, 10, 10, 0.10) !important;
+}
+/* Identifier columns in compare get a thicker right edge for clean freeze */
+.uagri-budget-page.uagri-compare .uagri-grid table.jexcel > tbody > tr > td[data-x="2"] {
+    border-right: 2px solid rgba(10, 10, 10, 0.15) !important;
 }
 
 /* =========================================================================
