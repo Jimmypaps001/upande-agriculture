@@ -324,3 +324,215 @@ def list_active_cycles(greenhouse: str | None = None) -> list[dict]:
         ],
         order_by="planting_date desc",
     )
+
+
+# ---------------------------------------------------------------------------
+# Budget spreadsheet — used by the /app/budget desk page
+# ---------------------------------------------------------------------------
+
+@frappe.whitelist()
+def get_budget_grid(year: int, mode: str = "budget") -> dict:
+    """
+    Return the full annual budget grid for a year.
+
+    Returns:
+        {
+            "year": 2026,
+            "rows": [
+                {
+                    "projection": "PP-CC-...",  # Production Projection docname
+                    "greenhouse": "GH-A1",
+                    "variety": "Athena White",
+                    "source": "Manual" | "Calculated from Protocol" | "Hybrid",
+                    "weeks": [w1, w2, ..., w52],      # primary layer (budget)
+                    "forecast": [...] | None,         # only in mode=compare
+                    "plan": [...] | None,
+                    "actual": [...] | None,
+                    "total": 132400,
+                },
+                ...
+            ],
+            "month_offsets": [1, 5, 9, 14, 18, 22, 27, 31, 35, 40, 44, 48],
+            "month_labels":  ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+        }
+    """
+    year = int(year)
+    projections = frappe.db.sql(
+        """
+        SELECT pp.name, pp.greenhouse, pp.variety, pp.source
+        FROM `tabProduction Projection` pp
+        WHERE pp.projection_year = %s
+        ORDER BY pp.greenhouse, pp.variety
+        """,
+        (year,),
+        as_dict=True,
+    )
+
+    rows: list[dict] = []
+    for p in projections:
+        weeks = _projection_week_array(p["name"])
+        row = {
+            "projection": p["name"],
+            "greenhouse": p["greenhouse"],
+            "variety": p["variety"],
+            "source": p["source"],
+            "weeks": weeks,
+            "total": sum(weeks),
+        }
+        if mode == "compare":
+            row["forecast"] = _forecast_week_array(p["greenhouse"], p["variety"], year)
+            row["plan"] = _plan_week_array(p["greenhouse"], p["variety"], year)
+            row["actual"] = _actual_week_array(p["greenhouse"], p["variety"], year)
+        rows.append(row)
+
+    return {
+        "year": year,
+        "rows": rows,
+        "month_offsets": [1, 5, 9, 14, 18, 22, 27, 31, 35, 40, 44, 48],
+        "month_labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    }
+
+
+def _projection_week_array(projection_name: str) -> list[int]:
+    rows = frappe.db.sql(
+        """
+        SELECT week, projected_stems
+        FROM `tabProjection Week`
+        WHERE parent = %s
+        """,
+        (projection_name,),
+        as_dict=True,
+    )
+    weeks = [0] * 52
+    for r in rows:
+        w = int(r["week"] or 0)
+        if 1 <= w <= 52:
+            weeks[w - 1] = int(r["projected_stems"] or 0)
+    return weeks
+
+
+def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
+    rows = frappe.db.sql(
+        """
+        SELECT fw.week_number, fw.forecasted_stems
+        FROM `tabProduction Forecast` pf
+        JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
+        WHERE pf.greenhouse = %s AND pf.variety = %s
+          AND pf.forecast_year = %s AND pf.status = 'Active'
+        """,
+        (greenhouse, variety, year),
+        as_dict=True,
+    )
+    weeks = [0] * 52
+    for r in rows:
+        w = int(r["week_number"] or 0)
+        if 1 <= w <= 52:
+            weeks[w - 1] = int(r["forecasted_stems"] or 0)
+    return weeks
+
+
+def _plan_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
+    rows = frappe.db.sql(
+        """
+        SELECT pf.plan_week, SUM(pv.planned_stems) AS s
+        FROM `tabProduction Plan Form` pf
+        JOIN `tabProduction Plan Variety` pv ON pv.parent = pf.name
+        WHERE pf.greenhouse = %s AND pv.variety = %s
+          AND pf.plan_year = %s AND pf.docstatus < 2
+        GROUP BY pf.plan_week
+        """,
+        (greenhouse, variety, year),
+        as_dict=True,
+    )
+    weeks = [0] * 52
+    for r in rows:
+        w = int(r["plan_week"] or 0)
+        if 1 <= w <= 52:
+            weeks[w - 1] = int(r["s"] or 0)
+    return weeks
+
+
+def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
+    if not frappe.db.has_table("tabActual Harvest"):
+        return [0] * 52
+    rows = frappe.db.sql(
+        """
+        SELECT WEEK(harvest_date, 3) AS w, SUM(stems) AS s
+        FROM `tabActual Harvest`
+        WHERE warehouse = %s AND variety = %s AND YEAR(harvest_date) = %s
+        GROUP BY WEEK(harvest_date, 3)
+        """,
+        (greenhouse, variety, year),
+        as_dict=True,
+    )
+    weeks = [0] * 52
+    for r in rows:
+        w = int(r["w"] or 0)
+        if 1 <= w <= 52:
+            weeks[w - 1] = int(r["s"] or 0)
+    return weeks
+
+
+@frappe.whitelist()
+def update_projection_week(projection: str, week: int, value: int) -> dict:
+    """Update one cell. Sets manual_override=1 if the row is Hybrid."""
+    week = int(week); value = int(value)
+    proj = frappe.get_doc("Production Projection", projection)
+    target = None
+    for w in proj.weeks:
+        if int(w.week or 0) == week:
+            target = w
+            break
+    if not target:
+        target = proj.append("weeks", {"week": week})
+    target.projected_stems = value
+    if proj.source == "Hybrid":
+        target.manual_override = 1
+    proj.save(ignore_permissions=True)
+    return {"ok": True}
+
+
+@frappe.whitelist()
+def bulk_update_projection_weeks(updates: str | list[dict]) -> dict:
+    """Apply many cell changes in one save per projection.
+
+    updates: list of {"projection": str, "week": int, "value": int}
+    """
+    if isinstance(updates, str):
+        updates = json.loads(updates)
+    by_proj: dict[str, list[dict]] = {}
+    for u in updates or []:
+        by_proj.setdefault(u["projection"], []).append(u)
+
+    touched = 0
+    for proj_name, changes in by_proj.items():
+        proj = frappe.get_doc("Production Projection", proj_name)
+        week_map = {int(w.week or 0): w for w in proj.weeks}
+        for ch in changes:
+            w_num = int(ch["week"])
+            row = week_map.get(w_num) or proj.append("weeks", {"week": w_num})
+            row.projected_stems = int(ch["value"] or 0)
+            if proj.source == "Hybrid":
+                row.manual_override = 1
+            week_map[w_num] = row
+            touched += 1
+        proj.save(ignore_permissions=True)
+
+    return {"ok": True, "touched": touched}
+
+
+@frappe.whitelist()
+def set_projection_source(projection: str, source: str) -> dict:
+    """Toggle a single Projection's source (Manual / Hybrid / Calculated)."""
+    if source not in ("Manual", "Hybrid", "Calculated from Protocol"):
+        frappe.throw(_("Invalid source: {0}").format(source))
+    frappe.db.set_value("Production Projection", projection, "source", source)
+    if source != "Manual":
+        # Recalculate immediately so the new weeks land.
+        try:
+            regenerate_projection(projection)
+        except Exception:
+            frappe.log_error(frappe.get_traceback(), "set_projection_source recalc")
+    return {"ok": True, "source": source}
+
