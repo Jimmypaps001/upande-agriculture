@@ -7,9 +7,9 @@
  "modified": "2026-06-22 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Upande Agriculture",
- "name": "budget",
+ "name": "production_budget",
  "owner": "Administrator",
- "page_name": "budget",
+ "page_name": "production_budget",
  "roles": [
   {"role": "Stock User"},
   {"role": "System Manager"}

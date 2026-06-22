@@ -76,7 +76,7 @@
     "icon": null,
     "kanban_board": null,
     "label": "Budget",
-    "link_to": "budget",
+    "link_to": "production_budget",
     "report_ref_doctype": null,
     "restrict_to_domain": null,
     "stats_filter": null,

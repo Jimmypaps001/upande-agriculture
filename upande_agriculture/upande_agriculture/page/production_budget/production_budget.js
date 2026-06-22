@@ -10,7 +10,7 @@
  * surface, Poppins/Fraunces/JetBrains Mono, signal teal #228883.
  */
 
-frappe.pages["budget"].on_page_load = async function (wrapper) {
+frappe.pages["production_budget"].on_page_load = async function (wrapper) {
     const page = frappe.ui.make_app_page({
         parent: wrapper,
         title: __("Production Budget"),
