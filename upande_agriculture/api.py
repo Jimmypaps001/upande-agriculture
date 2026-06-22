@@ -416,12 +416,14 @@ def get_budget_grid(year: int, mode: str = "compact") -> dict:
             "variants": _variant_codes(template),
             "source": p["source"] or "Manual",
             "weeks": _projection_week_array(p["name"]),
+            # Actuals always included — used by heatmap shading + variance %
+            # in both modes, not just compare.
+            "actual": _actual_week_array(gh, template, year),
         }
         row["total"] = sum(row["weeks"])
         if mode == "compare":
             row["forecast"] = _forecast_week_array(gh, template, year)
             row["plan"] = _plan_week_array(gh, template, year)
-            row["actual"] = _actual_week_array(gh, template, year)
         rows.append(row)
 
     rows.sort(key=lambda r: (r["greenhouse"] or "ZZZ", r["variety"]))
