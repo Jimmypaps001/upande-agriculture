@@ -5,6 +5,14 @@ app_description = "Agriculture module"
 app_email = "dev@upande.com"
 app_license = "mit"
 
+# Fixtures
+# ------------------
+# Doctypes / custom fields for this module are synced from their JSON on
+# migrate; Client Scripts owned by this app are exported here as fixtures.
+fixtures = [
+	{"dt": "Client Script", "filters": [["name", "in", ["Crop Cycle Automation"]]]},
+]
+
 # Apps
 # ------------------
 
@@ -137,13 +145,14 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	# Real-time actuals: a Harvesting Stock Entry refreshes the actual_harvest
+	# of every affected Production Projection on submit/cancel.
+	"Stock Entry": {
+		"on_submit": "upande_agriculture.upande_agriculture.doctype.production_projection.production_projection.update_projections_from_stock_entry",
+		"on_cancel": "upande_agriculture.upande_agriculture.doctype.production_projection.production_projection.update_projections_from_stock_entry",
+	},
+}
 
 # Scheduled Tasks
 # ---------------

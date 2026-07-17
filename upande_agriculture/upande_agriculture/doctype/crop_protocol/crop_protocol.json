@@ -1,34 +1,87 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:protocol_name",
- "creation": "2026-05-25 16:15:49.023869",
+ "autoname": "field:variety",
+ "creation": "2026-07-17 13:08:06.757695",
  "default_view": "List",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "protocol_name",
+  "propagation_tab",
+  "protocol_section",
+  "farm",
+  "variety",
+  "colour",
+  "column_break_protocol",
+  "propagation_method",
+  "weeks_in_propagation",
+  "growth_stages_section",
+  "growth_stages",
+  "production_tab",
+  "planting_section",
   "plants_per_sqm",
+  "column_break_planting",
   "yield_stems_per_ha",
-  "column_break_1",
+  "timeline_section",
   "weeks_to_pinch",
   "weeks_pinch_to_first_harvest",
+  "column_break_timeline",
   "total_weeks_in_ground",
-  "section_break_1",
+  "flush_details_section",
   "weeks_between_flushes",
-  "total_flushes",
+  "column_break_flush",
   "total_stems_per_plant_life",
-  "flush_schedule"
+  "flush_schedule_section",
+  "flush_schedule",
+  "total_flushes"
  ],
  "fields": [
   {
-   "fieldname": "protocol_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Protocol Name",
-   "reqd": 1,
-   "unique": 1
+   "fieldname": "propagation_tab",
+   "fieldtype": "Tab Break",
+   "label": "Propagation"
+  },
+  {
+   "fieldname": "protocol_section",
+   "fieldtype": "Section Break",
+   "label": "Protocol Details"
+  },
+  {
+   "fieldname": "column_break_protocol",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "propagation_method",
+   "fieldtype": "Select",
+   "label": "Propagation Method",
+   "options": "\nCutting\nBudding\nGrafting\nTissue Culture\nSeedling"
+  },
+  {
+   "fieldname": "weeks_in_propagation",
+   "fieldtype": "Int",
+   "label": "Weeks in Propagation"
+  },
+  {
+   "fieldname": "growth_stages_section",
+   "fieldtype": "Section Break",
+   "label": "Growth Stages"
+  },
+  {
+   "fieldname": "growth_stages",
+   "fieldtype": "Table",
+   "label": "Growth Stages",
+   "options": "Crop Protocol Growth Stage"
+  },
+  {
+   "fieldname": "production_tab",
+   "fieldtype": "Tab Break",
+   "label": "Production"
+  },
+  {
+   "fieldname": "planting_section",
+   "fieldtype": "Section Break",
+   "label": "Planting"
   },
   {
    "fieldname": "plants_per_sqm",
@@ -36,13 +89,18 @@
    "label": "Plants Per Sqm"
   },
   {
+   "fieldname": "column_break_planting",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "yield_stems_per_ha",
    "fieldtype": "Int",
    "label": "Yield Stems Per Ha"
   },
   {
-   "fieldname": "column_break_1",
-   "fieldtype": "Column Break"
+   "fieldname": "timeline_section",
+   "fieldtype": "Section Break",
+   "label": "Growing Timeline"
   },
   {
    "fieldname": "weeks_to_pinch",
@@ -55,12 +113,16 @@
    "label": "Weeks Pinch to First Harvest"
   },
   {
+   "fieldname": "column_break_timeline",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "total_weeks_in_ground",
    "fieldtype": "Int",
    "label": "Total Weeks in Ground"
   },
   {
-   "fieldname": "section_break_1",
+   "fieldname": "flush_details_section",
    "fieldtype": "Section Break",
    "label": "Flush Details"
   },
@@ -72,7 +134,12 @@
   {
    "fieldname": "total_flushes",
    "fieldtype": "Int",
-   "label": "Total Flushes"
+   "label": "Total Flushes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_flush",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "total_stems_per_plant_life",
@@ -80,21 +147,48 @@
    "label": "Total Stems Per Plant Life"
   },
   {
+   "fieldname": "flush_schedule_section",
+   "fieldtype": "Section Break",
+   "label": "Flush Schedule"
+  },
+  {
    "fieldname": "flush_schedule",
    "fieldtype": "Table",
    "label": "Flush Schedule",
    "options": "Crop Protocol Flush"
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm"
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "variety.custom_color",
+   "fieldname": "colour",
+   "fieldtype": "Link",
+   "label": "Colour",
+   "options": "Color"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-04 07:30:10.605699",
- "modified_by": "Administrator",
+ "modified": "2026-07-17 19:07:27.033417",
+ "modified_by": "james@upande.com",
  "module": "Upande Agriculture",
  "name": "Crop Protocol",
  "naming_rule": "By fieldname",
- "owner": "james@upande.com",
+ "owner": "Administrator",
  "permissions": [
   {
    "create": 1,
@@ -125,5 +219,6 @@
  "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

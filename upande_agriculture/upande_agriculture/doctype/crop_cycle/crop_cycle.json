@@ -2,40 +2,43 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:greenhouse",
- "creation": "2026-06-02 20:51:05.048791",
+ "creation": "2026-07-17 13:31:55.778724",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "crop_cycle_tab",
   "details_section",
   "greenhouse",
   "farm",
+  "column_break_ewxf",
   "company",
-  "cb_details",
-  "crop_type",
-  "uses_blocks",
   "geometry_section",
-  "plants_per_sqm",
   "gross_area",
-  "cb_geo2",
-  "number_of_bays",
-  "number_of_beds",
-  "varieties",
   "area_planted",
+  "varieties",
+  "cb_geo2",
+  "plants_per_sqm",
   "number_of_plants",
+  "number_of_beds",
   "varieties_grown_section",
   "varieties_grown",
-  "bay_config_section",
-  "bay_configuration",
   "bedconfig_section",
   "bed_range",
   "individual_beds_section",
   "individual_beds",
-  "replanting_section",
+  "replanting_tab",
+  "last_replanting_date",
   "replanting_logs",
-  "last_replanting_date"
+  "uprooting_tab",
+  "uprooting_logs"
  ],
  "fields": [
+  {
+   "fieldname": "crop_cycle_tab",
+   "fieldtype": "Tab Break",
+   "label": "Crop Cycle"
+  },
   {
    "fieldname": "details_section",
    "fieldtype": "Section Break",
@@ -65,22 +68,6 @@
    "options": "Company"
   },
   {
-   "fieldname": "cb_details",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "crop_type",
-   "fieldtype": "Table MultiSelect",
-   "label": "Crop Type",
-   "options": "Crop Cycle Crop Type"
-  },
-  {
-   "default": "0",
-   "fieldname": "uses_blocks",
-   "fieldtype": "Check",
-   "label": "Uses Blocks (Summer Flowers)"
-  },
-  {
    "fieldname": "geometry_section",
    "fieldtype": "Section Break",
    "label": "Greenhouse Geometry"
@@ -100,15 +87,9 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "number_of_bays",
-   "fieldtype": "Int",
-   "label": "Bays",
-   "read_only": 1
-  },
-  {
    "fieldname": "number_of_beds",
    "fieldtype": "Int",
-   "label": "Beds",
+   "label": "Number of Beds",
    "read_only": 1
   },
   {
@@ -141,25 +122,14 @@
    "options": "Crop Cycle Variety"
   },
   {
-   "fieldname": "bay_config_section",
-   "fieldtype": "Section Break",
-   "label": "Bay Configuration"
-  },
-  {
-   "fieldname": "bay_configuration",
-   "fieldtype": "Table",
-   "label": "Bay Configuration",
-   "options": "Crop Cycle Bay"
-  },
-  {
    "fieldname": "bedconfig_section",
    "fieldtype": "Section Break",
-   "label": "Bed Configuration"
+   "label": "Greenhouse crop cycle"
   },
   {
    "fieldname": "bed_range",
    "fieldtype": "Table",
-   "label": "Bed Configuration",
+   "label": "Greenhouse crop cycle",
    "options": "Bed Range"
   },
   {
@@ -174,9 +144,15 @@
    "options": "Crop Cycle Bed"
   },
   {
-   "fieldname": "replanting_section",
-   "fieldtype": "Section Break",
-   "label": "Replanting History"
+   "fieldname": "replanting_tab",
+   "fieldtype": "Tab Break",
+   "label": "Replanting"
+  },
+  {
+   "fieldname": "last_replanting_date",
+   "fieldtype": "Date",
+   "label": "Last Replanting Date",
+   "read_only": 1
   },
   {
    "fieldname": "replanting_logs",
@@ -185,17 +161,26 @@
    "options": "Replanting Log"
   },
   {
-   "fieldname": "last_replanting_date",
-   "fieldtype": "Date",
-   "label": "Last Replanting Date",
-   "read_only": 1
+   "fieldname": "uprooting_tab",
+   "fieldtype": "Tab Break",
+   "label": "Uprooting"
+  },
+  {
+   "fieldname": "uprooting_logs",
+   "fieldtype": "Table",
+   "label": "Uprooting Logs",
+   "options": "Uprooting Log"
+  },
+  {
+   "fieldname": "column_break_ewxf",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-04 07:30:05.286239",
- "modified_by": "Administrator",
+ "modified": "2026-07-17 13:39:24.092977",
+ "modified_by": "james@upande.com",
  "module": "Upande Agriculture",
  "name": "Crop Cycle",
  "naming_rule": "By fieldname",

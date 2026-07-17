@@ -6,6 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "details_section",
   "week_no",
   "greenhouse",
   "naming_series",
@@ -13,14 +14,18 @@
   "supervisor",
   "production_plan_type",
   "status",
-  "section_break_kfmc",
+  "tasks_section",
+  "irrigation_task",
   "crop_protection_task",
   "greenhouse_operations_task",
-  "irrigation_task",
-  "tasks_section",
   "amended_from"
  ],
  "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
   {
    "fieldname": "week_no",
    "fieldtype": "Int",
@@ -31,7 +36,7 @@
    "fieldname": "greenhouse",
    "fieldtype": "Link",
    "label": "Greenhouse",
-   "mandatory_depends_on": "eval:doc.production_plan_type==\"Greenhouse Operations\"\n",
+   "mandatory_depends_on": "eval:doc.custom_plan_type==\"Greenhouse Operations\"\n",
    "options": "Warehouse"
   },
   {
@@ -68,34 +73,30 @@
    "read_only": 1
   },
   {
-   "fieldname": "section_break_kfmc",
-   "fieldtype": "Section Break"
+   "fieldname": "tasks_section",
+   "fieldtype": "Section Break",
+   "label": "Tasks"
   },
   {
-   "fieldname": "crop_protection_task",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Crop Protection Task",
-   "options": "Crop Protection Plan Task"
-  },
-  {
-   "fieldname": "greenhouse_operations_task",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Greenhouse Operations Task",
-   "options": "Production Plan Task"
-  },
-  {
+   "depends_on": "eval:doc.custom_plan_type==\"Irrigation\"",
    "fieldname": "irrigation_task",
    "fieldtype": "Table",
-   "hidden": 1,
    "label": "Irrigation Task",
    "options": "Irrigation Plan Task"
   },
   {
-   "fieldname": "tasks_section",
-   "fieldtype": "Section Break",
-   "label": "Tasks"
+   "depends_on": "eval:doc.custom_plan_type==\"Crop Protection\"",
+   "fieldname": "crop_protection_task",
+   "fieldtype": "Table",
+   "label": "Crop Protection Task",
+   "options": "Crop Protection Plan Task"
+  },
+  {
+   "depends_on": "eval:doc.custom_plan_type==\"Greenhouse Operations\"",
+   "fieldname": "greenhouse_operations_task",
+   "fieldtype": "Table",
+   "label": "Greenhouse Operations Task",
+   "options": "Production Plan Task"
   },
   {
    "fieldname": "amended_from",

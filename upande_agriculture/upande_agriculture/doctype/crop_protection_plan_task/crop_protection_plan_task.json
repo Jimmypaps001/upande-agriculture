@@ -22,57 +22,66 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Day",
-   "options": "Mon\nTue\nWed\nThu\nFri\nSat\nSun"
+   "options": "Mon\nTue\nWed\nThu\nFri\nSat\nSun",
+   "columns": 1
   },
   {
    "fieldname": "greenhouse",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Greenhouse",
-   "options": "Warehouse"
+   "options": "Warehouse",
+   "columns": 1
   },
   {
    "fieldname": "assigned_task",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Assigned Task",
-   "options": "Task"
+   "options": "Task",
+   "columns": 2
   },
   {
    "fieldname": "purpose",
    "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Purpose"
+   "label": "Purpose",
+   "columns": 1
   },
   {
    "fieldname": "time",
    "fieldtype": "Time",
    "in_list_view": 1,
-   "label": "Time"
+   "label": "Time",
+   "columns": 1
   },
   {
    "fieldname": "target",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Target"
+   "label": "Target",
+   "columns": 1
   },
   {
    "fieldname": "actual",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Actual"
+   "label": "Actual",
+   "columns": 1
   },
   {
    "fieldname": "achievement",
    "fieldtype": "Percent",
    "in_list_view": 1,
-   "label": "Achievement"
+   "label": "Achievement",
+   "columns": 1
   },
   {
    "fieldname": "supervisors_remarks",
    "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Supervisor's Remarks"
+   "label": "Supervisor's Remarks",
+   "columns": 1
   }
  ],
  "grid_page_length": 50,

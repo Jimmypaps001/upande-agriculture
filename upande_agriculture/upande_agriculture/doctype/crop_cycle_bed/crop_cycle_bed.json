@@ -1,14 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-06-02 20:48:56.815140",
+ "creation": "2026-07-17 16:10:48.044898",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "bed_number",
-  "bay_number",
   "variety",
+  "bed_number",
   "length_m",
   "width_m",
   "area_m2",
@@ -32,12 +31,6 @@
    "in_list_view": 1,
    "label": "Bed Number",
    "reqd": 1
-  },
-  {
-   "fieldname": "bay_number",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Bay Number"
   },
   {
    "fieldname": "variety",
@@ -135,8 +128,8 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-04 07:30:07.019947",
- "modified_by": "Administrator",
+ "modified": "2026-07-17 18:29:52.938048",
+ "modified_by": "james@upande.com",
  "module": "Upande Agriculture",
  "name": "Crop Cycle Bed",
  "owner": "Administrator",

@@ -1,26 +1,23 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-07-17 13:30:56.362808",
+ "creation": "2026-07-17 13:31:20.868590",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "replant_date",
+  "uproot_date",
   "from_bed",
   "to_bed",
-  "qty_replanted",
+  "reason",
+  "qty_uprooted",
   "column_break_1",
-  "new_variety",
-  "seedling_source",
-  "propagation_batch",
-  "cost_of_replanting",
   "remarks"
  ],
  "fields": [
   {
-   "columns": 2,
-   "fieldname": "replant_date",
+   "columns": 3,
+   "fieldname": "uproot_date",
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Date",
@@ -43,42 +40,25 @@
    "reqd": 1
   },
   {
+   "columns": 2,
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Reason",
+   "options": "\nLow Yield\nDisease\nVariety Change\nAge (End of Life)\nStorm Damage\nOther",
+   "reqd": 1
+  },
+  {
    "columns": 1,
-   "fieldname": "qty_replanted",
+   "fieldname": "qty_uprooted",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Qty Replanted",
+   "label": "Qty Uprooted",
    "reqd": 1
   },
   {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "new_variety",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "New Variety",
-   "options": "Item"
-  },
-  {
-   "fieldname": "seedling_source",
-   "fieldtype": "Select",
-   "label": "Seedling Source",
-   "options": "\nPurchased from Breeder\nIn-house Propagation"
-  },
-  {
-   "fieldname": "propagation_batch",
-   "fieldtype": "Link",
-   "label": "Propagation Batch",
-   "options": "Propagation Batch"
-  },
-  {
-   "columns": 1,
-   "fieldname": "cost_of_replanting",
-   "fieldtype": "Currency",
-   "in_list_view": 1,
-   "label": "Cost"
   },
   {
    "fieldname": "remarks",
@@ -90,10 +70,10 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-17 18:34:30.992455",
+ "modified": "2026-07-17 18:32:40.130112",
  "modified_by": "james@upande.com",
  "module": "Upande Agriculture",
- "name": "Replanting Log",
+ "name": "Uprooting Log",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",
