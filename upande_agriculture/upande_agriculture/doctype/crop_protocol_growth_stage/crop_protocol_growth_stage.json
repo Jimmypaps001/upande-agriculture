@@ -7,6 +7,9 @@
  "engine": "InnoDB",
  "field_order": [
   "stage_name",
+  "days_from",
+  "days_to",
+  "weeks",
   "days_to_harvest",
   "description",
   "stage_order"
@@ -20,11 +23,31 @@
    "reqd": 1
   },
   {
-   "fieldname": "days_to_harvest",
+   "description": "Start of the window, in days counted from the cut.",
+   "fieldname": "days_from",
    "fieldtype": "Int",
    "in_list_view": 1,
-   "label": "Days to Harvest",
-   "reqd": 1
+   "label": "Days From"
+  },
+  {
+   "description": "End of the window, in days counted from the cut. Windows are cumulative from the cut, not stage durations — do not sum them.",
+   "fieldname": "days_to",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Days To"
+  },
+  {
+   "fieldname": "weeks",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weeks",
+   "precision": "1"
+  },
+  {
+   "description": "Upper bound of the window, kept for compatibility with earlier records.",
+   "fieldname": "days_to_harvest",
+   "fieldtype": "Int",
+   "label": "Days to Harvest"
   },
   {
    "fieldname": "description",

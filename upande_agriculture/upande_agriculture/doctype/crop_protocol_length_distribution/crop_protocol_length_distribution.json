@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-27 13:40:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stem_length",
+  "percentage",
+  "stems_per_plant_life",
+  "column_break_ld",
+  "basis",
+  "sample_stems"
+ ],
+ "fields": [
+  {
+   "fieldname": "stem_length",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Stem Length",
+   "options": "Stem Length",
+   "reqd": 1
+  },
+  {
+   "description": "Share of marketable stems cut at this grade. The rows of a protocol should total 100%.",
+   "fieldname": "percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Share of Harvest",
+   "reqd": 1
+  },
+  {
+   "description": "Share applied to Total Stems Per Plant Life.",
+   "fieldname": "stems_per_plant_life",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Stems Per Plant Life",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ld",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Group Default",
+   "description": "Actual = measured from this variety's own Harvest records. Group Default = borrowed from the crop type, because the variety has too little harvest history.",
+   "fieldname": "basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Basis",
+   "options": "Actual\nGroup Default\nManual",
+   "reqd": 1
+  },
+  {
+   "description": "Stems observed for this grade when Basis is Actual.",
+   "fieldname": "sample_stems",
+   "fieldtype": "Int",
+   "label": "Sample Stems",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-27 13:40:00.000000",
+ "modified_by": "james@upande.com",
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol Length Distribution",
+ "naming_rule": "Random",
+ "owner": "james@upande.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
