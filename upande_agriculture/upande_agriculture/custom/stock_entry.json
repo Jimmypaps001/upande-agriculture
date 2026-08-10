@@ -1345,6 +1345,7 @@
    "width": null
   }
  ],
+ "doctype": "Stock Entry",
  "property_setters": [
   {
    "_assign": null,
