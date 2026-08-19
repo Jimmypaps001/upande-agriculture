@@ -1,38 +1,151 @@
 {
-  "actions": [],
-  "autoname": "format:PF-{YYYY}-{####}",
-  "creation": "2026-06-20 08:00:00",
-  "doctype": "DocType",
-  "engine": "InnoDB",
-  "module": "Upande Agriculture",
-  "name": "Production Forecast",
-  "owner": "Administrator",
-  "field_order": [
-    "greenhouse", "variety", "company", "column_break_1",
-    "forecast_year", "start_week", "window_weeks", "status",
-    "section_weeks", "weeks", "section_notes", "notes"
-  ],
-  "fields": [
-    {"fieldname": "greenhouse", "fieldtype": "Link", "label": "Greenhouse", "options": "Warehouse", "in_list_view": 1, "reqd": 1},
-    {"fieldname": "variety", "fieldtype": "Link", "label": "Variety", "options": "Item", "in_list_view": 1, "reqd": 1},
-    {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company"},
-    {"fieldname": "column_break_1", "fieldtype": "Column Break"},
-    {"fieldname": "forecast_year", "fieldtype": "Int", "label": "Year", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "start_week", "fieldtype": "Int", "label": "Start ISO Week", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "window_weeks", "fieldtype": "Int", "label": "Window (weeks)", "default": "4", "reqd": 1},
-    {"fieldname": "status", "fieldtype": "Select", "label": "Status",
-     "options": "Active\nSuperseded\nClosed", "default": "Active", "in_list_view": 1},
-    {"fieldname": "section_weeks", "fieldtype": "Section Break", "label": "Weekly Revisions"},
-    {"fieldname": "weeks", "fieldtype": "Table", "label": "Weeks", "options": "Production Forecast Week", "reqd": 1},
-    {"fieldname": "section_notes", "fieldtype": "Section Break", "label": "Notes", "collapsible": 1},
-    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
-  ],
-  "modified": "2026-06-20 08:00:00",
-  "modified_by": "Administrator",
-  "permissions": [
-    {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1}
-  ],
-  "sort_field": "modified",
-  "sort_order": "DESC",
-  "track_changes": 1
+ "actions": [],
+ "autoname": "format:PF-{YYYY}-{####}",
+ "creation": "2026-06-20 08:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Production Forecast",
+ "owner": "Administrator",
+ "field_order": [
+  "greenhouse",
+  "variety",
+  "company",
+  "column_break_1",
+  "forecast_year",
+  "start_week",
+  "window_weeks",
+  "revision",
+  "supersedes",
+  "status",
+  "section_weeks",
+  "weeks",
+  "section_notes",
+  "week_rule",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "week_rule",
+   "fieldtype": "Data",
+   "label": "Week Rule",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The week-numbering rule in force when these weeks were generated. Stored so that changing Agriculture Settings later cannot silently reinterpret them. Blank means ISO 8601."
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "forecast_year",
+   "fieldtype": "Int",
+   "label": "Year",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "start_week",
+   "fieldtype": "Int",
+   "label": "Start ISO Week",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "window_weeks",
+   "fieldtype": "Int",
+   "label": "Window (weeks)",
+   "default": "4",
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nSuperseded\nClosed",
+   "default": "Active",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_weeks",
+   "fieldtype": "Section Break",
+   "label": "Weekly Revisions"
+  },
+  {
+   "fieldname": "weeks",
+   "fieldtype": "Table",
+   "label": "Weeks",
+   "options": "Production Forecast Week",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "default": "1",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Bumped each time this window is revised"
+  },
+  {
+   "fieldname": "supersedes",
+   "fieldtype": "Link",
+   "label": "Supersedes",
+   "options": "Production Forecast",
+   "read_only": 1,
+   "description": "The revision this one replaced"
+  }
+ ],
+ "modified": "2026-06-20 08:00:00",
+ "modified_by": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
 }

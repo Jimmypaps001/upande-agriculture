@@ -1,0 +1,402 @@
+{
+  "pyproject.toml": {
+    "mtime": 1781949617.5598419,
+    "ast_hash": "5b58aa359c12afc777dae174ed907c87",
+    "semantic_hash": "5b58aa359c12afc777dae174ed907c87"
+  },
+  "scripts/backfill_plan_planned_stems.py": {
+    "mtime": 1782116400.9630597,
+    "ast_hash": "d4ea405b18009f689f82a032272132eb",
+    "semantic_hash": "d4ea405b18009f689f82a032272132eb"
+  },
+  "scripts/import_mona_2026_data.py": {
+    "mtime": 1782116400.959393,
+    "ast_hash": "e78ca0ce24653296bb080a73f7ef4e90",
+    "semantic_hash": "e78ca0ce24653296bb080a73f7ef4e90"
+  },
+  "scripts/migrate_projections_to_templates.py": {
+    "mtime": 1782122343.3056836,
+    "ast_hash": "fc6b154f997412283555bffb596d663f",
+    "semantic_hash": "fc6b154f997412283555bffb596d663f"
+  },
+  "upande_agriculture/__init__.py": {
+    "mtime": 1781949617.5598419,
+    "ast_hash": "031d2b105914bd41498040b838c6e3b1",
+    "semantic_hash": "031d2b105914bd41498040b838c6e3b1"
+  },
+  "upande_agriculture/api.py": {
+    "mtime": 1785013589.3754168,
+    "ast_hash": "11be08a467d394fd33eccc4646398c59",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/config/__init__.py": {
+    "mtime": 1781949617.5559251,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/controllers.py": {
+    "mtime": 1785014027.283439,
+    "ast_hash": "e8a7c36156a5e7d7151a30a62c2d2806",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/fixtures/workspace.json": {
+    "mtime": 1785013608.103423,
+    "ast_hash": "39f6706ecd62a82bd6fd912176419b1f",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/hooks.py": {
+    "mtime": 1785013497.9034338,
+    "ast_hash": "f3fed59a630959f7f5c6ee23c96a047d",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/patches/__init__.py": {
+    "mtime": 1781949617.5598419,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/patches/v1_0/__init__.py": {
+    "mtime": 1781950307.1528697,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/patches/v1_0/rename_forecasting_form.py": {
+    "mtime": 1781960165.423583,
+    "ast_hash": "d0483da7fb5e95f56a09ef554b50fac2",
+    "semantic_hash": "d0483da7fb5e95f56a09ef554b50fac2"
+  },
+  "upande_agriculture/patches/v1_0/seed_agriculture_workspace.py": {
+    "mtime": 1785013608.103423,
+    "ast_hash": "d914aecb045b204bc8b925ee56804013",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/patches/v1_0/seed_existing_plan_tasks.py": {
+    "mtime": 1781961161.2270737,
+    "ast_hash": "d151f44c99b3decb3d1362289512c00c",
+    "semantic_hash": "d151f44c99b3decb3d1362289512c00c"
+  },
+  "upande_agriculture/patches/v1_0/seed_existing_projection_source.py": {
+    "mtime": 1781959948.5676053,
+    "ast_hash": "ef275bc5bbf89dedc2d092e553098690",
+    "semantic_hash": "ef275bc5bbf89dedc2d092e553098690"
+  },
+  "upande_agriculture/patches/v1_0/take_ownership.py": {
+    "mtime": 1785013618.947443,
+    "ast_hash": "dc1bccfc62f60b81efe36b3dc4a4117d",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/projection_calc.py": {
+    "mtime": 1781989580.4164693,
+    "ast_hash": "34fb8caf174658b581ef83d916678753",
+    "semantic_hash": "34fb8caf174658b581ef83d916678753"
+  },
+  "upande_agriculture/public/lib/jspreadsheet/jspreadsheet.js": {
+    "mtime": 1782113132.780392,
+    "ast_hash": "664cdf1023ac8c3edfa64c04b0230f23",
+    "semantic_hash": "664cdf1023ac8c3edfa64c04b0230f23"
+  },
+  "upande_agriculture/public/lib/jspreadsheet/jsuites.js": {
+    "mtime": 1782113132.7877252,
+    "ast_hash": "ee594448fd560e0b7c3e7511f1cd72ae",
+    "semantic_hash": "ee594448fd560e0b7c3e7511f1cd72ae"
+  },
+  "upande_agriculture/scheduled.py": {
+    "mtime": 1781988520.990274,
+    "ast_hash": "4735c1ef75d95bf80d5694bcb8045040",
+    "semantic_hash": "4735c1ef75d95bf80d5694bcb8045040"
+  },
+  "upande_agriculture/templates/__init__.py": {
+    "mtime": 1781949617.5520084,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/templates/pages/__init__.py": {
+    "mtime": 1781949617.5520084,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/tests/__init__.py": {
+    "mtime": 1785013961.7794435,
+    "ast_hash": "179da3d4a81c998990d714967d9b4039",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/tests/test_api.py": {
+    "mtime": 1785014027.283439,
+    "ast_hash": "bbb59bee1eb46cb62f258f5eedfffd4d",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/tests/test_controllers.py": {
+    "mtime": 1785014027.2874389,
+    "ast_hash": "e0dd4099cdf6323deba5efe5e2f87950",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/tests/test_projection_calc.py": {
+    "mtime": 1781989587.472363,
+    "ast_hash": "3885fe1cbab34c96330a8dcda57d6910",
+    "semantic_hash": "3885fe1cbab34c96330a8dcda57d6910"
+  },
+  "upande_agriculture/tests/test_todo_helpers.py": {
+    "mtime": 1785013815.7194233,
+    "ast_hash": "1bbaed57f8257dae226e38ffdef096f9",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/todo_helpers.py": {
+    "mtime": 1781950024.1030972,
+    "ast_hash": "354f66dc6f595dc2cd15344183569de6",
+    "semantic_hash": "354f66dc6f595dc2cd15344183569de6"
+  },
+  "upande_agriculture/upande_agriculture/__init__.py": {
+    "mtime": 1781949617.5520084,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/__init__.py": {
+    "mtime": 1781950302.9814267,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_cycle/__init__.py": {
+    "mtime": 1781959110.7595901,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_cycle/crop_cycle.json": {
+    "mtime": 1785013411.7194443,
+    "ast_hash": "6453eef1cb4021583dbe265cd2e938e4",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_cycle/crop_cycle.py": {
+    "mtime": 1781959114.2475898,
+    "ast_hash": "fee760e91cc13e1ad72e6cac55e436be",
+    "semantic_hash": "fee760e91cc13e1ad72e6cac55e436be"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol/__init__.py": {
+    "mtime": 1781950302.9814267,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol/crop_protocol.json": {
+    "mtime": 1785013370.9994147,
+    "ast_hash": "0e4d879abbc6cfcde7d43a8fb6e09747",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol/crop_protocol.py": {
+    "mtime": 1781950343.716216,
+    "ast_hash": "4cc17a08f7bf06f60ed773962ec97bef",
+    "semantic_hash": "4cc17a08f7bf06f60ed773962ec97bef"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_flush/__init__.py": {
+    "mtime": 1781950302.9814267,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_flush/crop_protocol_flush.json": {
+    "mtime": 1781950336.3741753,
+    "ast_hash": "5861a4bd9baf2871310b8cfd0563c433",
+    "semantic_hash": "5861a4bd9baf2871310b8cfd0563c433"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_flush/crop_protocol_flush.py": {
+    "mtime": 1781950344.4924786,
+    "ast_hash": "b720dd6af48eb1dbec6868545d46b887",
+    "semantic_hash": "b720dd6af48eb1dbec6868545d46b887"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_growth_stage/__init__.py": {
+    "mtime": 1781950302.985336,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_growth_stage/crop_protocol_growth_stage.json": {
+    "mtime": 1781950339.3649428,
+    "ast_hash": "dd5d7dd4c00709528d5ad1e58e3b7c97",
+    "semantic_hash": "dd5d7dd4c00709528d5ad1e58e3b7c97"
+  },
+  "upande_agriculture/upande_agriculture/doctype/crop_protocol_growth_stage/crop_protocol_growth_stage.py": {
+    "mtime": 1781950345.3642862,
+    "ast_hash": "bb9b46eda60fafa7a38b7654a917cdfd",
+    "semantic_hash": "bb9b46eda60fafa7a38b7654a917cdfd"
+  },
+  "upande_agriculture/upande_agriculture/doctype/flower_trial/__init__.py": {
+    "mtime": 1781959550.5475771,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/flower_trial/flower_trial.json": {
+    "mtime": 1781959546.8435774,
+    "ast_hash": "1b69342a0d38c1c3314489a68d4bc2fc",
+    "semantic_hash": "1b69342a0d38c1c3314489a68d4bc2fc"
+  },
+  "upande_agriculture/upande_agriculture/doctype/flower_trial/flower_trial.py": {
+    "mtime": 1781959551.099577,
+    "ast_hash": "f822c57ade0ff6b0973ffcf482e1794d",
+    "semantic_hash": "f822c57ade0ff6b0973ffcf482e1794d"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast/__init__.py": {
+    "mtime": 1781960169.2915828,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast/production_forecast.json": {
+    "mtime": 1781960180.7035823,
+    "ast_hash": "fe246639394ee560a5f8f8b3360d27f9",
+    "semantic_hash": "fe246639394ee560a5f8f8b3360d27f9"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast/production_forecast.py": {
+    "mtime": 1781960170.579583,
+    "ast_hash": "5c44d00c20ba5c9d2af5c8efa29e3e2a",
+    "semantic_hash": "5c44d00c20ba5c9d2af5c8efa29e3e2a"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast_week/__init__.py": {
+    "mtime": 1781960181.1475823,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast_week/production_forecast_week.json": {
+    "mtime": 1781960187.6635818,
+    "ast_hash": "7151564029f8078b3f73bda02b20ace6",
+    "semantic_hash": "7151564029f8078b3f73bda02b20ace6"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_forecast_week/production_forecast_week.py": {
+    "mtime": 1781960182.4035823,
+    "ast_hash": "70369f0cd958dce9a1c752a3b42a43be",
+    "semantic_hash": "70369f0cd958dce9a1c752a3b42a43be"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_form/__init__.py": {
+    "mtime": 1781960456.4355826,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_form/production_plan_form.json": {
+    "mtime": 1785013942.3714046,
+    "ast_hash": "1d0b4075297ea8712b89860b5dbcd400",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_form/production_plan_form.py": {
+    "mtime": 1781960458.2195826,
+    "ast_hash": "a5c83e83d957c69e36069c8c8e6746fc",
+    "semantic_hash": "a5c83e83d957c69e36069c8c8e6746fc"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_task/__init__.py": {
+    "mtime": 1781960458.6875825,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_task/production_plan_task.json": {
+    "mtime": 1781960479.7715821,
+    "ast_hash": "277aa0ae6b7441f41082cc9ff17440bd",
+    "semantic_hash": "277aa0ae6b7441f41082cc9ff17440bd"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_task/production_plan_task.py": {
+    "mtime": 1781960459.9995825,
+    "ast_hash": "67743b35f63f57d8b520adcf19b3cb7d",
+    "semantic_hash": "67743b35f63f57d8b520adcf19b3cb7d"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_variety/__init__.py": {
+    "mtime": 1781960460.9395826,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_variety/production_plan_variety.json": {
+    "mtime": 1781960485.0955822,
+    "ast_hash": "2c35e7420ca62c2484a1818a43bee26e",
+    "semantic_hash": "2c35e7420ca62c2484a1818a43bee26e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_plan_variety/production_plan_variety.py": {
+    "mtime": 1781960461.7315824,
+    "ast_hash": "77f9e0b689960e8ce724b2a4a1403003",
+    "semantic_hash": "77f9e0b689960e8ce724b2a4a1403003"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_projection/__init__.py": {
+    "mtime": 1781959803.7195885,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_projection/production_projection.json": {
+    "mtime": 1785013634.7514203,
+    "ast_hash": "48ba26cf9d8b39fb8231198b13533617",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/production_projection/production_projection.py": {
+    "mtime": 1781959805.4755898,
+    "ast_hash": "1989828860aba02584163d52e450d5ab",
+    "semantic_hash": "1989828860aba02584163d52e450d5ab"
+  },
+  "upande_agriculture/upande_agriculture/doctype/projection_week/__init__.py": {
+    "mtime": 1781959804.7275891,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/doctype/projection_week/projection_week.json": {
+    "mtime": 1781959826.5995953,
+    "ast_hash": "69c9ae0f07a768a18c73aa125726a3b2",
+    "semantic_hash": "69c9ae0f07a768a18c73aa125726a3b2"
+  },
+  "upande_agriculture/upande_agriculture/doctype/projection_week/projection_week.py": {
+    "mtime": 1781959806.3835905,
+    "ast_hash": "4c49cc4ea23c50e23e956b1f9d64c427",
+    "semantic_hash": "4c49cc4ea23c50e23e956b1f9d64c427"
+  },
+  "upande_agriculture/upande_agriculture/page/__init__.py": {
+    "mtime": 1782113132.7987251,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/page/production_budget/__init__.py": {
+    "mtime": 1782113132.8060584,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "upande_agriculture/upande_agriculture/page/production_budget/production_budget.js": {
+    "mtime": 1782127069.6658885,
+    "ast_hash": "a52e7da2e62484ba27f41e1b400e2f3d",
+    "semantic_hash": "a52e7da2e62484ba27f41e1b400e2f3d"
+  },
+  "upande_agriculture/upande_agriculture/page/production_budget/production_budget.json": {
+    "mtime": 1782115275.665604,
+    "ast_hash": "02d6fcf70bfbf26dcc95a6b408e3c557",
+    "semantic_hash": "02d6fcf70bfbf26dcc95a6b408e3c557"
+  },
+  "upande_agriculture/upande_agriculture/page/production_budget/production_budget.py": {
+    "mtime": 1782113154.72176,
+    "ast_hash": "0019ab02248ccecb8af03b30b376a54a",
+    "semantic_hash": "0019ab02248ccecb8af03b30b376a54a"
+  },
+  ".pre-commit-config.yaml": {
+    "mtime": 1781949617.5598419,
+    "ast_hash": "d488ee93b890cbd40fade99f9c914c9a",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1781949618.092526,
+    "ast_hash": "ad5b9349e628e8b5acf89d4ba72c026e",
+    "semantic_hash": ""
+  },
+  "license.txt": {
+    "mtime": 1781949618.0846925,
+    "ast_hash": "57d76440fc5c9183c79d1747d18d2410",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/modules.txt": {
+    "mtime": 1781949618.0846925,
+    "ast_hash": "964011ac8e83582e18b4489f34b7f069",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/patches.txt": {
+    "mtime": 1781988778.4875221,
+    "ast_hash": "0506c36efcdf8698fe2c5ba2bd7c4165",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/greenhouse/__init__.py": {
+    "mtime": 1785013391.1194332,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/greenhouse/greenhouse.json": {
+    "mtime": 1785013385.0154295,
+    "ast_hash": "fc84509458f923d9bc8b3e757a531a27",
+    "semantic_hash": ""
+  },
+  "upande_agriculture/upande_agriculture/doctype/greenhouse/greenhouse.py": {
+    "mtime": 1785013395.1954386,
+    "ast_hash": "397660a71acda3ade9d840727809fdc8",
+    "semantic_hash": ""
+  }
+}

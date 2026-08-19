@@ -1,482 +1,311 @@
 {
-  "actions": [],
-  "autoname": "field:greenhouse",
-  "naming_rule": "By fieldname",
-  "creation": "2026-06-20 08:00:00",
-  "doctype": "DocType",
-  "engine": "InnoDB",
-  "module": "Upande Agriculture",
-  "name": "Crop Cycle",
-  "owner": "Administrator",
-  "is_submittable": 0,
-  "track_changes": 1,
-  "issingle": 0,
-  "field_order": [
-    "greenhouse",
-    "custom_crop_protocol",
-    "custom_company",
-    "section_bed_range",
-    "bed_range",
-    "custom_section_individual_beds",
-    "custom_individual_beds",
-    "custom_section_source_summary",
-    "custom_total_from_propagation",
-    "custom_total_from_purchase",
-    "custom_cb_source_summary",
-    "custom_total_seedling_cost",
-    "custom_avg_cost_per_plant",
-    "custom_flower_trial",
-    "custom_column_break_6nor0",
-    "variety",
-    "crop_type",
-    "section_break_jawo",
-    "planting_date",
-    "custom_planting_week",
-    "custom_pinch_date",
-    "custom_actual_pinch_date",
-    "custom_next_harvest_date",
-    "custom_current_flush",
-    "custom_uprooting_date",
-    "custom_plant_age_weeks",
-    "custom_weeks_to_uprooting",
-    "custom_total_stems_harvested",
-    "custom_total_expected_stems",
-    "custom_expected_next_flush_stems",
-    "total_cuttings_taken",
-    "cuttings_logs",
-    "custom_harvest_logs",
-    "cycle_end_date",
-    "cycle_status",
-    "section_seedling_source",
-    "seedling_source",
-    "breeder",
-    "propagation_batch",
-    "qty_planted",
-    "cost_per_plant",
-    "current_live_plants",
-    "section_biological_asset",
-    "asset_category",
-    "column_break_asset",
-    "asset_status",
-    "total_asset_value",
-    "asset",
-    "is_biological_asset",
-    "custom_asset_item",
-    "section_royalty",
-    "is_royalty_applicable",
-    "royalty_currency",
-    "total_royalty_payable",
-    "royalty_status",
-    "section_replanting",
-    "replanting_count",
-    "last_replanting_date",
-    "total_plants_replanted",
-    "column_break_replanting",
-    "total_replanting_cost",
-    "replanting_logs",
-    "section_uproot",
-    "total_plants_uprooted",
-    "last_uproot_date",
-    "uproot_logs"
-  ],
-  "fields": [
-    {
-      "fieldname": "greenhouse",
-      "fieldtype": "Link",
-      "label": "Greenhouse",
-      "options": "Warehouse",
-      "reqd": 1,
-      "in_list_view": 1
-    },
-    {
-      "fieldname": "custom_crop_protocol",
-      "fieldtype": "Link",
-      "label": "Crop Protocol",
-      "options": "Crop Protocol"
-    },
-    {
-      "fieldname": "custom_company",
-      "fieldtype": "Link",
-      "label": "Company",
-      "options": "Company"
-    },
-    {
-      "fieldname": "section_bed_range",
-      "fieldtype": "Section Break",
-      "label": "Planting Plan"
-    },
-    {
-      "fieldname": "bed_range",
-      "fieldtype": "Table",
-      "label": "",
-      "options": "Bed Range"
-    },
-    {
-      "fieldname": "custom_section_individual_beds",
-      "fieldtype": "Section Break",
-      "label": "Individual Bed Tracking"
-    },
-    {
-      "fieldname": "custom_individual_beds",
-      "fieldtype": "Table",
-      "label": "Individual Beds",
-      "options": "Crop Cycle Bed",
-      "description": "Individual bed tracking with full traceability to source"
-    },
-    {
-      "fieldname": "custom_section_source_summary",
-      "fieldtype": "Section Break",
-      "label": "Source & Cost Summary"
-    },
-    {
-      "fieldname": "custom_total_from_propagation",
-      "fieldtype": "Int",
-      "label": "Total from Propagation",
-      "read_only": 1,
-      "description": "Total plants from propagation batches"
-    },
-    {
-      "fieldname": "custom_total_from_purchase",
-      "fieldtype": "Int",
-      "label": "Total from Purchase",
-      "read_only": 1,
-      "description": "Total plants from purchase orders"
-    },
-    {
-      "fieldname": "custom_cb_source_summary",
-      "fieldtype": "Column Break"
-    },
-    {
-      "fieldname": "custom_total_seedling_cost",
-      "fieldtype": "Currency",
-      "label": "Total Seedling Cost",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_avg_cost_per_plant",
-      "fieldtype": "Currency",
-      "label": "Avg Cost Per Plant",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_flower_trial",
-      "fieldtype": "Data",
-      "label": "Flower Trial"
-    },
-    {
-      "fieldname": "custom_column_break_6nor0",
-      "fieldtype": "Column Break"
-    },
-    {
-      "fieldname": "variety",
-      "fieldtype": "Link",
-      "label": "Variety",
-      "options": "Item"
-    },
-    {
-      "fieldname": "crop_type",
-      "fieldtype": "Select",
-      "label": "Crop Type",
-      "options": "\nProduction\nMotherstock\nTrial"
-    },
-    {
-      "fieldname": "section_break_jawo",
-      "fieldtype": "Section Break",
-      "label": "Dates & Status"
-    },
-    {
-      "fieldname": "planting_date",
-      "fieldtype": "Date",
-      "label": "Planting Date"
-    },
-    {
-      "fieldname": "custom_planting_week",
-      "fieldtype": "Int",
-      "label": "Planting Week"
-    },
-    {
-      "fieldname": "custom_pinch_date",
-      "fieldtype": "Date",
-      "label": "Pinch Date"
-    },
-    {
-      "fieldname": "custom_actual_pinch_date",
-      "fieldtype": "Date",
-      "label": "Actual Pinch Date"
-    },
-    {
-      "fieldname": "custom_next_harvest_date",
-      "fieldtype": "Date",
-      "label": "Next Harvest Date"
-    },
-    {
-      "fieldname": "custom_current_flush",
-      "fieldtype": "Int",
-      "label": "Current Flush"
-    },
-    {
-      "fieldname": "custom_uprooting_date",
-      "fieldtype": "Date",
-      "label": "Uprooting Date"
-    },
-    {
-      "fieldname": "custom_plant_age_weeks",
-      "fieldtype": "Int",
-      "label": "Plant Age (weeks)",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_weeks_to_uprooting",
-      "fieldtype": "Int",
-      "label": "Weeks to Uprooting",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_total_stems_harvested",
-      "fieldtype": "Int",
-      "label": "Total Stems Harvested",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_total_expected_stems",
-      "fieldtype": "Int",
-      "label": "Total Expected Stems",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_expected_next_flush_stems",
-      "fieldtype": "Int",
-      "label": "Expected Next Flush Stems",
-      "read_only": 1
-    },
-    {
-      "fieldname": "total_cuttings_taken",
-      "fieldtype": "Int",
-      "label": "Total Cuttings Taken",
-      "read_only": 1
-    },
-    {
-      "fieldname": "cuttings_logs",
-      "fieldtype": "Table",
-      "label": "Cuttings Logs",
-      "options": "Cuttings Log"
-    },
-    {
-      "fieldname": "custom_harvest_logs",
-      "fieldtype": "Table",
-      "label": "Harvest Logs",
-      "options": "Crop Harvest Log"
-    },
-    {
-      "fieldname": "cycle_end_date",
-      "fieldtype": "Date",
-      "label": "Cycle End Date"
-    },
-    {
-      "fieldname": "cycle_status",
-      "fieldtype": "Select",
-      "label": "Cycle Status",
-      "options": "\nPlanned\nActive\nReplanting\nPartially Uprooted\nCompleted\nEnded",
-      "default": "Active"
-    },
-    {
-      "fieldname": "section_seedling_source",
-      "fieldtype": "Section Break",
-      "label": "Seedling Source & Planting"
-    },
-    {
-      "fieldname": "seedling_source",
-      "fieldtype": "Select",
-      "label": "Seedling Source",
-      "options": "\nPurchased from Breeder\nIn-house Propagation\nMixed"
-    },
-    {
-      "fieldname": "breeder",
-      "fieldtype": "Link",
-      "label": "Breeder (Supplier)",
-      "options": "Supplier"
-    },
-    {
-      "fieldname": "propagation_batch",
-      "fieldtype": "Data",
-      "label": "Propagation Batch"
-    },
-    {
-      "fieldname": "qty_planted",
-      "fieldtype": "Int",
-      "label": "Qty Planted"
-    },
-    {
-      "fieldname": "cost_per_plant",
-      "fieldtype": "Currency",
-      "label": "Cost Per Plant"
-    },
-    {
-      "fieldname": "current_live_plants",
-      "fieldtype": "Int",
-      "label": "Current Live Plants",
-      "read_only": 1
-    },
-    {
-      "fieldname": "section_biological_asset",
-      "fieldtype": "Section Break",
-      "label": "Biological Asset"
-    },
-    {
-      "fieldname": "asset_category",
-      "fieldtype": "Link",
-      "label": "Asset Category",
-      "options": "Asset Category"
-    },
-    {
-      "fieldname": "column_break_asset",
-      "fieldtype": "Column Break"
-    },
-    {
-      "fieldname": "asset_status",
-      "fieldtype": "Data",
-      "label": "Asset Status",
-      "read_only": 1
-    },
-    {
-      "fieldname": "total_asset_value",
-      "fieldtype": "Currency",
-      "label": "Total Asset Value",
-      "read_only": 1
-    },
-    {
-      "fieldname": "asset",
-      "fieldtype": "Link",
-      "label": "Asset",
-      "options": "Asset",
-      "read_only": 1
-    },
-    {
-      "fieldname": "is_biological_asset",
-      "fieldtype": "Check",
-      "label": "Is Biological Asset"
-    },
-    {
-      "fieldname": "custom_asset_item",
-      "fieldtype": "Link",
-      "label": "Asset Item",
-      "options": "Item"
-    },
-    {
-      "fieldname": "section_royalty",
-      "fieldtype": "Section Break",
-      "label": "Royalty"
-    },
-    {
-      "fieldname": "is_royalty_applicable",
-      "fieldtype": "Check",
-      "label": "Is Royalty Applicable"
-    },
-    {
-      "fieldname": "royalty_currency",
-      "fieldtype": "Link",
-      "label": "Royalty Currency",
-      "options": "Currency",
-      "default": "EUR"
-    },
-    {
-      "fieldname": "total_royalty_payable",
-      "fieldtype": "Currency",
-      "label": "Total Royalty Payable",
-      "read_only": 1
-    },
-    {
-      "fieldname": "royalty_status",
-      "fieldtype": "Data",
-      "label": "Royalty Status",
-      "read_only": 1
-    },
-    {
-      "fieldname": "section_replanting",
-      "fieldtype": "Section Break",
-      "label": "Replanting History"
-    },
-    {
-      "fieldname": "replanting_count",
-      "fieldtype": "Int",
-      "label": "Replanting Count",
-      "read_only": 1
-    },
-    {
-      "fieldname": "last_replanting_date",
-      "fieldtype": "Date",
-      "label": "Last Replanting Date",
-      "read_only": 1
-    },
-    {
-      "fieldname": "total_plants_replanted",
-      "fieldtype": "Int",
-      "label": "Total Plants Replanted",
-      "read_only": 1
-    },
-    {
-      "fieldname": "column_break_replanting",
-      "fieldtype": "Column Break"
-    },
-    {
-      "fieldname": "total_replanting_cost",
-      "fieldtype": "Currency",
-      "label": "Total Replanting Cost",
-      "reqd": 1,
-      "read_only": 1
-    },
-    {
-      "fieldname": "replanting_logs",
-      "fieldtype": "Table",
-      "label": "Replanting Logs",
-      "options": "Replanting Log"
-    },
-    {
-      "fieldname": "section_uproot",
-      "fieldtype": "Section Break",
-      "label": "Uproot History"
-    },
-    {
-      "fieldname": "total_plants_uprooted",
-      "fieldtype": "Int",
-      "label": "Total Plants Uprooted",
-      "read_only": 1
-    },
-    {
-      "fieldname": "last_uproot_date",
-      "fieldtype": "Date",
-      "label": "Last Uproot Date",
-      "read_only": 1
-    },
-    {
-      "fieldname": "uproot_logs",
-      "fieldtype": "Table",
-      "label": "Uproot Logs",
-      "options": "Uproot Log"
-    }
-  ],
-  "permissions": [
-    {
-      "role": "System Manager",
-      "permlevel": 0,
-      "read": 1,
-      "write": 1,
-      "create": 1,
-      "delete": 1,
-      "submit": 0,
-      "cancel": 0,
-      "amend": 0,
-      "report": 1,
-      "import": 0,
-      "export": 1,
-      "print": 1,
-      "email": 1,
-      "share": 1
-    }
-  ],
-  "links": [],
-  "modified": "2026-06-20 08:00:00",
-  "modified_by": "Administrator",
-  "sort_field": "modified",
-  "sort_order": "DESC"
+ "actions": [],
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "creation": "2026-06-20 08:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 0,
+ "issingle": 0,
+ "is_submittable": 0,
+ "track_changes": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle",
+ "owner": "Administrator",
+ "title_field": "title",
+ "description": "One plant life: a variety planted in a set of beds on a date, cut repeatedly, then uprooted.",
+ "field_order": [
+  "naming_series",
+  "greenhouse",
+  "variety",
+  "crop_protocol",
+  "column_break_head",
+  "crop_type",
+  "status",
+  "title",
+  "section_timeline",
+  "planting_date",
+  "first_bending_date",
+  "second_bending_date",
+  "column_break_timeline",
+  "planned_uprooting_date",
+  "cycle_end_date",
+  "replaces",
+  "section_planting",
+  "qty_planted",
+  "plants_per_sqm",
+  "column_break_planting",
+  "planted_area",
+  "implied_plants",
+  "section_beds",
+  "bed_range",
+  "beds",
+  "section_source",
+  "purchase_invoice",
+  "seedling_source",
+  "breeder",
+  "column_break_source",
+  "propagation_batch",
+  "cost_per_plant",
+  "invoiced_qty",
+  "section_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "CC-.YYYY.-.####",
+   "default": "CC-.YYYY.-.####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Base variety (Athena), not a length grade"
+  },
+  {
+   "fieldname": "crop_protocol",
+   "fieldtype": "Link",
+   "label": "Crop Protocol",
+   "options": "Crop Protocol",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "crop_type",
+   "fieldtype": "Select",
+   "label": "Crop Type",
+   "options": "Production\nMotherstock\nTrial",
+   "default": "Production"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nActive\nEnded",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "section_timeline",
+   "fieldtype": "Section Break",
+   "label": "Timeline"
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "first_bending_date",
+   "fieldtype": "Date",
+   "label": "First Bending Date",
+   "description": "Left empty, derived from the protocol"
+  },
+  {
+   "fieldname": "second_bending_date",
+   "fieldtype": "Date",
+   "label": "Second Bending Date",
+   "description": "Production is counted from here"
+  },
+  {
+   "fieldname": "column_break_timeline",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_uprooting_date",
+   "fieldtype": "Date",
+   "label": "Planned Uprooting Date"
+  },
+  {
+   "fieldname": "cycle_end_date",
+   "fieldtype": "Date",
+   "label": "Cycle End Date",
+   "description": "Actual uprooting. Empty means the cycle is still running."
+  },
+  {
+   "fieldname": "replaces",
+   "fieldtype": "Link",
+   "label": "Replaces",
+   "options": "Crop Cycle",
+   "description": "The block this planting replaced. Filled by Replant."
+  },
+  {
+   "fieldname": "section_planting",
+   "fieldtype": "Section Break",
+   "label": "Planting"
+  },
+  {
+   "fieldname": "qty_planted",
+   "fieldtype": "Int",
+   "label": "Plants Planted",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Float",
+   "label": "Plants Per Sqm"
+  },
+  {
+   "fieldname": "column_break_planting",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planted_area",
+   "fieldtype": "Float",
+   "label": "Planted Area (m\u00b2)",
+   "read_only": 1,
+   "description": "Summed from the beds below"
+  },
+  {
+   "fieldname": "implied_plants",
+   "fieldtype": "Int",
+   "label": "Implied Plants",
+   "read_only": 1,
+   "description": "Area \u00d7 density. Checked against Plants Planted on save."
+  },
+  {
+   "fieldname": "section_beds",
+   "fieldtype": "Section Break",
+   "label": "Beds"
+  },
+  {
+   "fieldname": "bed_range",
+   "fieldtype": "Data",
+   "label": "Beds",
+   "description": "Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. The table below fills itself on save."
+  },
+  {
+   "fieldname": "beds",
+   "fieldtype": "Table",
+   "label": "Beds",
+   "options": "Crop Cycle Bed",
+   "read_only_depends_on": "eval:!!doc.bed_range",
+   "description": "Filled from the range above. Clear the range to edit by hand."
+  },
+  {
+   "fieldname": "section_source",
+   "fieldtype": "Section Break",
+   "label": "Source & Cost",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "description": "Link the seedling invoice and the breeder and cost fill themselves. Leave blank to type them."
+  },
+  {
+   "fieldname": "seedling_source",
+   "fieldtype": "Select",
+   "label": "Seedling Source",
+   "options": "\nPurchased from Breeder\nIn-house Propagation\nMixed",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
+  },
+  {
+   "fieldname": "breeder",
+   "fieldtype": "Link",
+   "label": "Breeder",
+   "options": "Supplier",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "propagation_batch",
+   "fieldtype": "Data",
+   "label": "Propagation Batch"
+  },
+  {
+   "fieldname": "cost_per_plant",
+   "fieldtype": "Currency",
+   "label": "Cost Per Plant",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
+  },
+  {
+   "fieldname": "invoiced_qty",
+   "fieldtype": "Int",
+   "label": "Invoiced Qty",
+   "read_only": 1,
+   "depends_on": "purchase_invoice",
+   "description": "Plants billed on the invoice \u2014 compared with Plants Planted"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "import": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Stock User",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "planting_date",
+ "sort_order": "DESC"
 }

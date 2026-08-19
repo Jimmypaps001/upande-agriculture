@@ -1,0 +1,26 @@
+{
+ "actions": [],
+ "creation": "2026-07-26 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol Grade Mix",
+ "owner": "Administrator",
+ "description": "One length grade and the share of the plant's stems that reach it.",
+ "field_order": ["length_cm", "pct", "source"],
+ "fields": [
+  {"fieldname": "length_cm", "fieldtype": "Int", "label": "Length (cm)", "reqd": 1, "in_list_view": 1, "columns": 3},
+  {"fieldname": "pct", "fieldtype": "Percent", "label": "Share %", "reqd": 1, "in_list_view": 1, "columns": 3},
+  {"fieldname": "source", "fieldtype": "Select", "label": "Source", "options": "Measured\nManual",
+   "default": "Manual", "in_list_view": 1, "columns": 3,
+   "description": "Measured rows are overwritten by the calibration job; Manual rows are left alone"}
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "length_cm",
+ "sort_order": "ASC"
+}

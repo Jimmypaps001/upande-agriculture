@@ -1,6 +1,5 @@
-import frappe
 from frappe.model.document import Document
 
 
-class CropProtocolFlush(Document):
+class CropProtocolGradeMix(Document):
     pass

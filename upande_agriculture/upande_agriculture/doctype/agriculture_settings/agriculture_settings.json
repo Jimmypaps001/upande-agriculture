@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-29 08:55:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_weeks",
+  "week_one_rule",
+  "week_start_day",
+  "column_break_weeks",
+  "week_rule_help"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_weeks",
+   "fieldtype": "Section Break",
+   "label": "Week Numbering"
+  },
+  {
+   "default": "ISO 8601",
+   "description": "Which week of January is week 1. ISO 8601 is the standard: weeks start Monday and week 1 is the one containing 4 January (so 1 January can fall in the last week of the previous year).",
+   "fieldname": "week_one_rule",
+   "fieldtype": "Select",
+   "label": "Week 1 Rule",
+   "options": "ISO 8601\nWeek 1 contains 1 January\nWeek 1 contains 4 January",
+   "reqd": 1
+  },
+  {
+   "default": "Monday",
+   "depends_on": "eval:doc.week_one_rule && doc.week_one_rule != \"ISO 8601\"",
+   "description": "The day each week begins on. ISO 8601 always starts on Monday.",
+   "fieldname": "week_start_day",
+   "fieldtype": "Select",
+   "label": "Week Starts On",
+   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday"
+  },
+  {
+   "fieldname": "column_break_weeks",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "week_rule_help",
+   "fieldtype": "HTML",
+   "label": "How this applies",
+   "options": "<div style=\"font-size:12px;line-height:1.6;color:var(--text-muted)\"><p><b>Changing this does not rewrite existing numbers.</b> Every Production Projection and Production Forecast records the rule it was generated under, and keeps reading its weeks that way.</p><p>To move an existing budget onto a new rule, regenerate it. Until you do, it stays on its original rule and its week numbers keep pointing at the dates they always did.</p></div>"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-29 08:55:00.000000",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Agriculture Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

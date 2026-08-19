@@ -5,6 +5,7 @@ ABSORBED = [
     "Crop Protocol",
     "Crop Protocol Flush",
     "Crop Protocol Growth Stage",
+    "Greenhouse",
     "Crop Cycle",
     # Crop Cycle family added in Task 5
     "Flower Trial",

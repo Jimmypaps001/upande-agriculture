@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "autoname": "field:greenhouse",
+ "naming_rule": "By fieldname",
+ "creation": "2026-07-26 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Greenhouse",
+ "owner": "Administrator",
+ "is_submittable": 0,
+ "issingle": 0,
+ "track_changes": 1,
+ "description": "A growing structure and the succession of crop cycles planted in it.",
+ "field_order": [
+  "greenhouse",
+  "company",
+  "column_break_house",
+  "is_active"
+ ],
+ "fields": [
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_house",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "In Production",
+   "default": "1"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 0,
+   "cancel": 0,
+   "amend": 0,
+   "report": 1,
+   "import": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Stock User",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "links": [
+  {
+   "group": "Production",
+   "link_doctype": "Crop Cycle",
+   "link_fieldname": "greenhouse"
+  }
+ ],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

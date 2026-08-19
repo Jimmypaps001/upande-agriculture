@@ -22,7 +22,7 @@ def execute():
     # Create a minimal workspace if it doesn't exist at all.
     shortcuts = [
         {"label": "Crop Protocols", "link_to": "Crop Protocol",         "type": "DocType"},
-        {"label": "Crop Cycles",    "link_to": "Crop Cycle",            "type": "DocType"},
+        {"label": "Greenhouses",    "link_to": "Greenhouse",            "type": "DocType"},
         {"label": "Flower Trials",  "link_to": "Flower Trial",          "type": "DocType"},
         {"label": "Budget",         "link_to": "Production Projection", "type": "DocType"},
         {"label": "Forecast",       "link_to": "Production Forecast",   "type": "DocType"},

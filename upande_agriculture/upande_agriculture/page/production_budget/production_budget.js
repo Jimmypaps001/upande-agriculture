@@ -1,1086 +1,419 @@
-/**
- * Production Budget — annual spreadsheet view.
- *
- * Rows are aggregated by (greenhouse, base variety). Edits to a cell
- * redistribute proportionally across the underlying length variants
- * (e.g. editing "Athena W23" splits across Athena-50cm / -60cm / -70cm
- * by their current proportions). Compact mode shows budget numbers
- * with heatmap shading. Compare mode shows all four layers stacked
- * (Budget / Forecast / Plan / Actual) in every cell, read-only.
- *
- * Skin: Mona Flowers design system — ink shades on a cream surface,
- * Poppins / Fraunces / JetBrains Mono, signal teal #228883.
- */
-
-frappe.pages["production_budget"].on_page_load = async function (wrapper) {
-    const page = frappe.ui.make_app_page({
-        parent: wrapper,
-        title: __("Production Budget"),
-        single_column: true,
-    });
-    wrapper.classList.add("uagri-budget-page");
-    $(wrapper).find(".page-head").hide();
-
-    const state = {
-        year: new Date().getFullYear(),
-        mode: "compact",        // "compact" | "compare"
-        greenhouseFilter: "",
-        varietyFilter: "",
-        findText: "",
-        showPriorYear: false,
-        fullscreen: false,
-        zoomLevel: 0,           // -2..+3 widens/narrows week cell widths
-        grid: null,
-        prior: {},
-        loading: false,
-        pendingEdits: new Map(),
-        saveTimer: null,
-        lastSelection: null,    // {x1,y1,x2,y2}
-    };
-
-    await ensureAssetsLoaded();
-    renderShell(page);
-    await loadGrid();
-    bindShortcuts();
-
-    // -------------------------------------------------------------------------
-    // assets
-    // -------------------------------------------------------------------------
-
-    async function ensureAssetsLoaded() {
-        const base = "/assets/upande_agriculture/lib/jspreadsheet";
-        const cssFiles = [
-            "/assets/upande_agriculture/css/budget.css",
-            `${base}/jspreadsheet.css`,
-            `${base}/jsuites.css`,
-        ];
-        const jsFiles = [`${base}/jsuites.js`, `${base}/jspreadsheet.js`];
-        for (const href of cssFiles) {
-            if (document.querySelector(`link[href="${href}"]`)) continue;
-            const l = document.createElement("link");
-            l.rel = "stylesheet"; l.href = href;
-            document.head.appendChild(l);
-        }
-        for (const src of jsFiles) {
-            if (document.querySelector(`script[src="${src}"]`)) continue;
-            await new Promise((resolve, reject) => {
-                const s = document.createElement("script");
-                s.src = src; s.onload = resolve; s.onerror = reject;
-                document.head.appendChild(s);
-            });
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // shell
-    // -------------------------------------------------------------------------
-
-    function renderShell(page) {
-        const $body = $(page.body).empty();
-        $body.html(`
-            <div class="uagri-shell">
-                <header class="uagri-head">
-                    <div class="uagri-head__left">
-                        <div class="uagri-head__eyebrow">Mona Flowers · Annual Plan</div>
-                        <h1 class="uagri-head__title">Production Budget · <span class="uagri-year">${state.year}</span></h1>
-                        <p class="uagri-head__sub">Each row is one variety in one greenhouse — summed across stem lengths. Edits redistribute proportionally to the underlying length variants. Drag the corner to fill, ⌘C/⌘V to copy ranges.</p>
-                    </div>
-                    <div class="uagri-head__tools">
-                        <div class="uagri-pillgroup" data-target="mode">
-                            <button data-val="compact" class="on">Compact</button>
-                            <button data-val="compare">Compare 4 layers</button>
-                        </div>
-                        <label class="uagri-checkpill">
-                            <input type="checkbox" data-target="priorYear" />
-                            <span>Overlay ${state.year - 1} actuals</span>
-                        </label>
-                        <input class="uagri-yearpill" type="number" value="${state.year}" />
-                        <button class="uagri-iconbtn" data-action="fullscreen" title="Fullscreen (F)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 9 4 4 9 4"/><polyline points="20 9 20 4 15 4"/><polyline points="4 15 4 20 9 20"/><polyline points="20 15 20 20 15 20"/></svg>
-                        </button>
-                    </div>
-                </header>
-
-                <div class="uagri-filters">
-                    <select class="uagri-filter" data-target="greenhouse"><option value="">All greenhouses</option></select>
-                    <select class="uagri-filter" data-target="variety"><option value="">All varieties</option></select>
-                    <input class="uagri-find" data-target="find" placeholder="Find row by variety / greenhouse…" />
-                    <span class="uagri-status" data-status></span>
-                </div>
-
-                <div class="uagri-tools" data-tools>
-                    <div class="uagri-fxbar">
-                        <label class="uagri-fx-label" title="Formula bar — supports = arithmetic, W12 refs, SUM/AVG/MAX/MIN(W1:W52)">
-                            <span class="uagri-fx-icon">ƒx</span>
-                            <input class="uagri-fx-input" data-target="fxinput"
-                                placeholder='e.g. =W23*1.1   or   =AVG(W18:W30)   or   =1500'
-                                spellcheck="false" />
-                        </label>
-                        <button class="uagri-tool-btn" data-tool="apply-formula">Apply to selection</button>
-                    </div>
-
-                    <div class="uagri-stats" data-stats>
-                        <span class="uagri-stats__sep"></span>
-                        <span class="uagri-stat" data-stat="sum"><b>Σ</b> <em>—</em></span>
-                        <span class="uagri-stat" data-stat="avg"><b>μ</b> <em>—</em></span>
-                        <span class="uagri-stat" data-stat="max"><b>↑</b> <em>—</em></span>
-                        <span class="uagri-stat" data-stat="min"><b>↓</b> <em>—</em></span>
-                        <span class="uagri-stat" data-stat="count"><b>n</b> <em>—</em></span>
-                    </div>
-
-                    <div class="uagri-tool-cluster">
-                        <button class="uagri-tool-btn" data-tool="export-csv">Export CSV</button>
-                        <button class="uagri-tool-btn" data-tool="zoom-out" title="Narrower week columns">−</button>
-                        <button class="uagri-tool-btn" data-tool="zoom-in" title="Wider week columns">+</button>
-                        <button class="uagri-tool-btn" data-tool="exit-fs">Exit fullscreen</button>
-                    </div>
-                </div>
-
-                <div class="uagri-grid-wrap">
-                    <div class="uagri-grid" id="uagri-grid"></div>
-                </div>
-
-                <footer class="uagri-foot">
-                    <span class="uagri-foot__hint">⌘C / ⌘V copy-paste · drag the corner to fill · ⌘Z undo · auto-saves</span>
-                    <span class="uagri-foot__legend" data-legend></span>
-                </footer>
-
-                <div class="uagri-bulk" data-bulk style="display:none">
-                    <span class="uagri-bulk__count" data-bulk-count>0 cells</span>
-                    <span class="uagri-bulk__sep"></span>
-                    <button data-bulk-op="percent_add">+ %</button>
-                    <button data-bulk-op="percent_sub">− %</button>
-                    <button data-bulk-op="add">+ N</button>
-                    <button data-bulk-op="subtract">− N</button>
-                    <button data-bulk-op="set">Set all to…</button>
-                </div>
-            </div>
-        `);
-
-        $body.on("click", ".uagri-pillgroup button", (ev) => {
-            const $btn = $(ev.currentTarget);
-            const target = $btn.parent().data("target");
-            $btn.siblings().removeClass("on");
-            $btn.addClass("on");
-            state[target] = $btn.data("val");
-            loadGrid();
-        });
-        $body.on("change", 'input[data-target="priorYear"]', (ev) => {
-            state.showPriorYear = ev.currentTarget.checked;
-            loadGrid();
-        });
-        $body.on("change", ".uagri-yearpill", (ev) => {
-            state.year = parseInt($(ev.currentTarget).val()) || new Date().getFullYear();
-            $(".uagri-year", $body).text(state.year);
-            loadGrid();
-        });
-        $body.on("change", ".uagri-filter", (ev) => {
-            const t = $(ev.currentTarget).data("target");
-            if (t === "greenhouse") state.greenhouseFilter = ev.currentTarget.value;
-            if (t === "variety") state.varietyFilter = ev.currentTarget.value;
-            rerenderGridOnly();
-        });
-
-        $body.on("click", ".uagri-bulk [data-bulk-op]", async (ev) => {
-            const op = ev.currentTarget.dataset.bulkOp;
-            await applyBulkFormula(op);
-        });
-
-        // Fullscreen toggle
-        $body.on("click", '[data-action="fullscreen"]', () => toggleFullscreen());
-        $body.on("click", '[data-tool="exit-fs"]', () => toggleFullscreen(false));
-
-        // Find / filter
-        $body.on("input", '[data-target="find"]', (ev) => {
-            state.findText = String(ev.currentTarget.value || "").toLowerCase().trim();
-            rerenderGridOnly();
-        });
-
-        // Zoom buttons
-        $body.on("click", '[data-tool="zoom-in"]', () => bumpZoom(1));
-        $body.on("click", '[data-tool="zoom-out"]', () => bumpZoom(-1));
-
-        // Export CSV
-        $body.on("click", '[data-tool="export-csv"]', () => exportCSV());
-
-        // Formula bar: pressing Enter applies the formula to selection
-        $body.on("keydown", '[data-target="fxinput"]', (ev) => {
-            if (ev.key === "Enter") {
-                ev.preventDefault();
-                applyFormulaToSelection();
-            }
-        });
-        $body.on("click", '[data-tool="apply-formula"]', () => applyFormulaToSelection());
-    }
-
-    function toggleFullscreen(forceState) {
-        state.fullscreen = (forceState === undefined) ? !state.fullscreen : !!forceState;
-        wrapper.classList.toggle("uagri-fs", state.fullscreen);
-        document.body.classList.toggle("uagri-fs-locked", state.fullscreen);
-        // Resize the sheet so the new viewport size is used.
-        if (window.uagriSheet) {
-            try { window.uagriSheet.updateTable && window.uagriSheet.updateTable(); }
-            catch (_) {}
-        }
-    }
-
-    function bumpZoom(delta) {
-        state.zoomLevel = Math.max(-2, Math.min(4, state.zoomLevel + delta));
-        rerenderGridOnly();
-    }
-
-    function exportCSV() {
-        const rows = visibleRows();
-        if (!rows.length) return;
-        const header = ["Greenhouse", "Variety", ...Array.from({length: 52}, (_, i) => `W${i+1}`), "Budget Total", "Actual Total", "Source"];
-        const lines = [header.join(",")];
-        for (const r of rows) {
-            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
-            const cells = [
-                `"${(r.greenhouse || "").replace(/"/g, '""')}"`,
-                `"${(r.variety || "").replace(/"/g, '""')}"`,
-                ...r.weeks.map(v => v || 0),
-                r.total || 0,
-                actualTotal,
-                `"${(r.source || "").replace(/"/g, '""')}"`,
-            ];
-            lines.push(cells.join(","));
-        }
-        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `mona-budget-${state.year}-${Date.now()}.csv`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        setStatus(`Exported ${rows.length} rows to CSV`);
-    }
-
-    function setStatus(msg) { $('[data-status]').text(msg || ""); }
-
-    function renderLegend() {
-        if (state.mode !== "compare") {
-            $('[data-legend]').html(`
-                <span class="uagri-legend-heat">
-                    <em>cell heat = actual ÷ budget</em>
-                    <i style="background:rgba(225,29,72,0.34)"   title="<40%"></i>
-                    <i style="background:rgba(245,158,11,0.34)"  title="40–70%"></i>
-                    <i style="background:rgba(16,185,129,0.20)"  title="70–100%"></i>
-                    <i style="background:rgba(16,185,129,0.40)"  title="≥100%"></i>
-                </span>
-            `);
-            return;
-        }
-        $('[data-legend]').html(`
-            <span><i style="background:#0a0a0a"></i>Budget</span>
-            <span><i style="background:#0ea5e9"></i>Forecast</span>
-            <span><i style="background:#f59e0b"></i>Plan</span>
-            <span><i style="background:#10b981"></i>Actual</span>
-        `);
-    }
-
-    // -------------------------------------------------------------------------
-    // data
-    // -------------------------------------------------------------------------
-
-    async function loadGrid() {
-        if (state.loading) return;
-        state.loading = true;
-        setStatus("Loading…");
-        try {
-            const r = await frappe.call({
-                method: "upande_agriculture.api.get_budget_grid",
-                args: { year: state.year, mode: state.mode },
-            });
-            state.grid = r.message;
-            if (state.showPriorYear) {
-                try {
-                    const pr = await frappe.call({
-                        method: "upande_agriculture.api.get_prior_year_actuals",
-                        args: { year: state.year },
-                    });
-                    state.prior = pr.message?.rows || {};
-                } catch (e) { state.prior = {}; }
-            } else {
-                state.prior = {};
-            }
-            populateFilterOptions();
-            renderGrid();
-            renderLegend();
-            setStatus(`${state.grid.rows.length} variety×greenhouse rows`);
-        } catch (e) {
-            setStatus("Load failed: " + (e?.message || e));
-        } finally {
-            state.loading = false;
-        }
-    }
-
-    function populateFilterOptions() {
-        if (!state.grid) return;
-        const ghSet = new Set(), varSet = new Set();
-        state.grid.rows.forEach(r => { ghSet.add(r.greenhouse); varSet.add(r.variety); });
-        const fillSel = (sel, values, current) => {
-            const $s = $(sel);
-            const placeholder = $s.find("option:first").text();
-            $s.empty().append(`<option value="">${placeholder}</option>`);
-            [...values].filter(Boolean).sort().forEach(v => {
-                $s.append(`<option value="${frappe.utils.escape_html(v)}" ${v === current ? "selected" : ""}>${frappe.utils.escape_html(v)}</option>`);
-            });
-        };
-        fillSel('[data-target="greenhouse"]', ghSet, state.greenhouseFilter);
-        fillSel('[data-target="variety"]', varSet, state.varietyFilter);
-    }
-
-    function visibleRows() {
-        if (!state.grid) return [];
-        const needle = state.findText;
-        return state.grid.rows.filter(r => {
-            if (state.greenhouseFilter && r.greenhouse !== state.greenhouseFilter) return false;
-            if (state.varietyFilter && r.variety !== state.varietyFilter) return false;
-            if (needle) {
-                const hay = `${r.greenhouse || ""} ${r.variety || ""}`.toLowerCase();
-                if (!hay.includes(needle)) return false;
-            }
-            return true;
-        });
-    }
-
-    function rerenderGridOnly() {
-        renderGrid();
-        renderLegend();
-        setStatus(`${visibleRows().length} of ${state.grid?.rows.length || 0} shown`);
-    }
-
-    // -------------------------------------------------------------------------
-    // sparkline & cell renderers
-    // -------------------------------------------------------------------------
-
-    function sparklineSVG(weeks, priorWeeks) {
-        const max = Math.max(1, ...weeks, ...(priorWeeks || []));
-        const W = 92, H = 26, P = 2;
-        const pts = (arr) => arr.map((v, i) => {
-            const x = P + (i / 51) * (W - P * 2);
-            const y = H - P - (v / max) * (H - P * 2);
-            return `${x.toFixed(1)},${y.toFixed(1)}`;
-        }).join(" ");
-        const prior = priorWeeks && priorWeeks.length
-            ? `<polyline points="${pts(priorWeeks)}" fill="none" stroke="#b8b6ae" stroke-width="1" stroke-dasharray="2,2"/>`
-            : "";
-        return `<svg class="uagri-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${prior}
-            <polyline points="${pts(weeks)}" fill="none" stroke="#0a0a0a" stroke-width="1.5"/>
-        </svg>`;
-    }
-
-    function compareCell(b, f, p, a) {
-        // 4 horizontal sparkbars, each colored layer + abbreviated number.
-        // Bar lengths are proportional within the cell so the comparison
-        // reads at a glance — equal bars = on plan, mismatched = off.
-        const max = Math.max(1, b, f, p, a);
-        const pct = (v) => Math.max(0, Math.min(100, (v / max) * 100));
-        const bar = (cls, color, label, value) => {
-            const w = pct(value);
-            const visible = value > 0 ? "" : "uagri-cbar--zero";
-            return `<div class="uagri-cbar ${cls} ${visible}">
-                <span class="uagri-cbar__label" style="color:${color}">${label}</span>
-                <span class="uagri-cbar__track">
-                    <span class="uagri-cbar__fill" style="width:${w.toFixed(1)}%;background:${color}"></span>
-                </span>
-                <span class="uagri-cbar__value" style="color:${color}">${fmtFull(value)}</span>
-            </div>`;
-        };
-        return `<div class="uagri-cstack">
-            ${bar("uagri-cbar--b", "#0a0a0a", "B", b)}
-            ${bar("uagri-cbar--f", "#0ea5e9", "F", f)}
-            ${bar("uagri-cbar--p", "#f59e0b", "P", p)}
-            ${bar("uagri-cbar--a", "#10b981", "A", a)}
-        </div>`;
-    }
-
-    function fmtFull(n) {
-        if (!n) return "·";
-        return Number(n).toLocaleString();
-    }
-
-    function fmt(n) {
-        if (!n) return "·";
-        return Number(n).toLocaleString();
-    }
-
-    function varianceHTML(budget, actual) {
-        const b = Number(budget) || 0;
-        const a = Number(actual) || 0;
-        if (!b && !a) return `<span class="uagri-var uagri-var--flat">—</span>`;
-        if (!b) return `<span class="uagri-var uagri-var--up">+∞</span>`;
-        const pct = ((a - b) / b) * 100;
-        const sign = pct >= 0 ? "+" : "";
-        const cls = pct >= -2 ? "up" : (pct >= -15 ? "warn" : "down");
-        return `<span class="uagri-var uagri-var--${cls}">${sign}${pct.toFixed(0)}%</span>`;
-    }
-
-    function heatClass(actual, budget) {
-        // cell heat = actual ÷ budget. Returns the class for a 4-band
-        // visualisation. No class returned if either side is 0 (no
-        // actuals yet for a planned week — cell stays neutral).
-        if (!budget || !actual) return "";
-        const r = actual / budget;
-        if (r >= 1.00) return "uagri-heat-best";   // hitting or beating budget
-        if (r >= 0.70) return "uagri-heat-good";   // close
-        if (r >= 0.40) return "uagri-heat-warn";   // behind
-        return "uagri-heat-bad";                    // well behind
-    }
-
-    // -------------------------------------------------------------------------
-    // grid render
-    // -------------------------------------------------------------------------
-
-    function renderGrid() {
-        const host = document.getElementById("uagri-grid");
-        if (!host) return;
-        host.innerHTML = "";
-
-        const rows = visibleRows();
-        if (!rows.length) {
-            host.innerHTML = `<div class="uagri-empty">No projections for ${state.year}. Create a Crop Cycle for this year — its Projection will appear here.</div>`;
-            return;
-        }
-
-        const isCompare = state.mode === "compare";
-        // Store cell HTML for compare cells / sparkline / variance pill so we
-        // can DOM-inject after render (jspreadsheet's "html" type renders
-        // inconsistently across versions; post-render injection is reliable).
-        const htmlOverrides = [];   // [{x, y, html}]
-        const data = rows.map((r, rIdx) => {
-            const priorArr = state.prior[r.key];
-            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
-            // Numeric placeholders kept in the data; HTML applied post-render.
-            const cells = [
-                r.greenhouse || "—",
-                r.variety || "—",
-                "",   // sparkline cell — placeholder, populated below
-            ];
-            htmlOverrides.push({ x: 2, y: rIdx, html: sparklineSVG(r.weeks, priorArr) });
-
-            for (let i = 0; i < 52; i++) {
-                if (isCompare) {
-                    cells.push("");
-                    htmlOverrides.push({
-                        x: i + 3, y: rIdx,
-                        html: compareCell(r.weeks[i], r.forecast?.[i] || 0,
-                                          r.plan?.[i] || 0, r.actual?.[i] || 0),
-                    });
-                } else {
-                    cells.push(r.weeks[i] || 0);
-                }
-            }
-            cells.push(r.total);
-            cells.push(actualTotal);
-            cells.push("");
-            htmlOverrides.push({ x: 57, y: rIdx, html: varianceHTML(r.total, actualTotal) });
-            cells.push(r.source);
-            return cells;
-        });
-
-        // Columns: 0=GH 1=Variety 2=Pattern 3..54=Weeks 55=Total 56=Actual 57=Var% 58=Mode
-        const columns = [
-            { type: "text", title: "Greenhouse", width: 140, readOnly: true },
-            { type: "text", title: "Variety",    width: 130, readOnly: true },
-            { type: "text", title: "Pattern",    width: 104, readOnly: true, align: "left" },
-        ];
-        const baseWidth = isCompare ? 132 : 56;
-        const zoom = baseWidth + (state.zoomLevel * (isCompare ? 16 : 8));
-        for (let w = 1; w <= 52; w++) {
-            columns.push({
-                type: isCompare ? "text" : "numeric",
-                title: `W${w}`,
-                width: Math.max(40, zoom),
-                readOnly: isCompare,
-                mask: isCompare ? undefined : "#,##",
-                align: "right",
-            });
-        }
-        columns.push({ type: "numeric", title: "Budget",  width: 92, readOnly: true, mask: "#,##" });
-        columns.push({ type: "numeric", title: "Actual",  width: 92, readOnly: true, mask: "#,##" });
-        columns.push({ type: "text",    title: "Var %",   width: 80, readOnly: true, align: "center" });
-        columns.push({ type: "dropdown", title: "Mode", width: 110,
-                       source: ["Manual", "Hybrid", "Calculated from Protocol", "Mixed"] });
-
-        const monthLabels = state.grid.month_labels;
-        const monthOffsets = state.grid.month_offsets;
-        const nestedHeaders = [[
-            { title: "", colspan: 3 },
-            ...monthLabels.map((m, i) => {
-                const start = monthOffsets[i];
-                const end = i < 11 ? monthOffsets[i + 1] - 1 : 52;
-                return { title: m, colspan: end - start + 1 };
-            }),
-            { title: "", colspan: 4 },
-        ]];
-
-        if (window.uagriSheet) {
-            try { window.uagriSheet.destroy(); } catch (e) { /* noop */ }
-        }
-        window.uagriSheet = jspreadsheet(host, {
-            data,
-            columns,
-            nestedHeaders,
-            tableOverflow: true,
-            tableHeight: "calc(100vh - 360px)",
-            tableWidth: "100%",
-            freezeColumns: 3,
-            columnSorting: false,
-            columnDrag: false,
-            allowInsertColumn: false,
-            allowDeleteColumn: false,
-            allowInsertRow: false,
-            allowDeleteRow: false,
-            allowExport: true,
-            csvFileName: `mona-budget-${state.year}`,
-            contextMenu: (obj, x, y) => buildContextMenu(obj, x, y, rows),
-            onchange: handleCellChange,
-            onpaste: () => { scheduleSave(); updateBulkBarVisibility(); },
-            onselection: (instance, x1, y1, x2, y2) => {
-                state.lastSelection = { x1, y1, x2, y2 };
-                paintSelection(x1, y1, x2, y2);
-                updateBulkBarVisibility(x1, y1, x2, y2);
-                updateStats(x1, y1, x2, y2);
-            },
-        });
-
-        window.uagriRowsRef = rows;
-        injectHTMLOverrides(htmlOverrides);
-        applyHeatmapClasses();
-        decorateBulkBar();
-        wrapper.classList.toggle("uagri-compare", isCompare);
-    }
-
-    // jspreadsheet's own drag-fill highlight is unreliable in this build —
-    // it tags cells with `highlight-selected` but the cascade conflicts with
-    // our cell-specific styles. We paint our own class on the cells in the
-    // current selection so the user always sees the range light up.
-    function paintSelection(x1, y1, x2, y2) {
-        const tbody = document.querySelector("#uagri-grid table tbody");
-        if (!tbody) return;
-        tbody.querySelectorAll(".uagri-sel").forEach(el => el.classList.remove("uagri-sel", "uagri-sel--edge-t", "uagri-sel--edge-b", "uagri-sel--edge-l", "uagri-sel--edge-r"));
-        if (x1 === undefined) return;
-        const xlo = Math.min(x1, x2), xhi = Math.max(x1, x2);
-        const ylo = Math.min(y1, y2), yhi = Math.max(y1, y2);
-        for (let y = ylo; y <= yhi; y++) {
-            for (let x = xlo; x <= xhi; x++) {
-                const td = tbody.querySelector(`tr:nth-child(${y + 1}) td[data-x="${x}"]`);
-                if (!td) continue;
-                td.classList.add("uagri-sel");
-                if (y === ylo) td.classList.add("uagri-sel--edge-t");
-                if (y === yhi) td.classList.add("uagri-sel--edge-b");
-                if (x === xlo) td.classList.add("uagri-sel--edge-l");
-                if (x === xhi) td.classList.add("uagri-sel--edge-r");
-            }
-        }
-    }
-
-    function injectHTMLOverrides(overrides) {
-        // jspreadsheet escapes HTML in 'text' type cells; we punch the HTML
-        // back in via innerHTML after render so cells reliably display
-        // sparklines, compare-stacks, and variance pills.
-        const tbody = document.querySelector("#uagri-grid table tbody");
-        if (!tbody) return;
-        overrides.forEach(({ x, y, html }) => {
-            const td = tbody.querySelector(`tr:nth-child(${y + 1}) td[data-x="${x}"]`);
-            if (td) td.innerHTML = html;
-        });
-    }
-
-    function applyHeatmapClasses() {
-        if (state.mode !== "compact") return;
-        const rows = window.uagriRowsRef || [];
-        const tbody = document.querySelector("#uagri-grid table tbody");
-        if (!tbody) return;
-        rows.forEach((r, rowIdx) => {
-            const actuals = r.actual || [];
-            for (let i = 0; i < 52; i++) {
-                const td = tbody.querySelector(`tr:nth-child(${rowIdx + 1}) td[data-x="${i + 3}"]`);
-                if (!td) continue;
-                td.classList.remove("uagri-heat-best", "uagri-heat-good", "uagri-heat-warn", "uagri-heat-bad", "uagri-zero");
-                if (!r.weeks[i]) td.classList.add("uagri-zero");
-                const hc = heatClass(actuals[i] || 0, r.weeks[i] || 0);
-                if (hc) td.classList.add(hc);
-            }
-        });
-    }
-
-    // -------------------------------------------------------------------------
-    // edit handling
-    // -------------------------------------------------------------------------
-
-    function handleCellChange(instance, cell, x, y, value) {
-        const col = parseInt(x);
-        const row = parseInt(y);
-        const r = window.uagriRowsRef?.[row];
-        if (!r) return;
-        // x: 0=GH 1=Variety 2=Pattern 3..54=Weeks 55=Budget 56=Actual 57=Var% 58=Mode
-        if (col >= 3 && col <= 54) {
-            const week = col - 2;
-            const raw = String(value || "").trim();
-            let numeric;
-            if (raw.startsWith("=")) {
-                try {
-                    numeric = evalFormula(raw, r.weeks);
-                    // Write the evaluated number back into the cell display.
-                    if (window.uagriSheet?.setValueFromCoords) {
-                        window.uagriSheet.setValueFromCoords(col, row, numeric, true);
-                    }
-                } catch (e) {
-                    setStatus(`Formula error in W${week}: ${e.message || e}`);
-                    return;
-                }
-            } else {
-                numeric = parseInt(raw.replace(/[, ]/g, "")) || 0;
-            }
-            queueEdit(r, week, numeric);
-        } else if (col === 58) {
-            changeSource(r, value);
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // formula evaluator
-    // -------------------------------------------------------------------------
-    //
-    // Supported syntax (whitelisted, no eval injection):
-    //   - integers and floats
-    //   - + - * / ( )
-    //   - W<n>            references the same row's week <n> projected stems
-    //   - SUM(W<a>:W<b>)  inclusive range sum
-    //   - AVG(...)        inclusive range mean
-    //   - MAX(...) / MIN(...)
-    //   - PCT(p, base)    same as base * p / 100
-    //   - ROW_TOTAL()     sum of all 52 weeks
-    function evalFormula(expr, rowWeeks) {
-        let e = expr.replace(/^=/, "").trim();
-        if (!e) throw new Error("empty");
-
-        // Functions over ranges
-        e = e.replace(/\bSUM\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
-            String(_rangeAgg(rowWeeks, +a, +b, "sum")));
-        e = e.replace(/\bAVG\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
-            String(_rangeAgg(rowWeeks, +a, +b, "avg")));
-        e = e.replace(/\bMAX\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
-            String(_rangeAgg(rowWeeks, +a, +b, "max")));
-        e = e.replace(/\bMIN\(\s*W(\d+)\s*:\s*W(\d+)\s*\)/gi, (_, a, b) =>
-            String(_rangeAgg(rowWeeks, +a, +b, "min")));
-        e = e.replace(/\bROW_TOTAL\(\s*\)/gi, () =>
-            String(rowWeeks.reduce((s, v) => s + (v || 0), 0)));
-        e = e.replace(/\bPCT\(\s*([\d.]+)\s*,\s*([^)]+?)\s*\)/gi, (_, p, base) => {
-            const bnum = _safeEval(base);
-            return String((bnum * parseFloat(p)) / 100);
-        });
-
-        // Single-cell W<n> references
-        e = e.replace(/\bW(\d+)\b/gi, (_, n) => {
-            const idx = parseInt(n) - 1;
-            return String(rowWeeks[idx] || 0);
-        });
-
-        return Math.round(_safeEval(e));
-    }
-
-    function _rangeAgg(weeks, a, b, op) {
-        if (a > b) [a, b] = [b, a];
-        const lo = Math.max(1, a) - 1, hi = Math.min(52, b) - 1;
-        const slice = weeks.slice(lo, hi + 1).map(v => v || 0);
-        if (op === "sum") return slice.reduce((s, v) => s + v, 0);
-        if (op === "avg") return slice.length ? slice.reduce((s, v) => s + v, 0) / slice.length : 0;
-        if (op === "max") return slice.length ? Math.max(...slice) : 0;
-        if (op === "min") return slice.length ? Math.min(...slice) : 0;
-        return 0;
-    }
-
-    function _safeEval(expr) {
-        const cleaned = String(expr).replace(/\s+/g, "");
-        // Whitelist: digits, decimals, + - * / parens
-        if (!/^[\d+\-*/().]+$/.test(cleaned)) {
-            throw new Error(`bad syntax: ${cleaned}`);
-        }
-        // Compute via Function constructor in strict mode — the regex above
-        // prevents any identifier reaching the evaluator.
-        return Function(`"use strict"; return (${cleaned});`)();
-    }
-
-    async function applyFormulaToSelection() {
-        const fxInput = document.querySelector('[data-target="fxinput"]');
-        if (!fxInput || !fxInput.value.trim()) return;
-        const sel = state.lastSelection;
-        if (!sel) { setStatus("Select a cell range first"); return; }
-        const formula = fxInput.value.trim();
-        const rowsRef = window.uagriRowsRef || [];
-        const xlo = Math.max(3, Math.min(sel.x1, sel.x2));
-        const xhi = Math.min(54, Math.max(sel.x1, sel.x2));
-        const ylo = Math.min(sel.y1, sel.y2);
-        const yhi = Math.max(sel.y1, sel.y2);
-
-        let count = 0;
-        for (let y = ylo; y <= yhi; y++) {
-            const r = rowsRef[y];
-            if (!r) continue;
-            for (let x = xlo; x <= xhi; x++) {
-                const week = x - 2;
-                let val;
-                try {
-                    val = formula.startsWith("=")
-                        ? evalFormula(formula, r.weeks)
-                        : parseInt(String(formula).replace(/[, ]/g, "")) || 0;
-                } catch (e) {
-                    setStatus(`Formula error: ${e.message}`);
-                    return;
-                }
-                if (window.uagriSheet?.setValueFromCoords) {
-                    window.uagriSheet.setValueFromCoords(x, y, val, true);
-                }
-                queueEdit(r, week, val);
-                count++;
-            }
-        }
-        setStatus(`Applied formula to ${count} cells`);
-    }
-
-    // -------------------------------------------------------------------------
-    // selection stats
-    // -------------------------------------------------------------------------
-    function updateStats(x1, y1, x2, y2) {
-        const wrapEl = document.querySelector("[data-stats]");
-        if (!wrapEl) return;
-        const set = (key, val) => {
-            const el = wrapEl.querySelector(`[data-stat="${key}"] em`);
-            if (el) el.textContent = val;
-        };
-        if (x1 === undefined) {
-            ["sum", "avg", "max", "min", "count"].forEach(k => set(k, "—"));
-            return;
-        }
-        const xlo = Math.max(3, Math.min(x1, x2));
-        const xhi = Math.min(54, Math.max(x1, x2));
-        const ylo = Math.min(y1, y2);
-        const yhi = Math.max(y1, y2);
-        const rowsRef = window.uagriRowsRef || [];
-        const vals = [];
-        for (let y = ylo; y <= yhi; y++) {
-            const r = rowsRef[y];
-            if (!r) continue;
-            for (let x = xlo; x <= xhi; x++) {
-                vals.push(r.weeks[x - 3] || 0);
-            }
-        }
-        if (!vals.length) {
-            ["sum", "avg", "max", "min", "count"].forEach(k => set(k, "—"));
-            return;
-        }
-        const sum = vals.reduce((s, v) => s + v, 0);
-        set("sum",   fmtFull(sum));
-        set("avg",   fmtFull(Math.round(sum / vals.length)));
-        set("max",   fmtFull(Math.max(...vals)));
-        set("min",   fmtFull(Math.min(...vals)));
-        set("count", String(vals.length));
-    }
-
-    function queueEdit(r, week, value) {
-        const key = `${r.key}::${week}`;
-        state.pendingEdits.set(key, {
-            greenhouse: r.greenhouse,
-            variety_base: r.variety,
-            year: state.year,
-            week,
-            value,
-        });
-        setStatus(`Pending ${state.pendingEdits.size} edits…`);
-        scheduleSave();
-    }
-
-    function scheduleSave() {
-        if (state.saveTimer) clearTimeout(state.saveTimer);
-        state.saveTimer = setTimeout(flushSave, 700);
-    }
-
-    async function flushSave() {
-        if (!state.pendingEdits.size) return;
-        const updates = [...state.pendingEdits.values()];
-        state.pendingEdits.clear();
-        setStatus("Saving…");
-        try {
-            await frappe.call({
-                method: "upande_agriculture.api.bulk_update_aggregated_weeks",
-                args: { updates },
-            });
-            setStatus(`Saved ${updates.length} cells · ${new Date().toLocaleTimeString()}`);
-            refreshTotalsLocally(updates);
-        } catch (e) {
-            setStatus("Save failed: " + (e?.message || e));
-            updates.forEach(u => state.pendingEdits.set(`${u.greenhouse}||${u.variety_base}::${u.week}`, u));
-        }
-    }
-
-    function refreshTotalsLocally(updates) {
-        // Update in-memory rows and just the derived columns (Total,
-        // Actual, Var%, Pattern). DO NOT destroy/recreate the sheet —
-        // that's the full-screen flicker the user reported.
-        const rowsRef = window.uagriRowsRef || [];
-        const touchedRowIdx = new Set();
-        // Apply each update to the in-memory row's weeks array.
-        for (const u of updates) {
-            const idx = rowsRef.findIndex(r =>
-                r.greenhouse === u.greenhouse && r.variety === u.variety_base);
-            if (idx < 0) continue;
-            const r = rowsRef[idx];
-            const w = parseInt(u.week);
-            if (w >= 1 && w <= 52) {
-                r.weeks[w - 1] = parseInt(u.value) || 0;
-                touchedRowIdx.add(idx);
-            }
-        }
-        // Recompute totals + repaint trailing columns + sparkline.
-        const tbody = document.querySelector("#uagri-grid table tbody");
-        if (!tbody) return;
-        for (const idx of touchedRowIdx) {
-            const r = rowsRef[idx];
-            const newTotal = r.weeks.reduce((s, v) => s + (v || 0), 0);
-            r.total = newTotal;
-            // Total column (x=55)
-            const tdTotal = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="55"]`);
-            if (tdTotal) tdTotal.textContent = fmtFull(newTotal);
-            // Var% column (x=57)
-            const tdVar = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="57"]`);
-            const actualTotal = (r.actual || []).reduce((s, v) => s + v, 0);
-            if (tdVar) tdVar.innerHTML = varianceHTML(newTotal, actualTotal);
-            // Sparkline (x=2)
-            const tdSpark = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="2"]`);
-            if (tdSpark) tdSpark.innerHTML = sparklineSVG(r.weeks, state.prior[r.key]);
-            // Heatmap reshade for this row
-            if (state.mode === "compact") {
-                for (let i = 0; i < 52; i++) {
-                    const td = tbody.querySelector(`tr:nth-child(${idx + 1}) td[data-x="${i + 3}"]`);
-                    if (!td) continue;
-                    td.classList.remove("uagri-heat-best", "uagri-heat-good",
-                                         "uagri-heat-warn", "uagri-heat-bad", "uagri-zero");
-                    if (!r.weeks[i]) td.classList.add("uagri-zero");
-                    const hc = heatClass((r.actual || [])[i] || 0, r.weeks[i] || 0);
-                    if (hc) td.classList.add(hc);
-                }
-            }
-        }
-    }
-
-    async function changeSource(r, source) {
-        await flushSave();
-        setStatus(`Setting ${r.variety} @ ${r.greenhouse} → ${source}…`);
-        try {
-            await frappe.call({
-                method: "upande_agriculture.api.bulk_set_aggregated_source",
-                args: { rows: [{ greenhouse: r.greenhouse, variety_base: r.variety, year: state.year }],
-                        source },
-            });
-            await loadGrid();
-        } catch (e) {
-            setStatus("Source change failed: " + (e?.message || e));
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // bulk operations
-    // -------------------------------------------------------------------------
-
-    function getSelection() {
-        // Returns {x1, y1, x2, y2} of the currently-selected range or null.
-        const sheet = window.uagriSheet;
-        if (!sheet) return null;
-        const sel = sheet.getSelection ? sheet.getSelection() : null;
-        if (!sel || sel.length < 4) return null;
-        const [x1, y1, x2, y2] = sel;
-        return { x1, y1, x2, y2 };
-    }
-
-    function updateBulkBarVisibility(x1, y1, x2, y2) {
-        const bar = document.querySelector("[data-bulk]");
-        if (!bar) return;
-        let cells = 0;
-        if (x1 !== undefined) {
-            const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
-            const ylo = Math.min(y1, y2), yhi = Math.max(y1, y2);
-            // Only count week cells (x 3..54)
-            const xspan = Math.max(0, Math.min(hi, 54) - Math.max(lo, 3) + 1);
-            const yspan = yhi - ylo + 1;
-            if (xspan > 0 && yspan > 0) cells = xspan * yspan;
-        }
-        if (cells > 1 && state.mode === "compact") {
-            bar.style.display = "flex";
-            bar.querySelector("[data-bulk-count]").textContent = `${cells} cells`;
-            bar.dataset.selX1 = x1; bar.dataset.selY1 = y1;
-            bar.dataset.selX2 = x2; bar.dataset.selY2 = y2;
-        } else {
-            bar.style.display = "none";
-        }
-    }
-
-    function decorateBulkBar() {
-        document.querySelector("[data-bulk]")?.style.setProperty("display", "none");
-    }
-
-    async function applyBulkFormula(op) {
-        const bar = document.querySelector("[data-bulk]");
-        if (!bar) return;
-        const x1 = parseInt(bar.dataset.selX1), y1 = parseInt(bar.dataset.selY1);
-        const x2 = parseInt(bar.dataset.selX2), y2 = parseInt(bar.dataset.selY2);
-        if (isNaN(x1)) return;
-
-        const promptMap = {
-            percent_add: "Add what percent? (e.g. 10 → +10%)",
-            percent_sub: "Subtract what percent? (e.g. 10 → −10%)",
-            add: "Add how many stems?",
-            subtract: "Subtract how many stems?",
-            set: "Set every selected cell to which value?",
-        };
-        const input = window.prompt(promptMap[op] || "Value?", "0");
-        if (input == null) return;
-        const operand = parseFloat(String(input).replace(/[, ]/g, ""));
-        if (!isFinite(operand)) {
-            frappe.show_alert({ message: "Not a number.", indicator: "red" });
-            return;
-        }
-
-        const xlo = Math.max(3, Math.min(x1, x2));
-        const xhi = Math.min(54, Math.max(x1, x2));
-        const ylo = Math.min(y1, y2);
-        const yhi = Math.max(y1, y2);
-        const rowsRef = window.uagriRowsRef || [];
-        const updates = [];
-        for (let y = ylo; y <= yhi; y++) {
-            const r = rowsRef[y];
-            if (!r) continue;
-            for (let x = xlo; x <= xhi; x++) {
-                const w = x - 2;
-                updates.push({
-                    greenhouse: r.greenhouse,
-                    variety_base: r.variety,
-                    year: state.year,
-                    week: w,
-                    current: r.weeks[w - 1] || 0,
-                });
-            }
-        }
-        if (!updates.length) return;
-        await flushSave();
-        setStatus(`Applying ${op} (${operand}) to ${updates.length} cells…`);
-        try {
-            await frappe.call({
-                method: "upande_agriculture.api.bulk_apply_formula",
-                args: { updates, operation: op, operand },
-            });
-            await loadGrid();
-            setStatus(`Applied ${op} (${operand}) to ${updates.length} cells.`);
-        } catch (e) {
-            setStatus("Bulk apply failed: " + (e?.message || e));
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // context menu
-    // -------------------------------------------------------------------------
-
-    function buildContextMenu(obj, x, y, rows) {
-        const r = rows[y];
-        const items = [
-            { title: "Copy", onclick: () => obj.copy(true) },
-            { title: "Paste", onclick: () => obj.paste(x, y, "") },
-            { type: "line" },
-            { title: "Recalc from Crop Protocol",
-              onclick: () => bulkSetSourceForSelection("Hybrid") },
-            { title: "Set selected rows to Manual",
-              onclick: () => bulkSetSourceForSelection("Manual") },
-        ];
-        if (r) {
-            items.push({ type: "line" });
-            items.push({
-                title: `Copy this row to another greenhouse…`,
-                onclick: () => copyRowToGreenhouse(r),
-            });
-        }
-        return items;
-    }
-
-    async function bulkSetSourceForSelection(source) {
-        const sheet = window.uagriSheet;
-        const sel = sheet?.getSelectedRows?.() || [];
-        const rowsRef = window.uagriRowsRef || [];
-        const targets = (sel.length ? sel : []).map(i => rowsRef[i]).filter(Boolean);
-        if (!targets.length) return frappe.show_alert("Select rows first.");
-        await flushSave();
-        setStatus(`Updating ${targets.length} rows → ${source}…`);
-        try {
-            await frappe.call({
-                method: "upande_agriculture.api.bulk_set_aggregated_source",
-                args: {
-                    rows: targets.map(r => ({
-                        greenhouse: r.greenhouse, variety_base: r.variety, year: state.year,
-                    })),
-                    source,
-                },
-            });
-            await loadGrid();
-        } catch (e) {
-            setStatus("Failed: " + (e?.message || e));
-        }
-    }
-
-    async function copyRowToGreenhouse(r) {
-        const ghs = [...new Set((state.grid?.rows || []).map(x => x.greenhouse).filter(Boolean))]
-            .filter(g => g !== r.greenhouse);
-        if (!ghs.length) return frappe.show_alert("No other greenhouses to copy to.");
-        const target = await new Promise(resolve => {
-            const d = new frappe.ui.Dialog({
-                title: __("Copy '{0}' to another greenhouse", [r.variety]),
-                fields: [
-                    { fieldname: "target_greenhouse", label: __("Target Greenhouse"),
-                      fieldtype: "Select", options: ghs.join("\n"), reqd: 1 },
-                ],
-                primary_action_label: __("Copy 52-week pattern"),
-                primary_action: (v) => { d.hide(); resolve(v.target_greenhouse); },
-            });
-            d.show();
-        });
-        if (!target) return;
-        setStatus(`Copying ${r.variety} pattern to ${target}…`);
-        try {
-            await frappe.call({
-                method: "upande_agriculture.api.copy_aggregated_row",
-                args: {
-                    source_greenhouse: r.greenhouse,
-                    source_variety_base: r.variety,
-                    target_greenhouse: target,
-                    year: state.year,
-                },
-            });
-            await loadGrid();
-            setStatus(`Copied to ${target}.`);
-        } catch (e) {
-            setStatus("Copy failed: " + (e?.message || e));
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // keyboard
-    // -------------------------------------------------------------------------
-
-    function bindShortcuts() {
-        document.addEventListener("keydown", async (ev) => {
-            const t = ev.target;
-            const inEditor = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-            if ((ev.metaKey || ev.ctrlKey) && ev.key === "s") {
-                ev.preventDefault();
-                await flushSave();
-            } else if (ev.key === "F" && !inEditor) {
-                toggleFullscreen();
-            } else if (ev.key === "Escape" && state.fullscreen) {
-                toggleFullscreen(false);
-            }
-        });
-        window.addEventListener("beforeunload", () => {
-            if (state.pendingEdits.size) flushSave();
-        });
-    }
+// Production Budget & Forecast
+// ─────────────────────────────
+// Budget is monthly on a Sep–Aug crop year (area × stems/m²/yr, market-weighted).
+// Forecast is weekly per variety × grade, which is the shape of the sheets this
+// page replaces. Past weeks are read-only; the current revision is the only
+// editable layer.
+
+frappe.pages['production_budget'].on_page_load = function (wrapper) {
+	frappe.ui.make_app_page({ parent: wrapper, title: 'Production Budget', single_column: true });
+	new BudgetForecast(wrapper);
 };
+
+const FONTS = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700' +
+	'&family=JetBrains+Mono:wght@400;500;600&display=swap';
+
+class BudgetForecast {
+	constructor(wrapper) {
+		this.wrapper = wrapper;
+		this.$page = $(wrapper).find('.page-content');
+		this.grain = 'week';
+		this.year = new Date().getFullYear();
+		this.state = null;
+		this.pop = null;
+		this.load_fonts();
+		this.render_shell();
+		this.refresh();
+	}
+
+	load_fonts() {
+		if (!document.getElementById('bf-fonts')) {
+			$('<link id="bf-fonts" rel="stylesheet">').attr('href', FONTS).appendTo('head');
+		}
+	}
+
+	// Desk chrome fights a full-bleed planning surface, so it is hidden while
+	// this page is mounted and restored on the way out.
+	render_shell() {
+		$(this.wrapper).find('.page-head').hide();
+		this.$root = $('<div class="bf"></div>').appendTo('body');
+		this.$root.html(`
+			<aside class="bf__rail">
+				<div class="bf__top">
+					<div class="bf__mark">U</div>
+					<div class="bf__brand"><b>UPANDE</b><small>Agriculture</small></div>
+					<button class="bf__collapse" data-act="collapse" title="Collapse">
+						<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+				</div>
+				<div class="bf__scroll">
+					<div class="bf__nav">
+						<button class="bf__n" data-route="budget"><span class="bf__ni">B</span><span class="bf__nt">Budget</span></button>
+						<button class="bf__n on"><span class="bf__ni">F</span><span class="bf__nt">Forecast</span></button>
+						<button class="bf__n" data-route="plan"><span class="bf__ni">P</span><span class="bf__nt">Weekly Plan</span></button>
+						<button class="bf__n" data-route="Crop Protocol"><span class="bf__ni">C</span><span class="bf__nt">Crop Protocols</span></button>
+						<button class="bf__n" data-route="Greenhouse"><span class="bf__ni">G</span><span class="bf__nt">Greenhouses</span></button>
+						<button class="bf__n" data-route="calibrate"><span class="bf__ni">K</span><span class="bf__nt">Calibration</span></button>
+					</div>
+					<div class="bf__eye">Crop year</div>
+					<div class="bf__year" data-act="year"><b></b><small>Sep&ndash;Aug</small></div>
+					<div class="bf__eye">Greenhouse › Variety</div>
+					<div class="bf__tree"></div>
+				</div>
+				<div class="bf__foot">
+					<div class="bf__sel"><small>Selected</small><b>—</b><span></span></div>
+					<button class="bf__desk" data-act="desk">
+						<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+						<span class="bf__nt">Back to Desk</span></button>
+					<div class="bf__who">
+						<div class="bf__av"></div>
+						<div class="bf__who-m"><b></b><small></small></div>
+					</div>
+				</div>
+			</aside>
+			<main class="bf__shell">
+				<div class="bf__head">
+					<div class="bf__hl">
+						<div class="bf__eyebrow"></div>
+						<h1>Budget &amp; Forecast</h1>
+						<div class="bf__sub">Loading…</div>
+					</div>
+					<div class="bf__hr">
+						<div class="bf__pg">
+							<button data-grain="month">Monthly budget</button>
+							<button data-grain="week" class="on">Weekly forecast</button>
+						</div>
+						<button class="bf__pill" data-act="window"></button>
+						<button class="bf__btn" data-act="rebuild">Rebuild</button>
+						<button class="bf__btn bf__btn--ink" data-act="revise">New revision</button>
+					</div>
+				</div>
+				<div class="bf__kpis"></div>
+				<div class="bf__card bf__climate"></div>
+				<div class="bf__card bf__gridcard"></div>
+			</main>`);
+
+		const u = frappe.session.user_fullname || frappe.session.user;
+		this.$root.find('.bf__av').text(u.split(/\s+/).map(s => s[0]).slice(0, 2).join('').toUpperCase());
+		this.$root.find('.bf__who-m b').text(u);
+		this.$root.find('.bf__who-m small').text(frappe.session.user);
+
+		this.bind();
+	}
+
+	bind() {
+		const self = this;
+		this.$root.on('click', '[data-act="collapse"]', () => this.$root.toggleClass('is-collapsed'));
+		this.$root.on('click', '[data-act="desk"]', () => { this.destroy(); frappe.set_route('/app'); });
+		this.$root.on('click', '.bf__n[data-route]', function () {
+			const r = $(this).data('route');
+			if (r === 'Crop Protocol' || r === 'Greenhouse') { self.destroy(); frappe.set_route('List', r); }
+		});
+		this.$root.on('click', '[data-grain]', function () {
+			self.grain = $(this).data('grain');
+			self.$root.find('[data-grain]').removeClass('on');
+			$(this).addClass('on');
+			self.draw();
+		});
+		this.$root.on('click', '[data-act="rebuild"]', () => this.rebuild());
+		this.$root.on('click', '.bf__tw', function () { $(this).find('.bf__cb').toggleClass('on'); self.recount(); });
+		this.$root.on('click', 'td.edit', function (e) { e.stopPropagation(); self.open_cell($(this)); });
+		this.$root.on('click', e => { if (!$(e.target).closest('.bf__pop').length) this.close_pop(); });
+		$(document).on('keydown.bf', e => { if (e.key === 'Escape') this.close_pop(); });
+
+		// Frappe keeps the page in the DOM when routing away, so tear down on hide.
+		$(this.wrapper).on('hide', () => this.destroy());
+	}
+
+	destroy() {
+		if (this.$root) { this.$root.remove(); this.$root = null; }
+		$(document).off('keydown.bf');
+		$(this.wrapper).find('.page-head').show();
+	}
+
+	refresh() {
+		frappe.call({
+			method: 'upande_agriculture.budget.grid_payload',
+			args: { year: this.year },
+			callback: r => { this.state = r.message; this.draw(); },
+		});
+	}
+
+	rebuild() {
+		frappe.confirm(
+			__('Rebuild every budget for {0} from the crop cycles?<br><br>Locked and hand-edited weeks are kept.', [this.year]),
+			() => frappe.call({
+				method: 'upande_agriculture.budget.generate_all_budgets',
+				args: { year: this.year },
+				freeze: true,
+				freeze_message: __('Rebuilding budgets…'),
+				callback: r => {
+					frappe.show_alert({ message: __('{0} budgets rebuilt', [r.message.generated]), indicator: 'green' });
+					this.refresh();
+				},
+			}));
+	}
+
+	// ── drawing ────────────────────────────────────────────────
+	draw() {
+		const s = this.state;
+		if (!s) return;
+		this.$root.find('.bf__eyebrow').text(`Crop year ${s.crop_year} · Sep – Aug`);
+		this.$root.find('.bf__year b').text(s.crop_year);
+		this.$root.find('.bf__sub').text(
+			`${s.blocks.length} blocks across ${s.house_count} greenhouses · ` +
+			`${fmt_m(s.budget_total)} stems budgeted · ${s.weeks.length ? `weeks W${s.weeks[0]}–W${s.weeks.at(-1)}` : 'no weeks'}`);
+		this.$root.find('[data-act="window"]').text(
+			s.weeks.length ? `W${s.weeks[0]} \u2013 W${s.weeks.at(-1)}` : 'No window');
+		this.draw_tree();
+		this.draw_kpis();
+		this.draw_climate();
+		this.draw_grid();
+		this.recount();
+	}
+
+	draw_tree() {
+		const byHouse = {};
+		for (const b of this.state.blocks) (byHouse[b.greenhouse] ||= []).push(b);
+		this.$root.find('.bf__tree').html(Object.entries(byHouse).map(([gh, list]) => `
+			<div class="bf__tw bf__tw--gh"><i class="bf__cb on"></i>
+				<span class="bf__tn">${frappe.utils.escape_html(short_house(gh))}</span>
+				<span class="bf__tm">${list[0].area ? Math.round(list[0].area).toLocaleString() + ' m²' : ''}</span></div>
+			${list.map(b => `<div class="bf__tw bf__tw--v" data-block="${b.key}">
+				<i class="bf__cb on"></i>
+				<span class="bf__tn">${frappe.utils.escape_html(b.variety)}</span>
+				<span class="bf__tm">${fmt_m(b.budget_total)}</span></div>`).join('')}
+		`).join('') || '<div class="bf__eye">No crop cycles yet</div>');
+	}
+
+	recount() {
+		const on = this.$root.find('.bf__tw--v .bf__cb.on').closest('.bf__tw');
+		let stems = 0, area = 0;
+		on.each((_, el) => {
+			const b = this.state.blocks.find(x => x.key === $(el).data('block'));
+			if (b) { stems += b.budget_total || 0; area += b.area || 0; }
+		});
+		this.$root.find('.bf__sel b').text(fmt_m(stems) + ' stems');
+		this.$root.find('.bf__sel span').text(`${on.length} blocks · ${Math.round(area).toLocaleString()} m²`);
+	}
+
+	draw_kpis() {
+		const s = this.state;
+		const K = [
+			['Budget · crop year', fmt_m(s.budget_total), 'stems', `Sep ${s.crop_year.slice(0, 4)} – Aug ${s.crop_year.slice(-2)}`, 'var(--s-budget)'],
+			['Forecast · window', fmt_m(s.forecast_total), 'stems', s.revision_note || 'no revision yet', 'var(--s-forecast)'],
+			['Actual vs budget', signed(s.actual_vs_budget), '%', `${s.actual_weeks} weeks to date`, s.actual_vs_budget >= 0 ? 'var(--pos)' : 'var(--neg)'],
+			['Model accuracy', signed(s.model_error), '%', s.model_note || 'not yet calibrated', 'var(--signal)'],
+		];
+		this.$root.find('.bf__kpis').html(K.map(([l, v, u, m, c]) => `
+			<div class="bf__kpi"><div class="bf__kl">${l}</div>
+				<div class="bf__kv">${v}<i>${u}</i></div>
+				<div class="bf__kt"><i style="background:${c}"></i>${frappe.utils.escape_html(m)}</div></div>`).join(''));
+	}
+
+	draw_climate() {
+		const s = this.state;
+		if (!s.climate || !Object.keys(s.climate).length) {
+			this.$root.find('.bf__climate').hide();
+			return;
+		}
+		this.$root.find('.bf__climate').show().html(`
+			<div class="bf__ch">
+				<div><h3>Climate — ${frappe.utils.escape_html(s.site || 'Farm')}</h3>
+					<p>${frappe.utils.escape_html(s.climate_note || '')}</p></div>
+				<div class="bf__sp"></div>
+				${s.climate_alert ? `<div class="bf__note"><i style="background:var(--warn)"></i>${frappe.utils.escape_html(s.climate_alert)}</div>` : ''}
+			</div>
+			<div class="bf__scroller" data-sync="clim"><div class="bf__clim">
+				<div class="bf__cpad"></div>
+				${s.weeks.map(w => {
+					const c = s.climate[w];
+					if (!c) return `<div class="bf__cw"><b>W${w}</b></div>`;
+					const kind = w === s.now_week ? 'now' : w < s.now_week ? 'past' : '';
+					const pct = Math.max(10, Math.min(100, Math.round((c.light - 11) / 9 * 100)));
+					const col = c.light >= 17 ? 'var(--pos)' : c.light >= 14 ? 'var(--warn)' : 'var(--neg)';
+					const ic = c.icon === 'Bright' ? 'var(--warn)' : c.icon === 'Wet' ? 'var(--s-forecast)' : 'var(--ink-mute)';
+					return `<div class="bf__cw ${kind}"><b>W${w}</b>
+						<div class="ico" style="color:${ic}">${c.icon}</div>
+						<div class="tmp">${c.temp}°<s>${c.light}</s></div>
+						<div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>`;
+				}).join('')}
+			</div></div>`);
+	}
+
+	draw_grid() {
+		const s = this.state;
+		if (!s.blocks.length) {
+			this.$root.find('.bf__gridcard').html(
+				`<div class="bf__empty"><b>Nothing to show yet</b>
+				 Record a Crop Cycle with a Crop Protocol, then press Rebuild.</div>`);
+			return;
+		}
+		const cols = this.grain === 'week' ? s.weeks : s.months;
+		const lbl = this.grain === 'week' ? w => 'W' + w : m => m;
+		const now = this.grain === 'week' ? s.now_week : s.now_month;
+		const isPast = c => this.grain === 'week' ? c < now : s.months.indexOf(c) < s.months.indexOf(now);
+
+		const head = `<thead><tr><th class="lbl">VARIETY</th><th class="grd">LEN</th>
+			${cols.map(c => `<th class="c${c === now ? ' now' : ''}">${lbl(c)}</th>`).join('')}</tr></thead>`;
+
+		const body = s.blocks.map(b => {
+			const series = this.grain === 'week' ? b.weekly : b.monthly;
+			const cls = (c, k) => {
+				const out = [k];
+				if (c === now) out.push('now');
+				else if (isPast(c)) { out.push('past'); if (k !== 'act') out.push('locked'); }
+				return out.filter(Boolean).join(' ');
+			};
+			const grp = `<tr class="grp"><td class="lbl"><b>${frappe.utils.escape_html(short_house(b.greenhouse))} › ${frappe.utils.escape_html(b.variety)}</b></td>
+				<td class="grd"></td>
+				<td class="c" colspan="${cols.length}" style="text-align:left;padding-left:2px">
+					<em>${b.area ? Math.round(b.area).toLocaleString() + ' m²' : ''} ${b.rate ? '· ' + b.rate + ' stems/m²/yr' : ''}</em></td></tr>`;
+
+			const grades = (series.grades || []).map(g => `<tr class="g">
+				<td class="lbl"></td><td class="grd">${g.grade}</td>
+				${cols.map((c, i) => {
+					const v = g.revised && g.revised[i] != null ? g.revised[i] : g.values[i];
+					const rev = g.revised && g.revised[i] != null;
+					const k = v == null ? 'nil' : rev ? 'rev' : isPast(c) ? 'bud' : 'edit';
+					const attrs = (!isPast(c) && v != null)
+						? ` data-block="${b.key}" data-grade="${frappe.utils.escape_html(g.grade)}" data-col="${c}" data-val="${v}"` : '';
+					return `<td class="c ${cls(c, k)}"${attrs}>${fmt(v)}</td>`;
+				}).join('')}</tr>`).join('');
+
+			const totals = cols.map((c, i) =>
+				(series.grades || []).reduce((t, g) => {
+					const v = g.revised && g.revised[i] != null ? g.revised[i] : g.values[i];
+					return t + (v || 0);
+				}, 0) || null);
+
+			const sums = `
+				<tr class="sum"><td class="lbl"></td><td class="grd">${this.grain === 'week' ? 'Weekly' : 'Monthly'}</td>
+					${totals.map((v, i) => `<td class="c ${cls(cols[i], '')}">${fmt(v)}</td>`).join('')}</tr>
+				<tr class="sum daily"><td class="lbl"></td><td class="grd">Daily</td>
+					${totals.map((v, i) => `<td class="c ${cls(cols[i], '')}">${fmt(v ? Math.round(v / (this.grain === 'week' ? 7 : 30)) : null)}</td>`).join('')}</tr>`;
+
+			const refs = `
+				<tr class="ref"><td class="lbl" style="color:var(--s-budget)">Budget<em>${this.grain === 'week' ? 'monthly ÷ weeks' : 'area × rate'}</em></td>
+					<td class="grd"></td>
+					${(series.budget || []).map((v, i) => `<td class="c bud ${cls(cols[i], '')}">${fmt(v)}</td>`).join('')}</tr>
+				<tr class="ref"><td class="lbl" style="color:var(--s-actual)">Actual<em>harvested</em></td>
+					<td class="grd"></td>
+					${(series.actual || []).map((v, i) => `<td class="c ${v == null ? 'nil' : 'act'} ${cls(cols[i], 'act')}">${fmt(v)}</td>`).join('')}</tr>
+				<tr class="ref"><td class="lbl" style="color:var(--ink-faint)">Variance<em>actual vs forecast</em></td>
+					<td class="grd"></td>
+					${(series.actual || []).map((v, i) => {
+						const f = totals[i];
+						if (v == null || !f) return `<td class="c nil ${cls(cols[i], '')}">—</td>`;
+						const d = Math.round((v - f) / f * 100);
+						return `<td class="c ${d >= 0 ? 'pos' : 'neg'} ${cls(cols[i], '')}">${d >= 0 ? '+' : ''}${d}%</td>`;
+					}).join('')}</tr>`;
+			return grp + grades + sums + refs;
+		}).join('');
+
+		this.$root.find('.bf__gridcard').html(`
+			<div class="bf__ch">
+				<div><h3>${this.grain === 'week' ? 'Weekly forecast by grade' : 'Monthly budget by grade'}</h3>
+					<p>Click a cell to type, or use the form for a weather-adjusted suggestion. Past periods are locked.</p></div>
+				<div class="bf__sp"></div>
+				<div class="bf__leg">
+					<span><i style="background:var(--s-budget)"></i>Budget</span>
+					<span><i style="background:var(--s-forecast)"></i>Forecast</span>
+					<span><i style="background:var(--s-revised)"></i>Revised</span>
+					<span><i style="background:var(--s-actual)"></i>Actual</span></div>
+			</div>
+			<div class="bf__scroller" data-sync="grid"><table class="bf__grid">${head}<tbody>${body}</tbody></table></div>`);
+		this.sync_scroll();
+	}
+
+	// The climate strip only means anything if its columns stay over the grid's.
+	sync_scroll() {
+		const g = this.$root.find('[data-sync="grid"]')[0];
+		const c = this.$root.find('[data-sync="clim"]')[0];
+		if (!g || !c) return;
+		let lock = false;
+		const tie = (a, b) => a.addEventListener('scroll', () => {
+			if (lock) return; lock = true; b.scrollLeft = a.scrollLeft; lock = false;
+		});
+		tie(g, c); tie(c, g);
+	}
+
+	// ── cell form ──────────────────────────────────────────────
+	close_pop() { if (this.pop) { this.pop.remove(); this.pop = null; } }
+
+	open_cell($td) {
+		this.close_pop();
+		const s = this.state;
+		const col = +$td.data('col'), grade = $td.data('grade'), cur = +$td.data('val');
+		const block = s.blocks.find(b => b.key === $td.data('block'));
+		const clim = s.climate && s.climate[col];
+		const norm = s.light_norm || 16.5;
+		// Light sum against the seasonal norm shifts the suggestion — brighter
+		// weeks bring the flush forward and heavier, duller weeks push it back.
+		const factor = clim ? 1 + (clim.light - norm) / norm * 0.45 : 1;
+		const sugg = Math.max(0, Math.round(cur * factor / 10) * 10);
+		const delta = cur ? Math.round((sugg - cur) / cur * 100) : 0;
+
+		this.pop = $(`
+			<div class="bf__pop">
+				<h4>${this.grain === 'week' ? 'W' + col : col} · ${frappe.utils.escape_html(grade)}
+					<small>${frappe.utils.escape_html(short_house(block.greenhouse))} › ${frappe.utils.escape_html(block.variety)}</small></h4>
+				<div class="psub">Revised forecast · revision ${s.revision || 1}</div>
+				<div class="bf__sugg">
+					<div class="r"><b>${fmt(sugg)}</b>
+						<span class="tag">${delta >= 0 ? '+' : ''}${delta}% vs forecast</span></div>
+					<div class="why">${clim
+						? `${clim.icon} <u>${clim.temp}°C</u>, light sum <u>${clim.light} MJ</u> — ${clim.light >= norm ? 'above' : 'below'} the ${norm} norm, so the flush should arrive ${clim.light >= norm ? 'earlier and heavier' : 'later and lighter'}.`
+						: 'No climate data for this period — suggestion equals the current forecast.'}</div>
+				</div>
+				<div class="bf__pin"><input type="text" value="${fmt(sugg)}"><span class="u">stems</span></div>
+				<div class="bf__pr">
+					<button data-set="${cur}">Forecast ${fmt(cur)}</button>
+					<button class="on" data-set="${sugg}">Suggested</button>
+					<button data-set="${Math.round(cur * 0.9)}">−10%</button>
+					<button data-set="${Math.round(cur * 1.1)}">+10%</button>
+				</div>
+				<div class="bf__pf">
+					<button class="cancel">Cancel</button>
+					<button class="save">Save to revision ${s.revision || 1}</button>
+				</div>
+				<div class="bf__prev"><span>${frappe.utils.escape_html(s.revision_note || 'No edits yet')}</span>
+					<a data-act="history">History ›</a></div>
+			</div>`).appendTo('body');
+
+		const $in = this.pop.find('input');
+		this.pop.on('click', '[data-set]', e => $in.val(fmt(+$(e.currentTarget).data('set'))));
+		this.pop.on('click', '.cancel', () => this.close_pop());
+		this.pop.on('click', '.save', () => this.save_cell($td, unfmt($in.val())));
+
+		const r = $td[0].getBoundingClientRect();
+		const h = this.pop.outerHeight();
+		const left = Math.max(12, Math.min(r.left - 100, window.innerWidth - 308));
+		const below = r.bottom + 8 + h < window.innerHeight;
+		this.pop.css({ left: left + 'px', top: (below ? r.bottom + 8 : r.top - h - 8) + window.scrollY + 'px' });
+		$in.focus().select();
+	}
+
+	save_cell($td, value) {
+		if (!(value >= 0)) { frappe.show_alert({ message: __('Enter a number'), indicator: 'red' }); return; }
+		frappe.call({
+			method: 'upande_agriculture.budget.set_forecast_cell',
+			args: {
+				block: $td.data('block'), grade: $td.data('grade'),
+				week: +$td.data('col'), value: value, year: this.year,
+			},
+			callback: () => {
+				this.close_pop();
+				frappe.show_alert({ message: __('Saved'), indicator: 'green' });
+				this.refresh();
+			},
+		});
+	}
+}
+
+// ── helpers ────────────────────────────────────────────────────
+const fmt = n => (n === null || n === undefined) ? '—' : Number(n).toLocaleString('en-US');
+const unfmt = s => parseInt(String(s).replace(/[^\d-]/g, ''), 10);
+const fmt_m = n => !n ? '0' : n >= 1e6 ? (n / 1e6).toFixed(2) + ' M' : Math.round(n).toLocaleString();
+const signed = n => n == null ? '—' : (n >= 0 ? '+' : '') + Number(n).toFixed(1);
+// "Main GH 05 - MFK" reads as "GH 05" once you are already inside one farm.
+const short_house = h => String(h || '').replace(/^Main\s+/i, '').replace(/\s*-\s*[A-Z]{2,4}$/, '');

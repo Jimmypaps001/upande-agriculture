@@ -97,7 +97,7 @@ def execute():
         for i in range(52):
             if weeks[i] or doc.get("source") != "Manual":
                 doc.append("weeks", {"week": i + 1, "projected_stems": weeks[i],
-                                       "is_locked": 0, "manual_override": 0})
+                                       "week_locked": 0, "manual_override": 0})
         doc.save(ignore_permissions=True)
         merged += 1
 

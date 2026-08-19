@@ -35,8 +35,8 @@
     "section_dates",
     "planting_date",
     "planting_week",
-    "pinch_date",
-    "actual_pinch_date",
+    "bending_date",
+    "actual_bending_date",
     "column_break_dates",
     "first_bud_date",
     "first_harvest_date",
@@ -183,14 +183,14 @@
       "label": "Planting Week"
     },
     {
-      "fieldname": "pinch_date",
+      "fieldname": "bending_date",
       "fieldtype": "Date",
-      "label": "Planned Pinch Date"
+      "label": "Planned Bending Date"
     },
     {
-      "fieldname": "actual_pinch_date",
+      "fieldname": "actual_bending_date",
       "fieldtype": "Date",
-      "label": "Actual Pinch Date"
+      "label": "Actual Bending Date"
     },
     {
       "fieldname": "column_break_dates",

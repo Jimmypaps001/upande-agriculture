@@ -1,0 +1,29 @@
+{
+ "actions": [],
+ "creation": "2026-07-26 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle Bed",
+ "owner": "Administrator",
+ "description": "A bed this cycle occupies. Area comes from upande_core.Bed.",
+ "field_order": ["bed", "bed_length", "bed_width", "bed_area"],
+ "fields": [
+  {"fieldname": "bed", "fieldtype": "Link", "label": "Bed", "options": "Bed", "reqd": 1,
+   "in_list_view": 1, "columns": 4},
+  {"fieldname": "bed_length", "fieldtype": "Float", "label": "Length (m)", "read_only": 1,
+   "fetch_from": "bed.bed_length", "in_list_view": 1, "columns": 2},
+  {"fieldname": "bed_width", "fieldtype": "Float", "label": "Width (m)", "read_only": 1,
+   "fetch_from": "bed.bed_width", "in_list_view": 1, "columns": 2},
+  {"fieldname": "bed_area", "fieldtype": "Float", "label": "Area (m²)", "read_only": 1,
+   "fetch_from": "bed.bed_area", "in_list_view": 1, "columns": 2}
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "idx",
+ "sort_order": "ASC"
+}

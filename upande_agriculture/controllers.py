@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import datetime
 import frappe
-from frappe.utils import getdate, now_datetime
+from frappe.utils import getdate
 
-from upande_agriculture.projection_calc import calculate_weekly_projection
 from upande_agriculture.todo_helpers import upsert_todo
 
 
 def crop_cycle_on_update(doc, method=None):
-    _ensure_projection(doc)
     _ensure_milestone_todos(doc)
 
 
@@ -22,58 +20,10 @@ def crop_cycle_on_trash(doc, method=None):
     })
 
 
-def _ensure_projection(cycle) -> None:
-    proj_name = frappe.db.get_value(
-        "Production Projection", {"crop_cycle": cycle.name}, "name"
-    )
-    proto = cycle.get("custom_crop_protocol")
-    if not (cycle.planting_date and proto):
-        return
-
-    if proj_name:
-        return  # already created; recalc is opt-in via api.regenerate_projection
-
-    protocol = frappe.get_doc("Crop Protocol", proto)
-    seasonal = _seasonal_factor_map(cycle.get("variety"))
-    weeks = calculate_weekly_projection(
-        protocol={
-            "weeks_to_pinch": protocol.weeks_to_pinch,
-            "weeks_pinch_to_first_harvest": protocol.weeks_pinch_to_first_harvest,
-            "total_weeks_in_ground": protocol.total_weeks_in_ground,
-            "total_stems_per_plant_life": protocol.total_stems_per_plant_life,
-            "flush_schedule": [
-                {"flush_number": f.flush_number,
-                 "weeks_after_pinch": f.weeks_after_pinch,
-                 "stems_per_plant": f.stems_per_plant}
-                for f in (protocol.flush_schedule or [])
-            ],
-        },
-        plants_planted=int(cycle.get("custom_total_expected_stems") or
-                            (protocol.plants_per_sqm or 0)),
-        planting_date=getdate(cycle.planting_date),
-        seasonal_factors=seasonal,
-    )
-
-    proj = frappe.get_doc({
-        "doctype": "Production Projection",
-        "name": f"PP-{cycle.name}",
-        "variety": cycle.get("variety"),
-        "greenhouse": cycle.get("greenhouse"),
-        "crop_cycle": cycle.name,
-        "crop_protocol": proto,
-        "projection_year": getdate(cycle.planting_date).year,
-        "planting_date": cycle.planting_date,
-        "company": cycle.get("custom_company"),
-        "source": "Hybrid",
-        "last_calculated_at": now_datetime(),
-        "weeks": [{"week": w["week_number"],
-                    "projected_stems": w["projected_stems"],
-                    "is_locked": 0, "manual_override": 0} for w in weeks],
-    })
-    proj.insert(ignore_permissions=True)
-
-
 def _seasonal_factor_map(variety: str | None) -> dict[int, float]:
+    """Monthly yield multipliers for a variety, if the tenant maintains them."""
+    if not frappe.db.exists("DocType", "Seasonal Yield Factor"):
+        return {}
     if not variety or not frappe.db.exists("Seasonal Yield Factor", {"variety": variety}):
         return {}
     syf = frappe.get_doc("Seasonal Yield Factor", {"variety": variety})
@@ -81,29 +31,30 @@ def _seasonal_factor_map(variety: str | None) -> dict[int, float]:
 
 
 def _ensure_milestone_todos(cycle) -> None:
-    gh = cycle.get("greenhouse")
-    if not gh:
+    """Bending and uprooting reminders for the house supervisor."""
+    house = cycle.get("greenhouse")
+    if not house:
         return
-    supervisor = frappe.db.get_value("Warehouse", gh, "custom_supervisor")
-    pdate = getdate(cycle.planting_date) if cycle.planting_date else None
-    if not (supervisor and pdate):
+    # custom_supervisor is added by upande_core; this app must still work
+    # on a site that doesn't have it.
+    if not frappe.get_meta("Warehouse").has_field("custom_supervisor"):
         return
-    proto = cycle.get("custom_crop_protocol")
-    if not proto:
+    supervisor = frappe.db.get_value("Warehouse", house, "custom_supervisor")
+    if not supervisor:
         return
-    p = frappe.get_doc("Crop Protocol", proto)
-    pinch_date = pdate + datetime.timedelta(weeks=int(p.weeks_to_pinch or 0))
-    first_harvest = pinch_date + datetime.timedelta(weeks=int(p.weeks_pinch_to_first_harvest or 0))
-    uproot = pdate + datetime.timedelta(weeks=int(p.total_weeks_in_ground or 52))
 
+    variety = cycle.get("variety")
     for tag, desc, due in [
-        ("pinch", f"Pinch {cycle.get('variety')} in {gh}", pinch_date),
-        ("first_harvest", f"First harvest expected for {cycle.get('variety')} in {gh}", first_harvest),
-        ("uproot", f"Uproot {cycle.get('variety')} in {gh}", uproot),
+        ("first_bending", f"First bending: {variety} in {house}", cycle.get("first_bending_date")),
+        ("second_bending", f"Second bending: {variety} in {house}", cycle.get("second_bending_date")),
+        ("uproot", f"Uproot {variety} in {house}", cycle.get("planned_uprooting_date")),
     ]:
+        if not due:
+            continue
         upsert_todo(
             reference_type="Crop Cycle", reference_name=cycle.name,
-            tag=tag, description=desc, assigned_to=supervisor, due_date=due,
+            tag=tag, description=desc,
+            assigned_to=supervisor, due_date=getdate(due),
         )
 
 
@@ -120,33 +71,27 @@ def _autoseed_milestone_tasks(doc):
 
     cycles = frappe.db.get_all(
         "Crop Cycle",
-        filters={"greenhouse": doc.greenhouse, "cycle_status": "Active"},
-        fields=["name", "variety", "planting_date", "custom_crop_protocol"],
+        filters={"greenhouse": doc.greenhouse, "status": "Active"},
+        fields=["name", "variety", "planting_date", "crop_protocol",
+                "first_bending_date", "second_bending_date", "planned_uprooting_date"],
     )
 
     existing_names = {(t.task_name or "").strip() for t in (doc.tasks or [])}
 
     for c in cycles:
-        if not c.get("custom_crop_protocol") or not c.get("planting_date"):
-            continue
-        proto = frappe.get_cached_doc("Crop Protocol", c["custom_crop_protocol"])
-        pdate = frappe.utils.getdate(c["planting_date"])
-        pinch_date = pdate + datetime.timedelta(weeks=int(proto.weeks_to_pinch or 0))
-        first_harvest = pinch_date + datetime.timedelta(
-            weeks=int(proto.weeks_pinch_to_first_harvest or 0)
-        )
-        uproot = pdate + datetime.timedelta(weeks=int(proto.total_weeks_in_ground or 52))
-
-        for _tag, label, date in [
-            ("pinch", f"Pinch {c.get('variety')}", pinch_date),
-            ("first_harvest", f"First harvest {c.get('variety')}", first_harvest),
-            ("uproot", f"Uproot {c.get('variety')}", uproot),
+        for label, date in [
+            (f"First bending {c.get('variety')}", c.get("first_bending_date")),
+            (f"Second bending {c.get('variety')}", c.get("second_bending_date")),
+            (f"Uproot {c.get('variety')}", c.get("planned_uprooting_date")),
         ]:
+            if not date:
+                continue
+            date = frappe.utils.getdate(date)
             if monday <= date <= sunday and label not in existing_names:
                 doc.append("tasks", {
                     "task_name": label,
                     "due_day": days_of_week[(date - monday).days],
-                    "status": "Pending",
+                    "status": "Open",
                 })
                 existing_names.add(label)
 

@@ -13,6 +13,8 @@ import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from upande_agriculture.tests import default_company, default_uom, make_warehouse
+
 from upande_agriculture import api
 
 
@@ -22,19 +24,7 @@ class TestApi(FrappeTestCase):
     # ------------------------------------------------------------------
 
     def _make_warehouse(self, name="TEST GH 1", supervisor="Administrator"):
-        existing = frappe.db.get_value("Warehouse", {"warehouse_name": name}, "name")
-        if existing:
-            return existing
-        doc = frappe.get_doc({
-            "doctype": "Warehouse",
-            "warehouse_name": name,
-            "company": frappe.db.get_single_value(
-                "Global Defaults", "default_company"
-            ),
-            "is_group": 0,
-            "custom_supervisor": supervisor,
-        }).insert(ignore_permissions=True)
-        return doc.name
+        return make_warehouse(name, supervisor)
 
     def _make_item(self, name="TEST-VARIETY-A"):
         if not frappe.db.exists("Item", name):
@@ -43,45 +33,48 @@ class TestApi(FrappeTestCase):
                 "item_code": name,
                 "item_name": name,
                 "item_group": "All Item Groups",
-                "stock_uom": "Nos",
+                "stock_uom": default_uom(),
             }).insert(ignore_permissions=True, ignore_mandatory=True)
         return name
 
     def _make_protocol(self, name="TEST-PROTO-1"):
-        if frappe.db.exists("Crop Protocol", name):
-            return name
-        return frappe.get_doc({
-            "doctype": "Crop Protocol",
-            "protocol_name": name,
+        """Idempotent: refresh values on re-run so a stale row can't skew a test."""
+        values = {
             "variety_item": self._make_item(),
-            "weeks_to_pinch": 4,
-            "weeks_pinch_to_first_harvest": 8,
-            "total_weeks_in_ground": 52,
-            "total_stems_per_plant_life": 120.0,
-            "plants_per_sqm": 7,
+            "weeks_to_first_bending": 5,
+            "weeks_to_second_bending": 5,
+            "weeks_between_cuts": 7,
+            "stems_per_plant_first_harvest": 0.7,
+            "stems_per_cut": 1.5,
+            "max_stems_per_plant_per_cut": 1.61,
+            "productive_life_weeks": 260,
+        }
+        if frappe.db.exists("Crop Protocol", name):
+            doc = frappe.get_doc("Crop Protocol", name)
+            doc.update(values)
+            doc.save(ignore_permissions=True)
+            return doc.name
+        return frappe.get_doc({
+            "doctype": "Crop Protocol", "protocol_name": name, **values,
         }).insert(ignore_permissions=True).name
 
     def _make_cycle(self, gh=None, proto=None, variety=None):
+        """Ensure the greenhouse has one Active cycle; return that child row."""
         gh = gh or self._make_warehouse()
         proto = proto or self._make_protocol()
         variety = variety or self._make_item()
-        # Crop Cycle is named after the greenhouse; avoid DuplicateEntryError on re-runs.
+
         existing = frappe.db.get_value(
-            "Crop Cycle",
-            {"greenhouse": gh, "cycle_status": "Active"},
-            "name",
+            "Crop Cycle", {"greenhouse": gh, "variety": variety, "status": "Active"}, "name"
         )
         if existing:
             return frappe.get_doc("Crop Cycle", existing)
         return frappe.get_doc({
             "doctype": "Crop Cycle",
-            "greenhouse": gh,
-            "custom_crop_protocol": proto,
-            "variety": variety,
+            "greenhouse": gh, "variety": variety, "crop_protocol": proto,
             "planting_date": datetime.date(2026, 1, 5),
-            "cycle_status": "Active",
-            "custom_total_expected_stems": 0,
-        }).insert(ignore_permissions=True, ignore_mandatory=True)
+            "status": "Active", "qty_planted": 10000,
+        }).insert(ignore_permissions=True)
 
     # ------------------------------------------------------------------
     # 1. get_week_summary
@@ -110,9 +103,7 @@ class TestApi(FrappeTestCase):
 
     def test_mark_cycle_harvestable_creates_item(self):
         """Creates an Item for the variety if it does not exist, returns its name."""
-        # Ensure a Crop Cycle with a variety exists
-        self._make_cycle()
-        cycle = frappe.get_last_doc("Crop Cycle")
+        cycle = self._make_cycle()
         result = api.mark_cycle_harvestable(cycle.name)
         self.assertTrue(result.get("item"),
                         "result must contain a non-empty 'item' key")
@@ -129,9 +120,12 @@ class TestApi(FrappeTestCase):
         """Recalculates a Hybrid projection and reports how many weeks changed."""
         # Ensure a Hybrid projection exists
         self._make_cycle()
-        proj = frappe.get_last_doc(
-            "Production Projection", filters={"source": "Hybrid"}
-        )
+        from upande_agriculture.budget import generate_budget
+        cycle = self._make_cycle()
+        res = generate_budget(cycle.greenhouse, cycle.variety, 2027)
+        proj = frappe.get_doc("Production Projection", res["projection"])
+        proj.source = "Hybrid"
+        proj.save(ignore_permissions=True)
         result = api.regenerate_projection(proj.name)
         self.assertIn("weeks_updated", result)
         # weeks_updated is an int >= 0
@@ -153,8 +147,8 @@ class TestApi(FrappeTestCase):
         self.assertIsInstance(rows, list)
         for r in rows:
             self.assertEqual(
-                r["cycle_status"], "Active",
-                f"Unexpected status {r['cycle_status']} in row {r['name']}",
+                r["status"], "Active",
+                f"Unexpected status {r['status']} in row {r['name']}",
             )
 
     def test_list_active_cycles_filters_by_greenhouse(self):
@@ -174,9 +168,7 @@ class TestApi(FrappeTestCase):
         """Inserts a Production Plan Form and returns its name plus todo count."""
         gh = self._make_warehouse()
         payload = {
-            "company": frappe.db.get_single_value(
-                "Global Defaults", "default_company"
-            ),
+            "company": default_company(),
             "greenhouse": gh,
             "plan_year": 2026,
             "plan_week": 28,
@@ -186,7 +178,7 @@ class TestApi(FrappeTestCase):
                     "task_name": "API test task",
                     "due_day": "Monday",
                     "assigned_to": "Administrator",
-                    "status": "Pending",
+                    "status": "Open",
                 }
             ],
         }

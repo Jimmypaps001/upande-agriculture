@@ -17,11 +17,16 @@ from typing import Any
 
 import frappe
 from frappe import _
-from frappe.utils import getdate, now_datetime
+from frappe.utils import getdate
+
+from upande_agriculture import weekcal
+from upande_agriculture.projection_calc import iso_weeks_in_year
 
 from upande_agriculture.controllers import _seasonal_factor_map
-from upande_agriculture.projection_calc import calculate_weekly_projection
 from upande_agriculture.todo_helpers import upsert_todo
+
+# Grid arrays are fixed width; 53 covers every ISO year (2026 is one of them).
+MAX_ISO_WEEK = 53
 
 
 # ---------------------------------------------------------------------------
@@ -35,11 +40,24 @@ def get_week_summary(
     iso_week: int,
     iso_year: int,
 ) -> dict:
-    """Return budget / forecast / plan / actual stems for a given ISO week."""
+    """Return budget / forecast / plan / actual stems for a given week.
+
+    Also returns the calendar dates that week covers. The week number alone is
+    unreadable — W35 of 2026 is 24–30 August — and the range was already being
+    computed here to bound the actuals query, so it costs nothing to hand back.
+
+    The dates use the rule stamped on the projection being summarised, not
+    today's setting, so an older budget keeps reporting the dates it was built
+    against.
+    """
     iso_week = int(iso_week)
     iso_year = int(iso_year)
-    monday = datetime.date.fromisocalendar(iso_year, iso_week, 1)
-    sunday = monday + datetime.timedelta(days=6)
+    rule = frappe.db.get_value(
+        "Production Projection",
+        {"greenhouse": greenhouse, "variety": variety, "projection_year": iso_year},
+        "week_rule",
+    ) or weekcal.get_week_rule()
+    monday, sunday = weekcal.week_range(iso_year, iso_week, rule)
 
     budget = _sum_projection_week(greenhouse, variety, iso_week, iso_year)
     forecast = _sum_forecast_week(greenhouse, variety, iso_week, iso_year)
@@ -50,6 +68,10 @@ def get_week_summary(
         "forecast": forecast,
         "plan": plan,
         "actual": actual,
+        "week_start": str(monday),
+        "week_end": str(sunday),
+        "week_label": weekcal.week_label(iso_year, iso_week, rule),
+        "week_rule": rule,
     }
 
 
@@ -145,32 +167,30 @@ def promote_trial_to_cycle(
 
     variety = trial.get("variety_yield")
 
-    if uproot_cycle_name:
-        old = frappe.get_doc("Crop Cycle", uproot_cycle_name)
-        old.cycle_status = "Ended"
-        old.custom_uprooting_date = getdate(planting_date)
-        old.save(ignore_permissions=True)
-
     # Look up the protocol linked to this variety (best-effort; may be None).
     proto_name = frappe.db.get_value(
         "Crop Protocol", {"variety_item": variety}, "name"
     ) if variety else None
 
+    # A new planting ends the cycle it replaces.
+    if uproot_cycle_name:
+        frappe.db.set_value("Crop Cycle", uproot_cycle_name, {
+            "status": "Ended",
+            "cycle_end_date": getdate(planting_date),
+        })
+
     cycle = frappe.get_doc({
         "doctype": "Crop Cycle",
         "greenhouse": greenhouse,
-        "custom_crop_protocol": proto_name,
         "variety": variety,
+        "crop_protocol": proto_name,
         "planting_date": getdate(planting_date),
-        "cycle_status": "Active",
+        "status": "Active",
         "breeder": trial.get("breeder"),
-        "custom_flower_trial": trial_name,
+        "notes": f"From Flower Trial {trial_name}",
     }).insert(ignore_permissions=True)
 
-    proj_name = frappe.db.get_value(
-        "Production Projection", {"crop_cycle": cycle.name}, "name"
-    )
-    return {"crop_cycle": cycle.name, "projection": proj_name}
+    return {"crop_cycle": cycle.name, "greenhouse": greenhouse}
 
 
 # ---------------------------------------------------------------------------
@@ -210,66 +230,24 @@ def mark_cycle_harvestable(crop_cycle_name: str) -> dict:
 
 @frappe.whitelist()
 def regenerate_projection(projection_name: str) -> dict:
-    """Recalculate unlocked weeks for a Hybrid projection.
+    """Rebuild a projection's weeks from the crop cycles behind it.
 
-    Schema note: Projection Week rows use field `week` (not `week_number`).
+    Thin wrapper over budget.generate_budget, kept because the Production
+    Budget page calls this name. Locked / manually-overridden weeks survive.
     """
+    from upande_agriculture.budget import generate_budget
+
     proj = frappe.get_doc("Production Projection", projection_name)
     if proj.source == "Manual":
         frappe.throw(_(
             "Cannot recalculate a Manual projection. "
             "Switch source to Hybrid first."
         ))
-    if not proj.crop_cycle:
-        frappe.throw(_("Projection has no linked Crop Cycle."))
+    if not proj.greenhouse:
+        frappe.throw(_("Projection has no greenhouse — cannot find its crop cycles."))
 
-    cycle = frappe.get_doc("Crop Cycle", proj.crop_cycle)
-    proto = frappe.get_doc("Crop Protocol", cycle.custom_crop_protocol)
-    seasonal = _seasonal_factor_map(cycle.get("variety"))
-
-    new_weeks = calculate_weekly_projection(
-        protocol={
-            "weeks_to_pinch": proto.weeks_to_pinch,
-            "weeks_pinch_to_first_harvest": proto.weeks_pinch_to_first_harvest,
-            "total_weeks_in_ground": proto.total_weeks_in_ground,
-            "total_stems_per_plant_life": proto.total_stems_per_plant_life,
-            "flush_schedule": [
-                {
-                    "flush_number": f.flush_number,
-                    "weeks_after_pinch": f.weeks_after_pinch,
-                    "stems_per_plant": f.stems_per_plant,
-                }
-                for f in (proto.flush_schedule or [])
-            ],
-        },
-        plants_planted=int(
-            cycle.get("custom_total_expected_stems") or proto.plants_per_sqm or 0
-        ),
-        planting_date=getdate(cycle.planting_date),
-        seasonal_factors=seasonal,
-    )
-
-    # Index new values by week number for O(n) update.
-    # calculate_weekly_projection returns dicts with key "week_number".
-    by_week: dict[int, int] = {
-        int(w["week_number"]): int(w["projected_stems"]) for w in new_weeks
-    }
-
-    updated = 0
-    for row in proj.weeks:
-        # Skip locked / manually-overridden rows in Hybrid mode.
-        if proj.source == "Hybrid" and (row.is_locked or row.manual_override):
-            continue
-        # Projection Week child rows use field `week` (verified schema).
-        row_week = int(row.week)
-        new_val = by_week.get(row_week)
-        if new_val is not None and int(row.projected_stems or 0) != new_val:
-            row.projected_stems = new_val
-            updated += 1
-
-    proj.last_calculated_at = now_datetime()
-    proj.save(ignore_permissions=True)
-    return {"weeks_updated": updated}
+    res = generate_budget(proj.greenhouse, proj.variety, proj.projection_year)
+    return {"weeks_updated": res["weeks_written"], **res}
 
 
 # ---------------------------------------------------------------------------
@@ -305,25 +283,31 @@ def submit_production_plan(payload: str | dict) -> dict:
 
 @frappe.whitelist()
 def list_active_cycles(greenhouse: str | None = None) -> list[dict]:
-    """Return all Active Crop Cycles, optionally filtered by greenhouse."""
-    filters: dict[str, Any] = {"cycle_status": "Active"}
+    """Return all Active Crop Cycles, optionally filtered by greenhouse.
+
+    """
+    filters: dict[str, Any] = {"status": "Active"}
     if greenhouse:
         filters["greenhouse"] = greenhouse
 
-    return frappe.db.get_all(
+    rows = frappe.db.get_all(
         "Crop Cycle",
         filters=filters,
         fields=[
             "name",
-            "variety",
             "greenhouse",
+            "variety",
+            "crop_protocol",
             "planting_date",
-            "custom_next_harvest_date",
-            "custom_current_flush",
-            "cycle_status",
+            "first_bending_date",
+            "second_bending_date",
+            "planned_uprooting_date",
+            "qty_planted",
+            "status",
         ],
         order_by="planting_date desc",
     )
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -447,10 +431,10 @@ def _projection_week_array(projection_name: str) -> list[int]:
         (projection_name,),
         as_dict=True,
     )
-    weeks = [0] * 52
+    weeks = [0] * MAX_ISO_WEEK
     for r in rows:
         w = int(r["week"] or 0)
-        if 1 <= w <= 52:
+        if 1 <= w <= MAX_ISO_WEEK:
             weeks[w - 1] = int(r["projected_stems"] or 0)
     return weeks
 
@@ -461,7 +445,7 @@ def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
     `Ever-Red-50cm`), so we look up the template's variant codes and SUM."""
     codes = _variant_codes(variety)
     if not codes:
-        return [0] * 52
+        return [0] * MAX_ISO_WEEK
     placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
         f"""
@@ -475,10 +459,10 @@ def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
         (greenhouse, *codes, year),
         as_dict=True,
     )
-    weeks = [0] * 52
+    weeks = [0] * MAX_ISO_WEEK
     for r in rows:
         w = int(r["week_number"] or 0)
-        if 1 <= w <= 52:
+        if 1 <= w <= MAX_ISO_WEEK:
             weeks[w - 1] = int(r["s"] or 0)
     return weeks
 
@@ -487,7 +471,7 @@ def _plan_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
     """Same as forecast — sum across the template's variants."""
     codes = _variant_codes(variety)
     if not codes:
-        return [0] * 52
+        return [0] * MAX_ISO_WEEK
     placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
         f"""
@@ -501,10 +485,10 @@ def _plan_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
         (greenhouse, *codes, year),
         as_dict=True,
     )
-    weeks = [0] * 52
+    weeks = [0] * MAX_ISO_WEEK
     for r in rows:
         w = int(r["plan_week"] or 0)
-        if 1 <= w <= 52:
+        if 1 <= w <= MAX_ISO_WEEK:
             weeks[w - 1] = int(r["s"] or 0)
     return weeks
 
@@ -533,10 +517,10 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
     """
     prefix = _gh_prefix(greenhouse)
     if not prefix:
-        return [0] * 52
+        return [0] * MAX_ISO_WEEK
     codes = _variant_codes(variety)
     if not codes:
-        return [0] * 52
+        return [0] * MAX_ISO_WEEK
     placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
         f"""
@@ -554,10 +538,10 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
         (prefix, *codes, year),
         as_dict=True,
     )
-    weeks = [0] * 52
+    weeks = [0] * MAX_ISO_WEEK
     for r in rows:
         w = int(r["w"] or 0)
-        if 1 <= w <= 52:
+        if 1 <= w <= MAX_ISO_WEEK:
             weeks[w - 1] = int(r["s"] or 0)
     return weeks
 
@@ -804,7 +788,7 @@ def copy_aggregated_row(source_greenhouse: str, source_variety_base: str,
 
     # Write to the target template projection (creating it if missing).
     updates = []
-    for w in range(1, 53):
+    for w in range(1, MAX_ISO_WEEK + 1):
         updates.append({
             "greenhouse": target_greenhouse,
             "variety_base": target_variety_base,
@@ -851,9 +835,9 @@ def get_prior_year_actuals(year: int) -> dict:
         # matter which suffix the projection greenhouse uses.
         for suffix in ("MFL", "MFK"):
             key = f"{prefix} - {suffix}||{base}"
-            arr = out.setdefault(key, [0] * 52)
+            arr = out.setdefault(key, [0] * MAX_ISO_WEEK)
             w = int(r["w"] or 0)
-            if 1 <= w <= 52:
+            if 1 <= w <= MAX_ISO_WEEK:
                 arr[w - 1] += int(r["s"] or 0)
     return {"year": prev, "rows": out}
 
