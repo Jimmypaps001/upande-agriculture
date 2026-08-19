@@ -1,63 +1,32 @@
-# Copyright (c) 2026, Upande and contributors
-# For license information, please see license.txt
-
-import re
-
-import frappe
-from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
-
-
-def stem_length_cm(stem_length):
-	"""Numeric cm from a Stem Length name like '62cm' (or a bare '62')."""
-	m = re.search(r"\d+", stem_length or "")
-	return int(m.group()) if m else 0
 
 
 class CropProtocol(Document):
 	def validate(self):
-		self.roll_up_flushes()
-		self.roll_up_length_distribution()
+		# Growers think in years; the model works in weeks. Keep one source.
+		if self.productive_life_years:
+			self.productive_life_weeks = int(round(float(self.productive_life_years) * 52))
+		elif self.productive_life_weeks:
+			self.productive_life_years = round(self.productive_life_weeks / 52.0, 1)
 
-	def roll_up_flushes(self):
-		"""Count the flushes and, once a lifetime yield is known, spread it across
-		them evenly. Rows a grower has typed a figure into are left alone."""
-		self.total_flushes = len(self.flush_schedule)
+		if self.crop_type == "Summer Flower":
+			self.set_flush_schedule()
 
-		lifetime_stems = flt(self.total_stems_per_plant_life)
-		if not (lifetime_stems and self.total_flushes):
-			return
-		if any(flt(row.stems_per_plant) for row in self.flush_schedule):
-			return
-		per_flush = lifetime_stems / self.total_flushes
-		for row in self.flush_schedule:
-			row.stems_per_plant = per_flush
+	def set_flush_schedule(self):
+		"""Number the flushes in order and fill in any blank offset.
 
-	def roll_up_length_distribution(self):
-		"""Total the grade shares, split the plant-life yield across them, and
-		derive the weighted mean stem length.
-
-		The share is warned about rather than blocked: a protocol is often part-
-		entered while the grower is still gathering grade data, and refusing to
-		save would just push people to keep it in a spreadsheet.
+		A summer flower doesn't compound off a cut stem like a rose — it
+		flushes on a schedule, and that same schedule repeats every year for
+		the rest of the plant's life (see projection_calc._flush_weekly_stems).
 		"""
-		total = 0.0
-		weighted = 0.0
-		lifetime_stems = flt(self.total_stems_per_plant_life)
+		rows = sorted(self.flush_schedule or [], key=lambda r: r.flush_number or 0)
+		interval = self.flush_interval_weeks or 0
+		for idx, row in enumerate(rows, start=1):
+			row.idx = idx
+			row.flush_number = idx
+			if not row.weeks_after_first_flush and interval:
+				row.weeks_after_first_flush = interval * (idx - 1)
+		self.flush_schedule = rows
 
-		for row in self.length_distribution:
-			pct = flt(row.percentage)
-			total += pct
-			weighted += pct * stem_length_cm(row.stem_length)
-			row.stems_per_plant_life = lifetime_stems * pct / 100.0
-
-		self.length_distribution_total = total
-		self.average_stem_length_cm = (weighted / total) if total else 0
-
-		if self.length_distribution and abs(total - 100) > 0.5:
-			frappe.msgprint(
-				_("Length distribution totals {0}%, not 100%.").format(round(total, 1)),
-				title=_("Check length distribution"),
-				indicator="orange",
-			)
+		self.total_flushes = len(rows)
+		self.total_stems_per_plant_life = sum(float(r.stems_per_plant or 0) for r in rows)

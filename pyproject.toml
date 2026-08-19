@@ -1,23 +1,19 @@
 [project]
 name = "upande_agriculture"
 authors = [
-    { name = "Upande", email = "dev@upande.com"}
+    { name = "Upande", email = "teddy@upande.com"}
 ]
-description = "Agriculture module"
-requires-python = ">=3.10"
+description = "Floriculture planning (Crop Protocol, Crop Cycle, Flower Trial, Budget/Forecast/Plan) for Mona Flowers"
+requires-python = ">=3.14"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
-    # "frappe~=15.0.0" # Installed and managed by bench.
+    # "frappe~=16.0.0" # Installed and managed by bench.
 ]
 
 [build-system]
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
-
-# Minimum Frappe version this app is compatible with (checked by `bench get-app`)
-[tool.bench.frappe-dependencies]
-frappe = ">=16.0.0,<17.0.0"
 
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
@@ -29,7 +25,7 @@ packages = []
 
 [tool.ruff]
 line-length = 110
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -55,6 +51,11 @@ ignore = [
     "F405", # can't detect undefined names from * import
     "F722", # syntax error in forward type annotation
     "W191", # indentation contains tabs
+    "UP030", # Use implicit references for positional format fields (translations)
+    "UP031", # Use format specifiers instead of percent format
+    "UP032", # Use f-string instead of `format` call (translations)
+    "UP037", # quoted annotations
+    "UP040", # Use type aliases instead of type annotations
 ]
 typing-modules = ["frappe.types.DF"]
 

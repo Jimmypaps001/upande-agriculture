@@ -1,222 +1,362 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "field:greenhouse",
- "creation": "2026-07-17 13:31:55.778724",
+ "autoname": "naming_series:",
+ "naming_rule": "By \"Naming Series\" field",
+ "creation": "2026-06-20 08:00:00",
  "doctype": "DocType",
- "editable_grid": 1,
  "engine": "InnoDB",
+ "istable": 0,
+ "issingle": 0,
+ "is_submittable": 0,
+ "track_changes": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle",
+ "owner": "Administrator",
+ "title_field": "title",
+ "description": "One plant life: a variety planted in a set of beds on a date, cut repeatedly, then uprooted.",
  "field_order": [
-  "crop_cycle_tab",
-  "details_section",
+  "naming_series",
   "greenhouse",
   "farm",
-  "column_break_ewxf",
-  "company",
-  "geometry_section",
-  "gross_area",
-  "area_planted",
-  "varieties",
-  "cb_geo2",
+  "variety",
+  "crop_protocol",
+  "column_break_head",
+  "crop_type",
+  "status",
+  "title",
+  "section_timeline",
+  "planting_date",
+  "first_bending_date",
+  "second_bending_date",
+  "actual_first_bending_date",
+  "actual_second_bending_date",
+  "column_break_timeline",
+  "planned_uprooting_date",
+  "cycle_end_date",
+  "replaces",
+  "section_planting",
+  "qty_planted",
+  "plants_standing",
   "plants_per_sqm",
-  "number_of_plants",
-  "number_of_beds",
-  "varieties_grown_section",
-  "varieties_grown",
-  "bedconfig_section",
+  "column_break_planting",
+  "planted_area",
+  "implied_plants",
+  "section_uprooting",
+  "uproot_log",
+  "section_beds",
   "bed_range",
-  "individual_beds_section",
-  "individual_beds",
-  "replanting_tab",
-  "last_replanting_date",
-  "replanting_logs",
-  "uprooting_tab",
-  "uprooting_logs"
+  "beds",
+  "section_source",
+  "purchase_invoice",
+  "seedling_source",
+  "breeder",
+  "column_break_source",
+  "propagation_batch",
+  "cost_per_plant",
+  "invoiced_qty",
+  "section_notes",
+  "notes"
  ],
  "fields": [
   {
-   "fieldname": "crop_cycle_tab",
-   "fieldtype": "Tab Break",
-   "label": "Crop Cycle"
-  },
-  {
-   "fieldname": "details_section",
-   "fieldtype": "Section Break",
-   "label": "Greenhouse & Block"
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "CC-.YYYY.-.####",
+   "default": "CC-.YYYY.-.####",
+   "hidden": 1
   },
   {
    "fieldname": "greenhouse",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Greenhouse",
    "options": "Warehouse",
    "reqd": 1,
-   "unique": 1
+   "in_list_view": 1,
+   "in_standard_filter": 1
   },
   {
-   "fetch_from": "greenhouse.custom_farm",
-   "fetch_if_empty": 1,
    "fieldname": "farm",
    "fieldtype": "Link",
    "label": "Farm",
-   "options": "Farm"
+   "options": "Farm",
+   "read_only": 1,
+   "fetch_from": "greenhouse.custom_farm",
+   "fetch_if_empty": 1,
+   "description": "Fetched from the greenhouse. Frappe's own User Permission on Farm restricts who can see this Crop Cycle — no extra code needed."
   },
   {
-   "fieldname": "company",
+   "fieldname": "variety",
    "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company"
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Base variety (Athena), not a length grade"
   },
   {
-   "fieldname": "geometry_section",
+   "fieldname": "crop_protocol",
+   "fieldtype": "Link",
+   "label": "Crop Protocol",
+   "options": "Crop Protocol",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "crop_type",
+   "fieldtype": "Select",
+   "label": "Crop Type",
+   "options": "Production\nMotherstock\nTrial",
+   "default": "Production"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nActive\nEnded",
+   "default": "Active",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "section_timeline",
    "fieldtype": "Section Break",
-   "label": "Greenhouse Geometry"
+   "label": "Timeline"
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "first_bending_date",
+   "fieldtype": "Date",
+   "label": "First Bending Date",
+   "description": "Left empty, derived from the protocol"
+  },
+  {
+   "fieldname": "second_bending_date",
+   "fieldtype": "Date",
+   "label": "Second Bending Date",
+   "description": "Production is counted from here"
+  },
+  {
+   "fieldname": "actual_first_bending_date",
+   "fieldtype": "Date",
+   "label": "Actual First Bending Date",
+   "description": "Recorded once it actually happened. Overrides the planned date above."
+  },
+  {
+   "fieldname": "actual_second_bending_date",
+   "fieldtype": "Date",
+   "label": "Actual Second Bending Date",
+   "description": "Recorded once it actually happened. Overrides the planned date above."
+  },
+  {
+   "fieldname": "column_break_timeline",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_uprooting_date",
+   "fieldtype": "Date",
+   "label": "Planned Uprooting Date"
+  },
+  {
+   "fieldname": "cycle_end_date",
+   "fieldtype": "Date",
+   "label": "Cycle End Date",
+   "description": "Actual uprooting. Empty means the cycle is still running."
+  },
+  {
+   "fieldname": "replaces",
+   "fieldtype": "Link",
+   "label": "Replaces",
+   "options": "Crop Cycle",
+   "description": "The block this planting replaced. Filled by Replant."
+  },
+  {
+   "fieldname": "section_planting",
+   "fieldtype": "Section Break",
+   "label": "Planting"
+  },
+  {
+   "fieldname": "qty_planted",
+   "fieldtype": "Int",
+   "label": "Plants Planted",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plants_standing",
+   "fieldtype": "Int",
+   "label": "Plants Standing",
+   "read_only": 1,
+   "description": "Plants Planted minus everything logged as uprooted below."
   },
   {
    "fieldname": "plants_per_sqm",
-   "fieldtype": "Int",
-   "label": "Plants Per Sqm"
-  },
-  {
-   "fieldname": "gross_area",
    "fieldtype": "Float",
-   "label": "Gross Area (m2)"
+   "label": "Plants Per Sqm",
+   "fetch_from": "crop_protocol.plants_per_sqm",
+   "fetch_if_empty": 1
   },
   {
-   "fieldname": "cb_geo2",
+   "fieldname": "column_break_planting",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "number_of_beds",
-   "fieldtype": "Int",
-   "label": "Number of Beds",
-   "read_only": 1
-  },
-  {
-   "fieldname": "varieties",
-   "fieldtype": "Int",
-   "label": "Varieties",
-   "read_only": 1
-  },
-  {
-   "fieldname": "area_planted",
+   "fieldname": "planted_area",
    "fieldtype": "Float",
-   "label": "Area Planted (m2)",
-   "read_only": 1
+   "label": "Planted Area (m²)",
+   "read_only": 1,
+   "description": "Summed from the beds below"
   },
   {
-   "fieldname": "number_of_plants",
+   "fieldname": "implied_plants",
    "fieldtype": "Int",
-   "label": "Number of Plants",
-   "read_only": 1
+   "label": "Implied Plants",
+   "read_only": 1,
+   "description": "Area × density. Checked against Plants Planted on save."
   },
   {
-   "fieldname": "varieties_grown_section",
+   "fieldname": "section_uprooting",
    "fieldtype": "Section Break",
-   "label": "Varieties Grown"
+   "label": "Uprooting",
+   "collapsible": 1
   },
   {
-   "fieldname": "varieties_grown",
+   "fieldname": "uproot_log",
    "fieldtype": "Table",
-   "label": "Varieties Grown",
-   "options": "Crop Cycle Variety"
+   "label": "Uprooting Log",
+   "options": "Crop Cycle Uproot"
   },
   {
-   "fieldname": "bedconfig_section",
+   "fieldname": "section_beds",
    "fieldtype": "Section Break",
-   "label": "Greenhouse crop cycle"
+   "label": "Beds"
   },
   {
    "fieldname": "bed_range",
-   "fieldtype": "Table",
-   "label": "Greenhouse crop cycle",
-   "options": "Bed Range"
+   "fieldtype": "Data",
+   "label": "Beds",
+   "description": "Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. The table below fills itself on save."
   },
   {
-   "fieldname": "individual_beds_section",
+   "fieldname": "beds",
+   "fieldtype": "Table",
+   "label": "Beds",
+   "options": "Crop Cycle Bed",
+   "read_only_depends_on": "eval:!!doc.bed_range",
+   "description": "Filled from the range above. Clear the range to edit by hand."
+  },
+  {
+   "fieldname": "section_source",
    "fieldtype": "Section Break",
-   "label": "Individual Bed Tracking"
+   "label": "Source & Cost",
+   "collapsible": 1
   },
   {
-   "fieldname": "individual_beds",
-   "fieldtype": "Table",
-   "label": "Individual Beds",
-   "options": "Crop Cycle Bed"
+   "fieldname": "purchase_invoice",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice",
+   "options": "Purchase Invoice",
+   "depends_on": "eval:doc.seedling_source==\"Purchased from Breeder\" || doc.seedling_source==\"Mixed\"",
+   "description": "Link the seedling invoice and the breeder and cost fill themselves. Leave blank to type them."
   },
   {
-   "fieldname": "replanting_tab",
-   "fieldtype": "Tab Break",
-   "label": "Replanting"
+   "fieldname": "seedling_source",
+   "fieldtype": "Select",
+   "label": "Seedling Source",
+   "options": "\nPurchased from Breeder\nIn-house Propagation\nMixed",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
   },
   {
-   "fieldname": "last_replanting_date",
-   "fieldtype": "Date",
-   "label": "Last Replanting Date",
-   "read_only": 1
+   "fieldname": "breeder",
+   "fieldtype": "Link",
+   "label": "Breeder",
+   "options": "Supplier",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
   },
   {
-   "fieldname": "replanting_logs",
-   "fieldtype": "Table",
-   "label": "Replanting Logs",
-   "options": "Replanting Log"
-  },
-  {
-   "fieldname": "uprooting_tab",
-   "fieldtype": "Tab Break",
-   "label": "Uprooting"
-  },
-  {
-   "fieldname": "uprooting_logs",
-   "fieldtype": "Table",
-   "label": "Uprooting Logs",
-   "options": "Uprooting Log"
-  },
-  {
-   "fieldname": "column_break_ewxf",
+   "fieldname": "column_break_source",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "propagation_batch",
+   "fieldtype": "Data",
+   "label": "Propagation Batch",
+   "depends_on": "eval:doc.seedling_source==\"In-house Propagation\" || doc.seedling_source==\"Mixed\""
+  },
+  {
+   "fieldname": "cost_per_plant",
+   "fieldtype": "Currency",
+   "label": "Cost Per Plant",
+   "read_only_depends_on": "eval:!!doc.purchase_invoice"
+  },
+  {
+   "fieldname": "invoiced_qty",
+   "fieldtype": "Int",
+   "label": "Invoiced Qty",
+   "read_only": 1,
+   "depends_on": "purchase_invoice",
+   "description": "Plants billed on the invoice — compared with Plants Planted"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
   }
  ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-07-17 13:39:24.092977",
- "modified_by": "james@upande.com",
- "module": "Upande Agriculture",
- "name": "Crop Cycle",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
  "permissions": [
   {
+   "role": "System Manager",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
    "create": 1,
    "delete": 1,
-   "email": 1,
+   "report": 1,
+   "import": 1,
    "export": 1,
    "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "select": 1,
-   "share": 1,
-   "write": 1
+   "email": 1,
+   "share": 1
   },
   {
+   "role": "Stock User",
+   "permlevel": 0,
+   "read": 1,
+   "write": 1,
    "create": 1,
-   "delete": 1,
-   "email": 1,
+   "delete": 0,
+   "report": 1,
    "export": 1,
    "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Agriculture User",
-   "select": 1,
-   "share": 1,
-   "write": 1
+   "email": 1,
+   "share": 1
   }
  ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "planting_date",
+ "sort_order": "DESC"
 }

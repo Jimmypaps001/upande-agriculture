@@ -1,124 +1,84 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "naming_series:PPF-.YYYY.-.MM.-.#####",
- "creation": "2025-06-24 19:13:36.350735",
+ "creation": "2026-06-20 08:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Production Plan Form",
+ "owner": "Administrator",
  "field_order": [
-  "details_section",
-  "week_no",
+  "company",
+  "plan_period",
+  "column_break_1",
   "greenhouse",
-  "naming_series",
-  "column_break_eths",
-  "supervisor",
-  "production_plan_type",
-  "status",
-  "tasks_section",
-  "irrigation_task",
-  "crop_protection_task",
-  "greenhouse_operations_task",
-  "amended_from"
+  "plan_year",
+  "plan_week",
+  "section_tasks",
+  "tasks",
+  "section_varieties",
+  "varieties"
  ],
  "fields": [
   {
-   "fieldname": "details_section",
-   "fieldtype": "Section Break",
-   "label": "Details"
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
-   "fieldname": "week_no",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Week No. "
+   "fieldname": "plan_period",
+   "fieldtype": "Data",
+   "label": "Plan Period"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "greenhouse",
    "fieldtype": "Link",
    "label": "Greenhouse",
-   "mandatory_depends_on": "eval:doc.custom_plan_type==\"Greenhouse Operations\"\n",
    "options": "Warehouse"
   },
   {
-   "fieldname": "naming_series",
-   "fieldtype": "Select",
-   "hidden": 1,
-   "label": "Naming Series",
-   "options": "PPF-.YYYY.-.MM.-.#####"
-  },
-  {
-   "fieldname": "column_break_eths",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "supervisor",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Supervisor",
-   "options": "Employee",
+   "fieldname": "plan_year",
+   "fieldtype": "Int",
+   "label": "Year",
    "reqd": 1
   },
   {
-   "fieldname": "production_plan_type",
-   "fieldtype": "Select",
-   "label": "Production Plan Type",
-   "options": "Irrigation\nCrop Protection\nGreenhouse Operations",
+   "fieldname": "plan_week",
+   "fieldtype": "Int",
+   "label": "ISO Week",
    "reqd": 1
   },
   {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Draft\nPending Approval\nApproved",
-   "read_only": 1
-  },
-  {
-   "fieldname": "tasks_section",
+   "fieldname": "section_tasks",
    "fieldtype": "Section Break",
    "label": "Tasks"
   },
   {
-   "depends_on": "eval:doc.custom_plan_type==\"Irrigation\"",
-   "fieldname": "irrigation_task",
+   "fieldname": "tasks",
    "fieldtype": "Table",
-   "label": "Irrigation Task",
-   "options": "Irrigation Plan Task"
-  },
-  {
-   "depends_on": "eval:doc.custom_plan_type==\"Crop Protection\"",
-   "fieldname": "crop_protection_task",
-   "fieldtype": "Table",
-   "label": "Crop Protection Task",
-   "options": "Crop Protection Plan Task"
-  },
-  {
-   "depends_on": "eval:doc.custom_plan_type==\"Greenhouse Operations\"",
-   "fieldname": "greenhouse_operations_task",
-   "fieldtype": "Table",
-   "label": "Greenhouse Operations Task",
+   "label": "Tasks",
    "options": "Production Plan Task"
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Production Plan Form",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
+   "fieldname": "section_varieties",
+   "fieldtype": "Section Break",
+   "label": "Variety Expectations"
+  },
+  {
+   "fieldname": "varieties",
+   "fieldtype": "Table",
+   "label": "Varieties",
+   "options": "Production Plan Variety"
   }
  ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "is_submittable": 1,
- "links": [],
- "modified": "2026-06-04 07:30:07.446709",
+ "modified": "2026-06-20 08:00:00",
  "modified_by": "Administrator",
- "module": "Upande Agriculture",
- "name": "Production Plan Form",
- "naming_rule": "By \"Naming Series\" field",
- "owner": "Administrator",
  "permissions": [
   {
    "create": 1,
@@ -133,8 +93,7 @@
    "write": 1
   }
  ],
- "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "track_changes": 1
 }

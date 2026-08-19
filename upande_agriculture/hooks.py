@@ -1,17 +1,9 @@
 app_name = "upande_agriculture"
 app_title = "Upande Agriculture"
 app_publisher = "Upande"
-app_description = "Agriculture module"
-app_email = "dev@upande.com"
+app_description = "Floriculture planning (Crop Protocol, Crop Cycle, Flower Trial, Budget/Forecast/Plan) for Mona Flowers"
+app_email = "teddy@upande.com"
 app_license = "mit"
-
-# Fixtures
-# ------------------
-# Doctypes / custom fields for this module are synced from their JSON on
-# migrate; Client Scripts owned by this app are exported here as fixtures.
-fixtures = [
-	{"dt": "Client Script", "filters": [["name", "in", ["Crop Cycle Automation"]]]},
-]
 
 # Apps
 # ------------------
@@ -78,6 +70,9 @@ fixtures = [
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
+# automatically load and sync documents of this doctype from downstream apps
+# importable_doctypes = [doctype_1]
+
 # Jinja
 # ----------
 
@@ -115,6 +110,12 @@ fixtures = [
 # before_app_uninstall = "upande_agriculture.utils.before_app_uninstall"
 # after_app_uninstall = "upande_agriculture.utils.after_app_uninstall"
 
+# Build
+# ------------------
+# To hook into the build process
+
+# after_build = "upande_agriculture.build.after_build"
+
 # Desk Notifications
 # ------------------
 # See frappe.core.notifications.get_notification_config
@@ -133,25 +134,31 @@ fixtures = [
 # 	"Event": "frappe.desk.doctype.event.event.has_permission",
 # }
 
-# DocType Class
-# ---------------
-# Override standard doctype classes
-
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
-
 # Document Events
 # ---------------
 # Hook on document methods and events
 
+# doc_events = {
+# 	"*": {
+# 		"on_update": "method",
+# 		"on_cancel": "method",
+# 		"on_trash": "method"
+# 	}
+# }
+
 doc_events = {
-	# Real-time actuals: a Harvesting Stock Entry refreshes the actual_harvest
-	# of every affected Production Projection on submit/cancel.
-	"Stock Entry": {
-		"on_submit": "upande_agriculture.upande_agriculture.doctype.production_projection.production_projection.update_projections_from_stock_entry",
-		"on_cancel": "upande_agriculture.upande_agriculture.doctype.production_projection.production_projection.update_projections_from_stock_entry",
-	},
+    "Crop Cycle": {
+        "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
+        "on_trash":  "upande_agriculture.controllers.crop_cycle_on_trash",
+    },
+    "Greenhouse": {
+        "on_update": "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+    },
+    "Production Plan Form": {
+        "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
+        "on_update":   "upande_agriculture.controllers.production_plan_form_on_update",
+        "on_trash":    "upande_agriculture.controllers.production_plan_form_on_trash",
+    },
 }
 
 # Scheduled Tasks
@@ -175,10 +182,28 @@ doc_events = {
 # 	],
 # }
 
+scheduler_events = {
+    "daily": [
+        "upande_agriculture.scheduled.rollup_actuals",
+    ],
+}
+
+fixtures = [
+    {"dt": "Workspace", "filters": [["module", "=", "Upande Agriculture"]]},
+]
+
 # Testing
 # -------
 
 # before_tests = "upande_agriculture.install.before_tests"
+
+# Extend DocType Class
+# ------------------------------
+#
+# Specify custom mixins to extend the standard doctype controller.
+# extend_doctype_class = {
+# 	"Task": "upande_agriculture.custom.task.CustomTaskMixin"
+# }
 
 # Overriding Methods
 # ------------------------------

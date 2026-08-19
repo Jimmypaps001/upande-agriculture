@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Replanting Log",
+ "owner": "Administrator",
+ "description": "A bed range replanted with a new variety. Applied to Individual Beds in date order, so the latest log for a bed always wins.",
+ "field_order": [
+  "replant_date",
+  "from_bed",
+  "to_bed",
+  "qty_replanted",
+  "column_break_1",
+  "new_variety",
+  "seedling_source",
+  "propagation_batch",
+  "cost_of_replanting",
+  "remarks",
+  "synced",
+  "applied"
+ ],
+ "fields": [
+  {
+   "fieldname": "replant_date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "from_bed",
+   "fieldtype": "Int",
+   "label": "From Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "to_bed",
+   "fieldtype": "Int",
+   "label": "To Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "qty_replanted",
+   "fieldtype": "Int",
+   "label": "Qty Replanted",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "new_variety",
+   "fieldtype": "Link",
+   "label": "New Variety",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "seedling_source",
+   "fieldtype": "Select",
+   "label": "Seedling Source",
+   "options": "\nPurchased from Breeder\nIn-house Propagation"
+  },
+  {
+   "fieldname": "propagation_batch",
+   "fieldtype": "Data",
+   "label": "Propagation Batch",
+   "depends_on": "eval:doc.seedling_source==\"In-house Propagation\""
+  },
+  {
+   "fieldname": "cost_of_replanting",
+   "fieldtype": "Currency",
+   "label": "Cost"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "synced",
+   "fieldtype": "Check",
+   "label": "Synced to Crop Cycle",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "0",
+   "description": "Set once this row has pushed its effect onto the owning Crop Cycle, so a later save does not replay it."
+  },
+  {
+   "fieldname": "applied",
+   "fieldtype": "Check",
+   "label": "Applied",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "0",
+   "description": "Set once this row has been validated and baked into Individual Beds. Never re-validated or re-applied after that -- log a correcting entry instead of editing history."
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "replant_date",
+ "sort_order": "ASC"
+}

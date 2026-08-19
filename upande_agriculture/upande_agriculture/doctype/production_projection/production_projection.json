@@ -1,211 +1,118 @@
 {
- "actions": [],
- "allow_rename": 1,
- "autoname": "format:{year}-{greenhouse}-{crop_variety}",
- "creation": "2026-04-11 20:51:51.821141",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "section_break_inaq",
-  "amended_from",
-  "farm",
-  "company",
-  "greenhouse",
-  "year",
-  "column_break_itpq",
-  "crop_variety",
-  "crop_type",
-  "date_of_planting",
-  "colour",
-  "section_break_vxb9",
-  "from_week",
-  "generate_weeks",
-  "column_break_siso",
-  "to_week",
-  "section_break_tag4",
-  "projection_week",
-  "area",
-  "crop_cycle"
- ],
- "fields": [
-  {
-   "fieldname": "section_break_inaq",
-   "fieldtype": "Section Break",
-   "placeholder": "Enter the Year"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Production Projection",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
-  },
-  {
-   "fieldname": "farm",
-   "fieldtype": "Link",
-   "label": "Farm",
-   "options": "Farm"
-  },
-  {
-   "fetch_from": "greenhouse.company",
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "read_only": 1
-  },
-  {
-   "fieldname": "greenhouse",
-   "fieldtype": "Link",
-   "label": "Greenhouse",
-   "options": "Warehouse"
-  },
-  {
-   "fieldname": "year",
-   "fieldtype": "Data",
-   "label": "Year",
-   "placeholder": "Enter the year"
-  },
-  {
-   "fieldname": "column_break_itpq",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "crop_variety",
-   "fieldtype": "Link",
-   "label": "Crop Variety",
-   "link_filters": "[]",
-   "options": "Item"
-  },
-  {
-   "fetch_from": "crop_variety.item_group",
-   "fieldname": "crop_type",
-   "fieldtype": "Link",
-   "label": "Crop Type",
-   "link_filters": "[]",
-   "options": "Item Group",
-   "read_only": 1
-  },
-  {
-   "fetch_from": "crop_cycle.planting_date",
-   "fieldname": "date_of_planting",
-   "fieldtype": "Date",
-   "label": "Date of Planting"
-  },
-  {
-   "fieldname": "colour",
-   "fieldtype": "Data",
-   "label": "Colour"
-  },
-  {
-   "fieldname": "section_break_vxb9",
-   "fieldtype": "Section Break"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "from_week",
-   "fieldtype": "Int",
-   "label": "From Week"
-  },
-  {
-   "allow_on_submit": 1,
-   "default": "0",
-   "fieldname": "generate_weeks",
-   "fieldtype": "Check",
-   "label": "Generate Weeks"
-  },
-  {
-   "fieldname": "column_break_siso",
-   "fieldtype": "Column Break"
-  },
-  {
-   "allow_on_submit": 1,
-   "fieldname": "to_week",
-   "fieldtype": "Int",
-   "label": "To Week"
-  },
-  {
-   "fieldname": "section_break_tag4",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "projection_week",
-   "fieldtype": "Table",
-   "label": "Projection Week",
-   "options": "Projection Week"
-  },
-  {
-   "fetch_from": "crop_cycle.area_planted",
-   "fieldname": "area",
-   "fieldtype": "Float",
-   "label": "Area"
-  },
-  {
-   "fieldname": "crop_cycle",
-   "fieldtype": "Link",
-   "label": "Crop cycle",
-   "options": "Crop Cycle"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "is_submittable": 1,
- "links": [],
- "modified": "2026-06-04 07:30:07.215644",
- "modified_by": "Administrator",
- "module": "Upande Agriculture",
- "name": "Production Projection",
- "naming_rule": "Expression (old style)",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "select": 1,
-   "share": 1,
-   "submit": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Agriculture User",
-   "select": 1,
-   "share": 1,
-   "submit": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Agriculture Manager",
-   "select": 1,
-   "share": 1,
-   "submit": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+  "actions": [],
+  "autoname": "format:PP-{projection_year}-{variety}-{greenhouse}",
+  "naming_rule": "Expression",
+  "creation": "2026-06-20 08:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "module": "Upande Agriculture",
+  "name": "Production Projection",
+  "owner": "Administrator",
+  "is_submittable": 0,
+  "issingle": 0,
+  "track_changes": 1,
+  "description": "Manual production budget: one variety in one greenhouse for one year, entered week by week.",
+  "field_order": [
+    "variety",
+    "greenhouse",
+    "column_break_head",
+    "projection_year",
+    "company",
+    "section_weeks",
+    "weeks",
+    "section_notes",
+    "source",
+    "week_rule",
+    "notes"
+  ],
+  "fields": [
+    {
+      "fieldname": "week_rule",
+      "fieldtype": "Data",
+      "label": "Week Rule",
+      "read_only": 1,
+      "no_copy": 1,
+      "description": "The week-numbering rule in force when these weeks were generated. Stored so that changing Agriculture Settings later cannot silently reinterpret them. Blank means ISO 8601."
+    },
+    {
+      "fieldname": "variety",
+      "fieldtype": "Link",
+      "label": "Variety",
+      "options": "Item",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "greenhouse",
+      "fieldtype": "Link",
+      "label": "Greenhouse",
+      "options": "Warehouse",
+      "in_list_view": 1,
+      "description": "Greenhouse records share the Warehouse name, so budgets can be entered before the house is set up."
+    },
+    {"fieldname": "column_break_head", "fieldtype": "Column Break"},
+    {
+      "fieldname": "projection_year",
+      "fieldtype": "Int",
+      "label": "Year",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company"
+    },
+
+    {
+      "fieldname": "section_weeks",
+      "fieldtype": "Section Break",
+      "label": "Weekly Budget",
+      "description": "Stems budgeted per ISO week. Actuals and variance are filled in nightly."
+    },
+    {
+      "fieldname": "weeks",
+      "fieldtype": "Table",
+      "label": "Weeks",
+      "options": "Projection Week"
+    },
+
+    {
+      "fieldname": "section_notes",
+      "fieldtype": "Section Break",
+      "label": "Notes",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "source",
+      "fieldtype": "Select",
+      "label": "Source",
+      "options": "Manual\nCalculated from Protocol\nHybrid",
+      "default": "Manual",
+      "reqd": 1,
+      "description": "How the weekly numbers got there. Manual entry keeps them untouched by the recalculation job."
+    },
+    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+  ],
+  "permissions": [
+    {
+      "role": "System Manager",
+      "permlevel": 0,
+      "read": 1, "write": 1, "create": 1, "delete": 1,
+      "submit": 0, "cancel": 0, "amend": 0,
+      "report": 1, "import": 1, "export": 1, "print": 1, "email": 1, "share": 1
+    },
+    {
+      "role": "Stock User",
+      "permlevel": 0,
+      "read": 1, "write": 1, "create": 1, "delete": 0,
+      "report": 1, "export": 1, "print": 1, "email": 1, "share": 1
+    }
+  ],
+  "links": [],
+  "modified": "2026-07-26 00:00:00",
+  "modified_by": "Administrator",
+  "sort_field": "modified",
+  "sort_order": "DESC"
 }

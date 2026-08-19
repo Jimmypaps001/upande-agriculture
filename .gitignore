@@ -1,7 +1,5 @@
-.DS_Store
+__pycache__/
 *.pyc
-*.egg-info
-*.swp
-tags
-node_modules
-__pycache__
+*.pyo
+.pytest_cache/
+.claude-flow/

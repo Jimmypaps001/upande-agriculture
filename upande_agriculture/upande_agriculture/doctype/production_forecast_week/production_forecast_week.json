@@ -1,0 +1,27 @@
+{
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Production Forecast Week",
+  "owner": "Administrator",
+  "creation": "2026-06-20 08:00:00",
+  "modified": "2026-07-27 00:00:00",
+  "modified_by": "Administrator",
+  "field_order": ["week_number", "iso_year", "grade", "forecasted_stems", "budget_stems", "reason", "note"],
+  "fields": [
+    {"fieldname": "week_number", "fieldtype": "Int", "label": "ISO Week", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "iso_year", "fieldtype": "Int", "label": "ISO Year", "in_list_view": 1,
+     "description": "A forecast window may cross a year end, so the week alone is not a key"},
+    {"fieldname": "grade", "fieldtype": "Data", "label": "Grade", "default": "all", "in_list_view": 1,
+     "description": "The length grade this row revises, or 'all' for the whole week"},
+    {"fieldname": "forecasted_stems", "fieldtype": "Int", "label": "Forecasted Stems", "reqd": 1, "in_list_view": 1},
+    {"fieldname": "budget_stems", "fieldtype": "Int", "label": "Budget Stems", "read_only": 1, "in_list_view": 1, "description": "Snapshot of the Production Projection at creation"},
+    {"fieldname": "reason", "fieldtype": "Select", "label": "Reason",
+     "options": "\nWeather\nDisease\nBending delay\nBud drop\nMarket\nOther"},
+    {"fieldname": "note", "fieldtype": "Small Text", "label": "Note"}
+  ],
+  "permissions": [],
+  "sort_field": "week_number",
+  "sort_order": "ASC"
+}

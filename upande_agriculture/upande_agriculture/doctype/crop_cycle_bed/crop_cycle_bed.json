@@ -1,142 +1,88 @@
 {
  "actions": [],
- "allow_rename": 1,
- "creation": "2026-07-17 16:10:48.044898",
+ "creation": "2026-07-26 00:00:00",
  "doctype": "DocType",
- "editable_grid": 1,
  "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle Bed",
+ "owner": "Administrator",
+ "description": "A bed this cycle occupies. Area comes from upande_core.Bed.",
  "field_order": [
-  "variety",
-  "bed_number",
-  "length_m",
-  "width_m",
-  "area_m2",
-  "plant_count",
-  "status",
-  "plant_date",
-  "transplant_date",
-  "cb_source",
-  "source_type",
-  "propagation_batch",
-  "purchase_order",
-  "breeder",
-  "cost_per_plant",
-  "source_success_rate",
-  "performance_notes"
+  "bed",
+  "bed_length",
+  "bed_width",
+  "bed_area",
+  "fraction_planted",
+  "plants",
+  "status"
  ],
  "fields": [
   {
-   "fieldname": "bed_number",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Bed Number",
-   "reqd": 1
-  },
-  {
-   "fieldname": "variety",
+   "fieldname": "bed",
    "fieldtype": "Link",
+   "label": "Bed",
+   "options": "Bed",
+   "reqd": 1,
    "in_list_view": 1,
-   "label": "Variety",
-   "options": "Item"
+   "columns": 4
   },
   {
-   "fieldname": "length_m",
+   "fieldname": "bed_length",
    "fieldtype": "Float",
+   "label": "Length (m)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_length",
    "in_list_view": 1,
-   "label": "Length (m)"
+   "columns": 2
   },
   {
-   "fieldname": "width_m",
+   "fieldname": "bed_width",
    "fieldtype": "Float",
-   "label": "Width (m)"
-  },
-  {
-   "fieldname": "area_m2",
-   "fieldtype": "Float",
+   "label": "Width (m)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_width",
    "in_list_view": 1,
-   "label": "Area (m2)",
-   "read_only": 1
+   "columns": 2
   },
   {
-   "fieldname": "plant_count",
+   "fieldname": "bed_area",
+   "fieldtype": "Float",
+   "label": "Area (m\u00b2)",
+   "read_only": 1,
+   "fetch_from": "bed.bed_area",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "fraction_planted",
+   "fieldtype": "Float",
+   "label": "Fraction Planted",
+   "default": "1.0",
+   "description": "1.0 for a whole bed. Set by a decimal in the range (22.5 -> 0.5), or override it and the plant count below directly for an odd partial bed."
+  },
+  {
+   "fieldname": "plants",
    "fieldtype": "Int",
-   "label": "Plant Count"
+   "label": "Plants",
+   "description": "Auto-filled from bed area x density; type a real count for a partial bed instead."
   },
   {
    "fieldname": "status",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Status",
-   "options": "Empty\nPlanted\nProducing\nHarvesting\nTransplanted\nUprooted"
-  },
-  {
-   "fieldname": "plant_date",
-   "fieldtype": "Date",
-   "label": "Plant Date"
-  },
-  {
-   "fieldname": "transplant_date",
-   "fieldtype": "Date",
-   "label": "Transplant Date"
-  },
-  {
-   "fieldname": "cb_source",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "source_type",
-   "fieldtype": "Select",
-   "label": "Source Type",
-   "options": "\nPropagation Batch\nPurchase Order"
-  },
-  {
-   "fieldname": "propagation_batch",
-   "fieldtype": "Link",
-   "label": "Propagation Batch",
-   "options": "Propagation Batch"
-  },
-  {
-   "fieldname": "purchase_order",
-   "fieldtype": "Link",
-   "label": "Purchase Order",
-   "options": "Purchase Order"
-  },
-  {
-   "fieldname": "breeder",
-   "fieldtype": "Link",
-   "label": "Breeder (Supplier)",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "cost_per_plant",
-   "fieldtype": "Currency",
-   "label": "Cost Per Plant"
-  },
-  {
-   "fieldname": "source_success_rate",
-   "fieldtype": "Percent",
-   "label": "Source Success Rate",
-   "read_only": 1
-  },
-  {
-   "fieldname": "performance_notes",
-   "fieldtype": "Small Text",
-   "label": "Performance Notes"
+   "options": "Standing\nUprooted",
+   "default": "Standing",
+   "in_list_view": 1,
+   "read_only": 1,
+   "description": "Recomputed from Uproot Log every save. This bed still counts toward Plants Planted/cost either way -- that stays the original investment."
   }
  ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "istable": 1,
- "links": [],
- "modified": "2026-07-17 18:29:52.938048",
- "modified_by": "james@upande.com",
- "module": "Upande Agriculture",
- "name": "Crop Cycle Bed",
- "owner": "Administrator",
  "permissions": [],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+ "links": [],
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "idx",
+ "sort_order": "ASC"
 }

@@ -1,48 +1,27 @@
 {
  "actions": [],
- "allow_rename": 1,
- "creation": "2026-05-25 16:15:41.253030",
+ "creation": "2026-08-19 00:00:00",
  "doctype": "DocType",
- "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
-  "flush_number",
-  "stems_per_plant",
-  "weeks_after_previous"
- ],
- "fields": [
-  {
-   "fieldname": "flush_number",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Flush Number"
-  },
-  {
-   "fieldname": "stems_per_plant",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Stems Per Plant"
-  },
-  {
-   "fieldname": "weeks_after_previous",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Weeks After Previous"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
  "istable": 1,
- "links": [],
- "modified": "2026-06-04 07:30:10.823050",
- "modified_by": "Administrator",
+ "editable_grid": 1,
  "module": "Upande Agriculture",
  "name": "Crop Protocol Flush",
- "owner": "james@upande.com",
+ "owner": "Administrator",
+ "description": "One flush in a Summer Flower's harvest cycle — a rose is cut continuously, a summer flower comes in discrete picks that repeat every year.",
+ "field_order": ["flush_number", "weeks_after_first_flush", "stems_per_plant"],
+ "fields": [
+  {"fieldname": "flush_number", "fieldtype": "Int", "label": "Flush #", "reqd": 1, "in_list_view": 1, "columns": 2},
+  {"fieldname": "weeks_after_first_flush", "fieldtype": "Int", "label": "Weeks After First Flush",
+   "in_list_view": 1, "columns": 4,
+   "description": "Blank auto-fills from Flush Interval × flush number."},
+  {"fieldname": "stems_per_plant", "fieldtype": "Float", "label": "Stems Per Plant", "reqd": 1,
+   "in_list_view": 1, "columns": 3, "description": "What this one flush hands back per plant."}
+ ],
  "permissions": [],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "flush_number",
+ "sort_order": "ASC"
 }

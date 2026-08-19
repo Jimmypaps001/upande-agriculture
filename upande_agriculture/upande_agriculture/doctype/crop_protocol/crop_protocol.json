@@ -1,268 +1,252 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "field:variety",
- "creation": "2026-07-17 13:08:06.757695",
- "default_view": "List",
+ "autoname": "field:protocol_name",
+ "naming_rule": "By fieldname",
+ "creation": "2026-06-20 08:00:00",
  "doctype": "DocType",
- "editable_grid": 1,
  "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol",
+ "owner": "Administrator",
+ "description": "The growing recipe for one variety. Inputs only \u2014 every number here is something an agronomist knows, never something the system derives.",
  "field_order": [
-  "propagation_tab",
-  "protocol_section",
-  "farm",
-  "variety",
-  "colour",
-  "column_break_protocol",
-  "protocol_group",
-  "propagation_method",
-  "weeks_in_propagation",
-  "growth_stages_section",
-  "growth_stages",
-  "production_tab",
-  "planting_section",
+  "protocol_name",
+  "variety_item",
+  "crop_type",
+  "column_break_variety",
+  "breeder",
+  "reject_pct",
   "plants_per_sqm",
-  "spacing_plant_cm",
-  "column_break_planting",
-  "yield_stems_per_ha",
-  "spacing_row_cm",
-  "timeline_section",
-  "weeks_to_bending",
-  "weeks_to_pinch",
-  "weeks_pinch_to_first_harvest",
-  "column_break_timeline",
-  "total_weeks_in_ground",
-  "rolling_forecast_weeks",
-  "flush_details_section",
-  "weeks_between_flushes",
+  "section_establishment",
+  "weeks_to_first_bending",
+  "weeks_to_second_bending",
+  "column_break_establishment",
+  "productive_life_years",
+  "productive_life_weeks",
+  "section_cycle",
+  "weeks_between_cuts",
+  "section_yield",
+  "stems_per_plant_first_harvest",
+  "stems_per_cut",
+  "column_break_yield",
+  "max_stems_per_plant_per_cut",
+  "section_flush",
+  "weeks_to_first_flush",
+  "flush_interval_weeks",
   "column_break_flush",
-  "total_stems_per_plant_life",
-  "flush_schedule_section",
-  "flush_schedule",
   "total_flushes",
-  "length_tab",
-  "length_distribution_section",
-  "length_distribution",
-  "length_distribution_total",
-  "average_stem_length_cm"
+  "total_stems_per_plant_life",
+  "flush_schedule",
+  "section_grade_mix",
+  "grade_mix",
+  "section_growth_stages",
+  "growth_stages"
  ],
  "fields": [
   {
-   "fieldname": "propagation_tab",
-   "fieldtype": "Tab Break",
-   "label": "Propagation"
+   "fieldname": "protocol_name",
+   "fieldtype": "Data",
+   "label": "Protocol Name",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
-   "fieldname": "protocol_section",
-   "fieldtype": "Section Break",
-   "label": "Protocol Details"
+   "fieldname": "variety_item",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Base variety (Athena), not a length grade (Athena-60cm) \u2014 the plant makes stems, grading splits them afterwards"
   },
   {
-   "fieldname": "column_break_protocol",
+   "fieldname": "crop_type",
+   "fieldtype": "Select",
+   "label": "Crop Type",
+   "options": "\nRose\nSpray Rose\nSummer Flower\nOther"
+  },
+  {
+   "fieldname": "column_break_variety",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "propagation_method",
-   "fieldtype": "Select",
-   "label": "Propagation Method",
-   "options": "\nCutting\nBudding\nGrafting\nTissue Culture\nSeedling"
+   "fieldname": "breeder",
+   "fieldtype": "Link",
+   "label": "Breeder",
+   "options": "Supplier",
+   "in_list_view": 1
   },
   {
-   "fieldname": "weeks_in_propagation",
-   "fieldtype": "Int",
-   "label": "Weeks in Propagation"
+   "fieldname": "reject_pct",
+   "fieldtype": "Percent",
+   "label": "Expected Reject %",
+   "description": "Share of cut stems that fail grading"
   },
   {
-   "fieldname": "growth_stages_section",
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Float",
+   "label": "Plants Per Sqm",
+   "description": "Standard planting density for this variety. Crop Cycle defaults to it and lets a grower override for an odd bed."
+  },
+  {
+   "fieldname": "section_establishment",
    "fieldtype": "Section Break",
-   "label": "Growth Stages"
+   "label": "Establishment",
+   "description": "Bending applies to roses only; productive life applies to any crop type."
+  },
+  {
+   "fieldname": "weeks_to_first_bending",
+   "fieldtype": "Int",
+   "label": "Weeks to First Bending",
+   "description": "Planting to primary bend \u2014 builds the framework",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "weeks_to_second_bending",
+   "fieldtype": "Int",
+   "label": "Weeks to Second Bending",
+   "description": "Weeks after the first bend. Production is counted from here.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "column_break_establishment",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "productive_life_years",
+   "fieldtype": "Float",
+   "label": "Productive Life (Years)",
+   "description": "How many years this variety stays in the ground. Drives the multi-year budget."
+  },
+  {
+   "fieldname": "productive_life_weeks",
+   "fieldtype": "Int",
+   "label": "Productive Life (Weeks)",
+   "description": "Derived from the years above",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_cycle",
+   "fieldtype": "Section Break",
+   "label": "Cut Cycle",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "weeks_between_cuts",
+   "fieldtype": "Int",
+   "label": "Weeks Between Cuts",
+   "description": "Regrowth period: a cut stem back to harvestable",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\"",
+   "mandatory_depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "section_yield",
+   "fieldtype": "Section Break",
+   "label": "Yield",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "stems_per_plant_first_harvest",
+   "fieldtype": "Float",
+   "label": "Stems Per Plant, First Harvest",
+   "description": "The first wave off a newly bent plant",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "stems_per_cut",
+   "fieldtype": "Float",
+   "label": "Stems Per Cut",
+   "default": "1.5",
+   "description": "Harvestable stems returned per stem cut. Breaks are 2-3; only the ones making grade are counted here.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "column_break_yield",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "max_stems_per_plant_per_cut",
+   "fieldtype": "Float",
+   "label": "Max Stems Per Plant Per Cut",
+   "description": "Canopy ceiling. Without it the multiplier compounds forever.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "section_flush",
+   "fieldtype": "Section Break",
+   "label": "Flush Cycle",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "A summer flower doesn't compound off a cut stem \u2014 it flushes on a schedule that repeats every year. List each flush once; the pattern is replayed for the whole productive life."
+  },
+  {
+   "fieldname": "weeks_to_first_flush",
+   "fieldtype": "Int",
+   "label": "Weeks to First Flush",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "Planting to the first pick."
+  },
+  {
+   "fieldname": "flush_interval_weeks",
+   "fieldtype": "Int",
+   "label": "Flush Interval Weeks",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "Nominal spacing between flushes \u2014 used to fill in a blank offset below."
+  },
+  {
+   "fieldname": "column_break_flush",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "total_flushes",
+   "fieldtype": "Int",
+   "label": "Total Flushes",
+   "read_only": 1,
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "total_stems_per_plant_life",
+   "fieldtype": "Float",
+   "label": "Total Stems Per Plant (One Year's Pattern)",
+   "read_only": 1,
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "flush_schedule",
+   "fieldtype": "Table",
+   "label": "Flush Schedule",
+   "options": "Crop Protocol Flush",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "section_grade_mix",
+   "fieldtype": "Section Break",
+   "label": "Grade Mix",
+   "description": "How a plant's stems split by length. Seeded from actual harvest - see Calibrate."
+  },
+  {
+   "fieldname": "grade_mix",
+   "fieldtype": "Table",
+   "label": "Grade Mix",
+   "options": "Crop Protocol Grade Mix"
+  },
+  {
+   "fieldname": "section_growth_stages",
+   "fieldtype": "Section Break",
+   "label": "Growth Stages",
+   "collapsible": 1,
+   "description": "Stages offered when scouts sample a bed"
   },
   {
    "fieldname": "growth_stages",
    "fieldtype": "Table",
    "label": "Growth Stages",
    "options": "Crop Protocol Growth Stage"
-  },
-  {
-   "fieldname": "production_tab",
-   "fieldtype": "Tab Break",
-   "label": "Production"
-  },
-  {
-   "fieldname": "planting_section",
-   "fieldtype": "Section Break",
-   "label": "Planting"
-  },
-  {
-   "fieldname": "plants_per_sqm",
-   "fieldtype": "Int",
-   "label": "Plants Per Sqm"
-  },
-  {
-   "fieldname": "column_break_planting",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "yield_stems_per_ha",
-   "fieldtype": "Int",
-   "label": "Yield Stems Per Ha"
-  },
-  {
-   "fieldname": "timeline_section",
-   "fieldtype": "Section Break",
-   "label": "Growing Timeline"
-  },
-  {
-   "fieldname": "weeks_to_pinch",
-   "fieldtype": "Int",
-   "label": "Weeks to Pinch"
-  },
-  {
-   "fieldname": "weeks_pinch_to_first_harvest",
-   "fieldtype": "Int",
-   "label": "Weeks Pinch to First Harvest"
-  },
-  {
-   "fieldname": "column_break_timeline",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "total_weeks_in_ground",
-   "fieldtype": "Int",
-   "label": "Total Weeks in Ground"
-  },
-  {
-   "fieldname": "flush_details_section",
-   "fieldtype": "Section Break",
-   "label": "Flush Details"
-  },
-  {
-   "fieldname": "weeks_between_flushes",
-   "fieldtype": "Int",
-   "label": "Weeks Between Flushes"
-  },
-  {
-   "fieldname": "total_flushes",
-   "fieldtype": "Int",
-   "label": "Total Flushes",
-   "read_only": 1
-  },
-  {
-   "fieldname": "column_break_flush",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "total_stems_per_plant_life",
-   "fieldtype": "Float",
-   "label": "Total Stems Per Plant Life"
-  },
-  {
-   "fieldname": "flush_schedule_section",
-   "fieldtype": "Section Break",
-   "label": "Flush Schedule"
-  },
-  {
-   "fieldname": "flush_schedule",
-   "fieldtype": "Table",
-   "label": "Flush Schedule",
-   "options": "Crop Protocol Flush"
-  },
-  {
-   "fieldname": "farm",
-   "fieldtype": "Link",
-   "label": "Farm",
-   "options": "Farm"
-  },
-  {
-   "fieldname": "variety",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Variety",
-   "options": "Item",
-   "reqd": 1,
-   "unique": 1
-  },
-  {
-   "fetch_from": "variety.custom_color",
-   "fieldname": "colour",
-   "fieldtype": "Link",
-   "label": "Colour",
-   "options": "Color"
-  },
-  {
-   "description": "Forecasting cycle group. Varieties in the same group share one set of growth-stage day windows.",
-   "fieldname": "protocol_group",
-   "fieldtype": "Select",
-   "in_standard_filter": 1,
-   "label": "Forecasting Group",
-   "options": "\nGroup 1\nGroup 2\nGroup 3\nGroup 4"
-  },
-  {
-   "fieldname": "spacing_plant_cm",
-   "fieldtype": "Float",
-   "label": "Spacing Plant to Plant (cm)",
-   "precision": "1"
-  },
-  {
-   "fieldname": "spacing_row_cm",
-   "fieldtype": "Float",
-   "label": "Spacing Row to Row (cm)",
-   "precision": "1"
-  },
-  {
-   "description": "Weeks from planting to bending (zero bending).",
-   "fieldname": "weeks_to_bending",
-   "fieldtype": "Int",
-   "label": "Weeks to Bending"
-  },
-  {
-   "description": "Rolling forecast window in weeks.",
-   "fieldname": "rolling_forecast_weeks",
-   "fieldtype": "Float",
-   "label": "Rolling Forecast (Weeks)",
-   "precision": "1"
-  },
-  {
-   "fieldname": "length_tab",
-   "fieldtype": "Tab Break",
-   "label": "Length Distribution"
-  },
-  {
-   "fieldname": "length_distribution_section",
-   "fieldtype": "Section Break",
-   "label": "Stem Length Distribution"
-  },
-  {
-   "description": "Expected split of marketable stems across the stem length grades.",
-   "fieldname": "length_distribution",
-   "fieldtype": "Table",
-   "label": "Length Distribution",
-   "options": "Crop Protocol Length Distribution"
-  },
-  {
-   "description": "Must total 100%.",
-   "fieldname": "length_distribution_total",
-   "fieldtype": "Percent",
-   "label": "Total",
-   "read_only": 1
-  },
-  {
-   "fieldname": "average_stem_length_cm",
-   "fieldtype": "Float",
-   "label": "Weighted Average Stem Length (cm)",
-   "precision": "1",
-   "read_only": 1
   }
  ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-07-17 19:07:27.033417",
- "modified_by": "james@upande.com",
- "module": "Upande Agriculture",
- "name": "Crop Protocol",
- "naming_rule": "By fieldname",
- "owner": "Administrator",
+ "modified": "2026-07-26 00:00:00",
+ "modified_by": "Administrator",
  "permissions": [
   {
    "create": 1,
@@ -278,21 +262,18 @@
   },
   {
    "create": 1,
-   "delete": 1,
+   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "Agriculture User",
+   "role": "Stock User",
    "share": 1,
    "write": 1
   }
  ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
  "track_changes": 1
 }
