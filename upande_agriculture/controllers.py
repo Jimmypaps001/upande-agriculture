@@ -11,6 +11,72 @@ from upande_agriculture.todo_helpers import upsert_todo
 
 def crop_cycle_on_update(doc, method=None):
     _ensure_milestone_todos(doc)
+    _sync_greenhouse_from_crop_cycle(doc)
+
+
+def _sync_greenhouse_from_crop_cycle(cycle) -> None:
+    """Keep the Greenhouse bed ledger in step with what this Crop Cycle knows.
+
+    Guarded by the same flag greenhouse.py's reverse sync sets: an uproot or
+    replant logged on the Greenhouse saves a Crop Cycle, which would
+    otherwise land right back here and re-save the same Greenhouse before
+    its own sync has finished -- round and round. Only the outermost sync in
+    a chain does any work; a sync started BY that chain is a no-op.
+
+    Only this cycle's own Bed Range rows (tagged by name) are touched --
+    anything else on the ledger, another cycle's rows or one typed in by
+    hand, is left exactly as it was. Best-effort: a conflict on the
+    Greenhouse side (e.g. a bed already claimed by something untracked)
+    warns rather than blocking the Crop Cycle save that triggered this.
+    """
+    from frappe import _
+    from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+        cycle_bed_ranges,
+    )
+
+    if frappe.flags.get("in_greenhouse_cycle_sync"):
+        return
+    house = cycle.get("greenhouse")
+    if not house:
+        return
+
+    is_new_greenhouse = not frappe.db.exists("Greenhouse", house)
+    gh = frappe.get_doc("Greenhouse", house) if not is_new_greenhouse else frappe.get_doc({
+        "doctype": "Greenhouse", "greenhouse": house,
+    })
+
+    gh.bed_range = [r for r in (gh.bed_range or []) if r.crop_cycle != cycle.name]
+
+    if cycle.get("status") != "Ended":
+        # cycle_bed_ranges excludes anything this cycle has since logged as
+        # uprooted -- without that, this sync would re-claim the cycle's
+        # FULL original planting on every save, overwriting whatever a
+        # partial uproot/replant already put on those beds.
+        for row in cycle_bed_ranges([{
+            "name": cycle.name, "variety": cycle.get("variety"),
+            "crop_protocol": cycle.get("crop_protocol"),
+            "planting_date": cycle.get("planting_date"),
+            "plants_per_sqm": cycle.get("plants_per_sqm"),
+        }]):
+            row["crop_cycle"] = cycle.name
+            gh.append("bed_range", row)
+
+    try:
+        gh.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(title=f"Greenhouse sync failed for {cycle.name}")
+        frappe.msgprint(
+            _("{0} saved, but couldn't sync into the Greenhouse ledger for {1} — "
+              "check it there directly.").format(cycle.name, house),
+            indicator="orange", title=_("Greenhouse sync skipped"),
+        )
+        return
+
+    frappe.msgprint(
+        _("{0} greenhouse record {1}.").format(
+            "Created" if is_new_greenhouse else "Updated", gh.name),
+        indicator="green", alert=True,
+    )
 
 
 def crop_cycle_on_trash(doc, method=None):

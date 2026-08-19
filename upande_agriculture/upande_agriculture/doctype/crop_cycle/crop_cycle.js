@@ -5,6 +5,8 @@ frappe.ui.form.on("Crop Cycle", {
     setup(frm) {
         // Only submitted invoices carry a price you can trust.
         frm.set_query("purchase_invoice", () => ({ filters: { docstatus: 1 } }));
+        // A crop cycle only ever lives in a greenhouse, never any other warehouse type.
+        frm.set_query("greenhouse", () => ({ filters: { warehouse_type: "Greenhouse" } }));
     },
 
     refresh(frm) {
@@ -16,6 +18,7 @@ frappe.ui.form.on("Crop Cycle", {
             frm.add_custom_button(__("Replant"), () => replant(frm), __("Actions"));
         } else {
             frm.add_custom_button(__("Uproot"), () => uproot(frm), __("Actions"));
+            frm.add_custom_button(__("Uproot Beds…"), () => uproot_beds(frm), __("Actions"));
         }
         frm.add_custom_button(__("Generate Budget"), () => ask_year(frm), __("Actions"));
         frm.add_custom_button(__("View Budgets"), () => {
@@ -154,6 +157,35 @@ function uproot(frm) {
             }, 7));
         },
         __("Uproot Block"), __("Uproot"),
+    );
+}
+
+// A partial uproot is one bed range coming out, not the whole block — logged
+// as a row rather than ending the cycle. The server validates it against
+// what's actually still standing on those beds; this dialog just collects
+// the same three things the "Uproot Block" one does.
+function uproot_beds(frm) {
+    frappe.prompt(
+        [{
+            fieldname: "date", fieldtype: "Date", label: __("Uprooted On"),
+            default: frappe.datetime.get_today(), reqd: 1,
+        }, {
+            fieldname: "bed_range", fieldtype: "Data", label: __("Beds"),
+            reqd: 1,
+            description: __("e.g. 12-18, or 12-18.5 for a half bed."),
+        }, {
+            fieldname: "plants", fieldtype: "Int", label: __("Plants Removed"), reqd: 1,
+        }],
+        (v) => {
+            frm.add_child("uproot_log", {
+                uproot_date: v.date, bed_range: v.bed_range, plants: v.plants,
+            });
+            frm.save().then(() => frappe.show_alert({
+                message: __("Logged. {0} plants removed from {1}.", [v.plants, v.bed_range]),
+                indicator: "orange",
+            }, 7));
+        },
+        __("Uproot Beds"), __("Uproot"),
     );
 }
 

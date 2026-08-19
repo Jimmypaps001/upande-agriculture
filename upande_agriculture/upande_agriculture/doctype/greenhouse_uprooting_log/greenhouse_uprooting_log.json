@@ -1,0 +1,110 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Uprooting Log",
+ "owner": "Administrator",
+ "description": "A bed range taken out of production. Applied to Individual Beds in date order alongside Replanting Logs.",
+ "field_order": [
+  "uproot_date",
+  "from_bed",
+  "to_bed",
+  "variety",
+  "reason",
+  "qty_uprooted",
+  "column_break_1",
+  "remarks",
+  "synced",
+  "applied"
+ ],
+ "fields": [
+  {
+   "fieldname": "uproot_date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "from_bed",
+   "fieldtype": "Int",
+   "label": "From Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "to_bed",
+   "fieldtype": "Int",
+   "label": "To Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "options": "Item",
+   "label": "Variety",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Filled in from what was standing on these beds when the log was applied."
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Reason",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "options": "\nLow Yield\nDisease\nVariety Change\nAge (End of Life)\nStorm Damage\nOther"
+  },
+  {
+   "fieldname": "qty_uprooted",
+   "fieldtype": "Int",
+   "label": "Qty Uprooted",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "synced",
+   "fieldtype": "Check",
+   "label": "Synced to Crop Cycle",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "0",
+   "description": "Set once this row has pushed its effect onto the owning Crop Cycle, so a later save does not replay it."
+  },
+  {
+   "fieldname": "applied",
+   "fieldtype": "Check",
+   "label": "Applied",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "0",
+   "description": "Set once this row has been validated and baked into Individual Beds. Never re-validated or re-applied after that -- log a correcting entry instead of editing history."
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "uproot_date",
+ "sort_order": "ASC"
+}

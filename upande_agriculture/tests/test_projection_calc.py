@@ -177,3 +177,56 @@ class TestIsoYearLength(unittest.TestCase):
         cycle = {"planting_date": datetime.date(2024, 1, 1), "qty_planted": 10000}
         weeks = build_budget_year([(cycle, proto)], 2026)
         self.assertIn(53, weeks, "week 53 of 2026 must carry stems")
+
+
+# Summer flowers don't compound off a cut stem — they flush on a schedule
+# that repeats every year. 3 flushes at 0.4/0.6/0.3 stems/plant = 1.3/plant/year.
+FLUSH_PROTOCOL = {
+    "crop_type": "Summer Flower",
+    "weeks_to_first_flush": 10,
+    "reject_pct": 0,
+    "flush_schedule": [
+        {"flush_number": 1, "weeks_after_first_flush": 0, "stems_per_plant": 0.4},
+        {"flush_number": 2, "weeks_after_first_flush": 6, "stems_per_plant": 0.6},
+        {"flush_number": 3, "weeks_after_first_flush": 12, "stems_per_plant": 0.3},
+    ],
+}
+FLUSH_CYCLE = {"planting_date": datetime.date(2026, 1, 5), "qty_planted": 10000}
+
+
+class TestFlushModel(unittest.TestCase):
+    def test_picked_by_crop_type(self):
+        """cycle_weekly_stems must route Summer Flower away from the rose model."""
+        rose_shaped = cycle_weekly_stems(FLUSH_CYCLE, {**PROTOCOL, "crop_type": None})
+        flush_shaped = cycle_weekly_stems(FLUSH_CYCLE, FLUSH_PROTOCOL)
+        self.assertTrue(rose_shaped)
+        self.assertTrue(flush_shaped)
+        # A flush week is one discrete pick; nothing tiles it like the rose model.
+        self.assertNotEqual(set(rose_shaped), set(flush_shaped))
+
+    def test_each_flush_lands_the_week_it_is_scheduled(self):
+        # 10 (to first flush) + 12 (last flush's offset) = 22; 23 covers all
+        # three flushes without reaching into a second year.
+        proto = {**FLUSH_PROTOCOL, "productive_life_weeks": 23}
+        out = cycle_weekly_stems(FLUSH_CYCLE, proto)
+        first = datetime.date(2026, 1, 5) + datetime.timedelta(weeks=10)
+        for row in FLUSH_PROTOCOL["flush_schedule"]:
+            d = first + datetime.timedelta(weeks=row["weeks_after_first_flush"])
+            key = (d.isocalendar()[0], d.isocalendar()[1])
+            self.assertAlmostEqual(out[key], 10000 * row["stems_per_plant"])
+
+    def test_schedule_repeats_every_year(self):
+        proto = {**FLUSH_PROTOCOL, "productive_life_weeks": 110}  # a bit over 2 years
+        out = cycle_weekly_stems(FLUSH_CYCLE, proto)
+        first = datetime.date(2026, 1, 5) + datetime.timedelta(weeks=10)
+        second_year_flush1 = first + datetime.timedelta(weeks=52)
+        key = (second_year_flush1.isocalendar()[0], second_year_flush1.isocalendar()[1])
+        self.assertAlmostEqual(out[key], 10000 * 0.4)
+
+    def test_reject_pct_still_applies(self):
+        proto = {**FLUSH_PROTOCOL, "reject_pct": 20, "productive_life_weeks": 23}
+        out = cycle_weekly_stems(FLUSH_CYCLE, proto)
+        self.assertAlmostEqual(sum(out.values()), 10000 * 1.3 * 0.8)
+
+    def test_no_flush_rows_is_empty(self):
+        self.assertEqual(cycle_weekly_stems(FLUSH_CYCLE, {**FLUSH_PROTOCOL, "flush_schedule": []}), {})

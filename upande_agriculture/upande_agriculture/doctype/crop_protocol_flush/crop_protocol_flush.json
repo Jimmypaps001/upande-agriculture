@@ -1,0 +1,27 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Protocol Flush",
+ "owner": "Administrator",
+ "description": "One flush in a Summer Flower's harvest cycle — a rose is cut continuously, a summer flower comes in discrete picks that repeat every year.",
+ "field_order": ["flush_number", "weeks_after_first_flush", "stems_per_plant"],
+ "fields": [
+  {"fieldname": "flush_number", "fieldtype": "Int", "label": "Flush #", "reqd": 1, "in_list_view": 1, "columns": 2},
+  {"fieldname": "weeks_after_first_flush", "fieldtype": "Int", "label": "Weeks After First Flush",
+   "in_list_view": 1, "columns": 4,
+   "description": "Blank auto-fills from Flush Interval × flush number."},
+  {"fieldname": "stems_per_plant", "fieldtype": "Float", "label": "Stems Per Plant", "reqd": 1,
+   "in_list_view": 1, "columns": 3, "description": "What this one flush hands back per plant."}
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "flush_number",
+ "sort_order": "ASC"
+}

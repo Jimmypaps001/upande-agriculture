@@ -17,6 +17,7 @@
  "field_order": [
   "naming_series",
   "greenhouse",
+  "farm",
   "variety",
   "crop_protocol",
   "column_break_head",
@@ -27,16 +28,21 @@
   "planting_date",
   "first_bending_date",
   "second_bending_date",
+  "actual_first_bending_date",
+  "actual_second_bending_date",
   "column_break_timeline",
   "planned_uprooting_date",
   "cycle_end_date",
   "replaces",
   "section_planting",
   "qty_planted",
+  "plants_standing",
   "plants_per_sqm",
   "column_break_planting",
   "planted_area",
   "implied_plants",
+  "section_uprooting",
+  "uproot_log",
   "section_beds",
   "bed_range",
   "beds",
@@ -68,6 +74,16 @@
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm",
+   "read_only": 1,
+   "fetch_from": "greenhouse.custom_farm",
+   "fetch_if_empty": 1,
+   "description": "Fetched from the greenhouse. Frappe's own User Permission on Farm restricts who can see this Crop Cycle — no extra code needed."
   },
   {
    "fieldname": "variety",
@@ -138,6 +154,18 @@
    "description": "Production is counted from here"
   },
   {
+   "fieldname": "actual_first_bending_date",
+   "fieldtype": "Date",
+   "label": "Actual First Bending Date",
+   "description": "Recorded once it actually happened. Overrides the planned date above."
+  },
+  {
+   "fieldname": "actual_second_bending_date",
+   "fieldtype": "Date",
+   "label": "Actual Second Bending Date",
+   "description": "Recorded once it actually happened. Overrides the planned date above."
+  },
+  {
    "fieldname": "column_break_timeline",
    "fieldtype": "Column Break"
   },
@@ -171,9 +199,18 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "plants_standing",
+   "fieldtype": "Int",
+   "label": "Plants Standing",
+   "read_only": 1,
+   "description": "Plants Planted minus everything logged as uprooted below."
+  },
+  {
    "fieldname": "plants_per_sqm",
    "fieldtype": "Float",
-   "label": "Plants Per Sqm"
+   "label": "Plants Per Sqm",
+   "fetch_from": "crop_protocol.plants_per_sqm",
+   "fetch_if_empty": 1
   },
   {
    "fieldname": "column_break_planting",
@@ -182,7 +219,7 @@
   {
    "fieldname": "planted_area",
    "fieldtype": "Float",
-   "label": "Planted Area (m\u00b2)",
+   "label": "Planted Area (m²)",
    "read_only": 1,
    "description": "Summed from the beds below"
   },
@@ -191,7 +228,19 @@
    "fieldtype": "Int",
    "label": "Implied Plants",
    "read_only": 1,
-   "description": "Area \u00d7 density. Checked against Plants Planted on save."
+   "description": "Area × density. Checked against Plants Planted on save."
+  },
+  {
+   "fieldname": "section_uprooting",
+   "fieldtype": "Section Break",
+   "label": "Uprooting",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "uproot_log",
+   "fieldtype": "Table",
+   "label": "Uprooting Log",
+   "options": "Crop Cycle Uproot"
   },
   {
    "fieldname": "section_beds",
@@ -223,6 +272,7 @@
    "fieldtype": "Link",
    "label": "Purchase Invoice",
    "options": "Purchase Invoice",
+   "depends_on": "eval:doc.seedling_source==\"Purchased from Breeder\" || doc.seedling_source==\"Mixed\"",
    "description": "Link the seedling invoice and the breeder and cost fill themselves. Leave blank to type them."
   },
   {
@@ -246,7 +296,8 @@
   {
    "fieldname": "propagation_batch",
    "fieldtype": "Data",
-   "label": "Propagation Batch"
+   "label": "Propagation Batch",
+   "depends_on": "eval:doc.seedling_source==\"In-house Propagation\" || doc.seedling_source==\"Mixed\""
   },
   {
    "fieldname": "cost_per_plant",
@@ -260,7 +311,7 @@
    "label": "Invoiced Qty",
    "read_only": 1,
    "depends_on": "purchase_invoice",
-   "description": "Plants billed on the invoice \u2014 compared with Plants Planted"
+   "description": "Plants billed on the invoice — compared with Plants Planted"
   },
   {
    "fieldname": "section_notes",
@@ -304,7 +355,7 @@
   }
  ],
  "links": [],
- "modified": "2026-07-26 00:00:00",
+ "modified": "2026-08-19 00:00:00",
  "modified_by": "Administrator",
  "sort_field": "planting_date",
  "sort_order": "DESC"

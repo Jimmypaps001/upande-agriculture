@@ -101,7 +101,23 @@ def cycle_weekly_stems(
     """One crop cycle's whole productive life as {(week_year, week): stems}.
 
     Gross of grading, net of the protocol's reject %. `rule` defaults to ISO.
+
+    A rose compounds off a cut stem; a summer flower flushes on a schedule
+    that repeats every year. Same shape out, different model, picked by the
+    protocol's Crop Type.
     """
+    if protocol.get("crop_type") == "Summer Flower":
+        return _flush_weekly_stems(cycle, protocol, seasonal_factors, rule)
+    return _rose_weekly_stems(cycle, protocol, seasonal_factors, rule)
+
+
+def _rose_weekly_stems(
+    cycle: dict,
+    protocol: dict,
+    seasonal_factors: dict[int, float] | None = None,
+    rule: str | None = None,
+) -> dict[tuple[int, int], float]:
+    """The bending-and-compounding model. See module docstring."""
     seasonal_factors = seasonal_factors or {}
     plants = int(cycle.get("qty_planted") or 0)
     cut_weeks = int(protocol.get("weeks_between_cuts") or 0)
@@ -146,6 +162,60 @@ def cycle_weekly_stems(
             out[key] = out.get(key, 0.0) + share * factor
 
         per_plant = min(per_plant * mult, ceiling)
+
+    return out
+
+
+# A block re-flushes on the same weeks every year rather than compounding, so
+# the whole schedule is replayed once per year for however long it produces.
+WEEKS_PER_YEAR = 52
+
+# However long a block is meant to run, it cannot run forever. Mirrors the
+# rose model's own cap (there: 520 weeks regardless of cut length).
+MAX_FLUSH_YEARS = 20
+
+
+def _flush_weekly_stems(
+    cycle: dict,
+    protocol: dict,
+    seasonal_factors: dict[int, float] | None = None,
+    rule: str | None = None,
+) -> dict[tuple[int, int], float]:
+    """The flush model: each row in Flush Schedule fires once a year.
+
+    No compounding and no ceiling — a flush's Stems Per Plant is already the
+    whole answer for that pick. Only the calendar repeats.
+    """
+    seasonal_factors = seasonal_factors or {}
+    plants = int(cycle.get("qty_planted") or 0)
+    planting = cycle.get("planting_date")
+    rows = protocol.get("flush_schedule") or []
+    if plants <= 0 or not planting or not rows:
+        return {}
+
+    first_flush = planting + datetime.timedelta(
+        weeks=int(protocol.get("weeks_to_first_flush") or 0)
+    )
+    end = production_end(cycle, protocol)
+    reject = float(protocol.get("reject_pct") or 0) / 100.0
+
+    out: dict[tuple[int, int], float] = {}
+    for year in range(MAX_FLUSH_YEARS):
+        year_start = first_flush + datetime.timedelta(weeks=WEEKS_PER_YEAR * year)
+        if end and year_start > end:
+            break
+        for row in rows:
+            d = year_start + datetime.timedelta(
+                weeks=int(row.get("weeks_after_first_flush") or 0)
+            )
+            if end and d > end:
+                continue
+            stems = plants * float(row.get("stems_per_plant") or 0) * (1 - reject)
+            if stems <= 0:
+                continue
+            factor = seasonal_factors.get(d.month, 1.0)
+            key = iso_week_key(d, rule)
+            out[key] = out.get(key, 0.0) + stems * factor
 
     return out
 

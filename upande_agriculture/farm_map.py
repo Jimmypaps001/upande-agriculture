@@ -288,7 +288,9 @@ def _stage(weeks: float | None, proto: dict | None) -> str:
         return "unknown"
     if not proto:
         return "producing" if weeks > 30 else "establishing"
-    b1 = proto.get("weeks_to_first_bending") or 0
+    # A summer flower has no bending stage — it's establishing until its
+    # first flush, then straight into producing.
+    b1 = proto.get("weeks_to_first_bending") or proto.get("weeks_to_first_flush") or 0
     b2 = b1 + (proto.get("weeks_to_second_bending") or 0)
     life = proto.get("productive_life_weeks") or 0
     if weeks < b1:

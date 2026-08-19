@@ -17,6 +17,13 @@ frappe.ui.form.on("Crop Protocol", {
             frm.dashboard.set_headline(
                 __("At full production this variety yields about <b>{0}</b> stems "
                    + "per week per 1,000 plants.", [Math.round(per_1000).toLocaleString()]));
+        } else if (frm.doc.crop_type === "Summer Flower" && frm.doc.total_stems_per_plant_life) {
+            const per_1000 = 1000 * frm.doc.total_stems_per_plant_life
+                * (1 - (frm.doc.reject_pct || 0) / 100);
+            frm.dashboard.set_headline(
+                __("Across its {0} flushes, this variety yields about <b>{1}</b> "
+                   + "stems per 1,000 plants each year.",
+                   [frm.doc.total_flushes, Math.round(per_1000).toLocaleString()]));
         }
     },
 });

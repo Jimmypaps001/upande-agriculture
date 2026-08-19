@@ -11,39 +11,66 @@
  "is_submittable": 0,
  "issingle": 0,
  "track_changes": 1,
- "description": "A growing structure and the succession of crop cycles planted in it.",
+ "description": "A growing structure tracked bed by bed — what's in each one, since when, and its replanting/uprooting history. Field shape matches the live reference site's own 'Crop Cycle' doctype exactly; renamed here because this app's Crop Cycle already means something else (one variety's planting batch, feeding the yield model). This doctype does not feed budgets/projections — it's the operational bed ledger.",
  "field_order": [
+  "overview_tab",
+  "details_section",
   "greenhouse",
+  "farm",
+  "column_break_ewxf",
   "company",
-  "column_break_house",
-  "is_active"
+  "geometry_section",
+  "gross_area",
+  "area_planted",
+  "varieties",
+  "cb_geo2",
+  "plants_per_sqm",
+  "number_of_plants",
+  "number_of_beds",
+  "varieties_grown_section",
+  "varieties_grown",
+  "bedconfig_section",
+  "bed_range",
+  "individual_beds_section",
+  "individual_beds",
+  "replanting_tab",
+  "last_replanting_date",
+  "replanting_logs",
+  "uprooting_tab",
+  "uprooting_logs"
  ],
  "fields": [
-  {
-   "fieldname": "greenhouse",
-   "fieldtype": "Link",
-   "label": "Greenhouse",
-   "options": "Warehouse",
-   "reqd": 1,
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "column_break_house",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "label": "In Production",
-   "default": "1"
-  }
+  {"fieldname": "overview_tab", "fieldtype": "Tab Break", "label": "Overview"},
+  {"fieldname": "details_section", "fieldtype": "Section Break", "label": "Greenhouse & Farm"},
+  {"fieldname": "greenhouse", "fieldtype": "Link", "label": "Greenhouse", "options": "Warehouse", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "farm", "fieldtype": "Link", "label": "Farm", "options": "Farm", "read_only": 1,
+   "fetch_from": "greenhouse.custom_farm", "fetch_if_empty": 1},
+  {"fieldname": "column_break_ewxf", "fieldtype": "Column Break"},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Company", "options": "Company", "in_list_view": 1,
+   "read_only": 1, "fetch_from": "greenhouse.company", "fetch_if_empty": 1},
+  {"fieldname": "geometry_section", "fieldtype": "Section Break", "label": "Greenhouse Geometry"},
+  {"fieldname": "gross_area", "fieldtype": "Float", "label": "Gross Area (m²)",
+   "description": "The structure's own physical area. Individual Beds can't add up to more than this."},
+  {"fieldname": "area_planted", "fieldtype": "Float", "label": "Area Planted (m²)", "read_only": 1},
+  {"fieldname": "varieties", "fieldtype": "Int", "label": "Varieties", "read_only": 1},
+  {"fieldname": "cb_geo2", "fieldtype": "Column Break"},
+  {"fieldname": "plants_per_sqm", "fieldtype": "Int", "label": "Plants Per Sqm", "read_only": 1,
+   "description": "Number of Plants ÷ Area Planted."},
+  {"fieldname": "number_of_plants", "fieldtype": "Int", "label": "Number of Plants", "read_only": 1},
+  {"fieldname": "number_of_beds", "fieldtype": "Int", "label": "Number of Beds", "read_only": 1,
+   "description": "Beds currently occupied (not Empty or Uprooted)."},
+  {"fieldname": "varieties_grown_section", "fieldtype": "Section Break", "label": "Varieties Grown"},
+  {"fieldname": "varieties_grown", "fieldtype": "Table", "label": "Varieties Grown", "options": "Greenhouse Variety"},
+  {"fieldname": "bedconfig_section", "fieldtype": "Section Break", "label": "Bed Configuration"},
+  {"fieldname": "bed_range", "fieldtype": "Table", "label": "Bed Ranges", "options": "Greenhouse Bed Range",
+   "description": "Bulk planting entries. Expanded into Individual Beds below on save — a bed number already tracked keeps its own history and is not overwritten."},
+  {"fieldname": "individual_beds_section", "fieldtype": "Section Break", "label": "Individual Bed Tracking"},
+  {"fieldname": "individual_beds", "fieldtype": "Table", "label": "Individual Beds", "options": "Greenhouse Bed"},
+  {"fieldname": "replanting_tab", "fieldtype": "Tab Break", "label": "Replanting"},
+  {"fieldname": "last_replanting_date", "fieldtype": "Date", "label": "Last Replanting Date", "read_only": 1},
+  {"fieldname": "replanting_logs", "fieldtype": "Table", "label": "Replanting Logs", "options": "Greenhouse Replanting Log"},
+  {"fieldname": "uprooting_tab", "fieldtype": "Tab Break", "label": "Uprooting"},
+  {"fieldname": "uprooting_logs", "fieldtype": "Table", "label": "Uprooting Logs", "options": "Greenhouse Uprooting Log"}
  ],
  "permissions": [
   {
@@ -77,14 +104,8 @@
    "share": 1
   }
  ],
- "links": [
-  {
-   "group": "Production",
-   "link_doctype": "Crop Cycle",
-   "link_fieldname": "greenhouse"
-  }
- ],
- "modified": "2026-07-26 00:00:00",
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
  "modified_by": "Administrator",
  "sort_field": "modified",
  "sort_order": "DESC"

@@ -1,0 +1,29 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle Uproot",
+ "owner": "Administrator",
+ "description": "One uprooting event: some beds came out before the whole cycle ended.",
+ "field_order": ["uproot_date", "bed_range", "plants", "area_sqm"],
+ "fields": [
+  {"fieldname": "uproot_date", "fieldtype": "Date", "label": "Uproot Date", "reqd": 1,
+   "in_list_view": 1, "columns": 2},
+  {"fieldname": "bed_range", "fieldtype": "Data", "label": "Bed Range", "in_list_view": 1,
+   "columns": 3, "description": "Which beds came out, e.g. 12-18 or 12-18.5 for a half bed"},
+  {"fieldname": "plants", "fieldtype": "Int", "label": "Plants Removed", "reqd": 1,
+   "in_list_view": 1, "columns": 2},
+  {"fieldname": "area_sqm", "fieldtype": "Float", "label": "Area (m2)", "read_only": 1,
+   "in_list_view": 1, "columns": 2}
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "idx",
+ "sort_order": "ASC"
+}

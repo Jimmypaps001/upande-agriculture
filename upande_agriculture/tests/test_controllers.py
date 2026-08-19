@@ -4,6 +4,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from upande_agriculture.tests import default_company, default_uom, make_warehouse
+from upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle import parse_bed_range
 
 
 class TestCropCycle(FrappeTestCase):
@@ -95,6 +96,19 @@ class TestCropCycle(FrappeTestCase):
         self.assertEqual(frappe.utils.getdate(c.second_bending_date),
                          actual + datetime.timedelta(weeks=5))
 
+    def test_actual_bending_date_overrides_the_planned_one(self):
+        """A hand-recorded actual wins, and every other field keeps reading first_bending_date."""
+        actual = datetime.date(2026, 4, 20)
+        c = self._cycle(make_warehouse("TEST GH BEND3"),
+                        actual_first_bending_date=actual)
+        self.assertEqual(frappe.utils.getdate(c.first_bending_date), actual)
+
+    def test_farm_is_fetched_from_the_greenhouse(self):
+        house = make_warehouse("TEST GH FARM")
+        farm = frappe.db.get_value("Warehouse", house, "custom_farm")
+        c = self._cycle(house)
+        self.assertEqual(c.farm, farm)
+
     # -- the density guard ---------------------------------------------
 
     def _bed(self, house, n, length, width):
@@ -151,12 +165,57 @@ class TestCropCycle(FrappeTestCase):
                         qty_planted=round(30 * 17 * 7))
         self.assertEqual(len(c.beds), 30)
 
+    def test_malformed_range_throws_a_readable_message(self):
+        with self.assertRaises(frappe.ValidationError):
+            parse_bed_range("abc-5")
+
     def test_range_rejects_beds_that_do_not_exist(self):
         house = make_warehouse("TEST GH MISSING")
         for i in range(1, 6):
             self._bed(house, i, 20, 0.85)
         with self.assertRaises(frappe.ValidationError):
             self._cycle(house, bed_range="1-10", plants_per_sqm=7, qty_planted=595)
+
+    def test_second_cycle_cannot_claim_a_bed_already_planted(self):
+        house = make_warehouse("TEST GH BEDCLAIM")
+        for i in range(1, 11):
+            self._bed(house, i, 20, 0.85)
+        self._cycle(house, bed_range="1-5", plants_per_sqm=7, qty_planted=round(5 * 17 * 7))
+        with self.assertRaises(frappe.ValidationError):
+            self._cycle(house, bed_range="5-10", plants_per_sqm=7, qty_planted=round(6 * 17 * 7),
+                       variety=self._item("TEST-OTHER-VARIETY"))
+
+    def test_a_bed_freed_by_ending_the_cycle_can_be_replanted(self):
+        house = make_warehouse("TEST GH BEDFREED")
+        for i in range(1, 6):
+            self._bed(house, i, 20, 0.85)
+        old = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
+                          qty_planted=round(5 * 17 * 7),
+                          cycle_end_date=datetime.date(2026, 1, 1))
+        # old is Ended -- its beds no longer block a fresh cycle over the same ground.
+        new = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
+                          qty_planted=round(5 * 17 * 7),
+                          variety=self._item("TEST-OTHER-VARIETY-2"), replaces=old.name)
+        self.assertEqual(len(new.beds), 5)
+
+    def test_a_bed_partially_uprooted_can_be_claimed_without_ending_the_old_cycle(self):
+        """A bed logged as removed on Crop Cycle Uproot is free even though
+        the old (still-Active) cycle keeps listing it in its own beds table
+        -- that table is the original planting, kept intact for history."""
+        house = make_warehouse("TEST GH PARTIALFREE")
+        for i in range(1, 6):
+            self._bed(house, i, 20, 0.85)
+        old = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
+                          qty_planted=round(5 * 17 * 7))
+        old.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 3, 1), "bed_range": "1-2", "plants": 238,
+        })
+        old.save(ignore_permissions=True)
+        self.assertEqual(old.status, "Active", "3 of 5 beds still stand -- this cycle isn't over")
+
+        new = self._cycle(house, bed_range="1-2", plants_per_sqm=7, qty_planted=238,
+                          variety=self._item("TEST-OTHER-VARIETY-3"), replaces=old.name)
+        self.assertEqual(len(new.beds), 2)
 
     def test_editing_the_range_replaces_the_table(self):
         house = make_warehouse("TEST GH REFILL")
@@ -173,6 +232,100 @@ class TestCropCycle(FrappeTestCase):
     def test_no_beds_means_no_density_check(self):
         c = self._cycle(make_warehouse("TEST GH NOBEDS"), qty_planted=10000)
         self.assertEqual(c.planted_area, 0)
+
+    def test_decimal_range_gives_a_partial_last_bed(self):
+        numbers, partial = parse_bed_range("1-3.5")
+        self.assertEqual(numbers, [1, 2, 3])
+        self.assertEqual(partial, {3: 0.5})
+
+    def test_partial_bed_fraction_shrinks_its_area(self):
+        house = make_warehouse("TEST GH PARTIAL")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3.5", plants_per_sqm=7,
+                        qty_planted=round((2 * 17 + 0.5 * 17) * 7))
+        self.assertEqual(len(c.beds), 3)
+        self.assertAlmostEqual(c.beds[2].fraction_planted, 0.5, places=4)
+        self.assertAlmostEqual(c.beds[2].bed_area, 20 * 0.85 * 0.5, places=2)
+
+    def test_manual_plant_count_on_a_bed_survives_a_resave(self):
+        """A grower's typed count for an odd partial bed must not be wiped by
+        the next save just because bed_range gets re-parsed every time."""
+        house = make_warehouse("TEST GH MANUALPLANTS")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3.5", plants_per_sqm=7,
+                        qty_planted=round((2 * 17 + 0.5 * 17) * 7))
+        c.beds[2].plants = 123
+        c.qty_planted = 2 * 17 * 7 + 123  # keep check_density happy about the new total
+        c.save(ignore_permissions=True)
+        self.assertEqual(c.beds[2].plants, 123)
+
+        c.reload()
+        c.save(ignore_permissions=True)  # bed_range is unchanged but still re-parsed
+        self.assertEqual(c.beds[2].plants, 123,
+                         "typed plant count must survive a resave, not silently revert")
+
+    # -- greenhouse capacity ---------------------------------------------
+
+    def test_greenhouse_capacity_is_enforced(self):
+        """Two cycles that together outgrow the greenhouse: the second is refused."""
+        house = make_warehouse("TEST GH CAP")
+        frappe.get_doc({
+            "doctype": "Greenhouse", "greenhouse": house, "company": default_company(),
+            "gross_area": 15,
+        }).insert(ignore_permissions=True)
+        self._bed(house, 1, 10, 1)
+        self._bed(house, 2, 10, 1)
+        self._cycle(house, bed_range="1", plants_per_sqm=7, qty_planted=70)
+        with self.assertRaises(frappe.ValidationError):
+            self._cycle(house, bed_range="2", plants_per_sqm=7, qty_planted=70)
+
+    # -- uprooting log -----------------------------------------------------
+
+    def test_uproot_log_refuses_more_plants_than_standing(self):
+        house = make_warehouse("TEST GH UPROOTLOG")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                        qty_planted=round(3 * 20 * 0.85 * 7))
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1-3", "plants": 999999,
+        })
+        with self.assertRaises(frappe.ValidationError):
+            c.save(ignore_permissions=True)
+
+    def test_uprooted_beds_show_status_on_the_table_itself(self):
+        house = make_warehouse("TEST GH BEDSTATUS")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                        qty_planted=round(3 * 20 * 0.85 * 7))
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1-2", "plants": 238,
+        })
+        c.save(ignore_permissions=True)
+
+        by_bed = {frappe.db.get_value("Bed", r.bed, "bed"): r.status for r in c.beds}
+        self.assertEqual(by_bed[1], "Uprooted")
+        self.assertEqual(by_bed[2], "Uprooted")
+        self.assertEqual(by_bed[3], "Standing", "bed 3 was never logged as removed")
+
+    def test_removing_the_uproot_log_row_puts_the_bed_back_to_standing(self):
+        house = make_warehouse("TEST GH BEDSTATUS2")
+        self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, bed_range="1", plants_per_sqm=7,
+                        qty_planted=round(20 * 0.85 * 7))
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 119,
+        })
+        c.save(ignore_permissions=True)
+        self.assertEqual(c.beds[0].status, "Uprooted")
+
+        c.uproot_log = []
+        c.save(ignore_permissions=True)
+        self.assertEqual(c.beds[0].status, "Standing",
+                         "status is recomputed fresh every save, not left stuck from before")
 
     # -- source & cost ---------------------------------------------------
 
@@ -249,6 +402,341 @@ class TestCropCycle(FrappeTestCase):
         c.delete(ignore_permissions=True)
         self.assertFalse(frappe.db.get_all("ToDo", filters={
             "reference_type": "Crop Cycle", "reference_name": c.name}))
+
+
+class TestGreenhouse(TestCropCycle):
+    """Greenhouse is its own bed-by-bed ledger, independent of Crop Cycle --
+    only reuses TestCropCycle's _item() to create variety Items."""
+
+    def _greenhouse(self, house, **kw):
+        payload = {"doctype": "Greenhouse", "greenhouse": house, "company": default_company()}
+        payload.update(kw)
+        return frappe.get_doc(payload).insert(ignore_permissions=True)
+
+    def test_bed_range_expands_into_individual_beds(self):
+        house = make_warehouse("TEST GH BEDEXPAND")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 3, "variety": self._item(),
+            "bed_length": 2, "bed_width": 4, "planting_date": datetime.date(2026, 1, 1),
+        }])
+        self.assertEqual([b.bed_number for b in gh.individual_beds], [1, 2, 3])
+        self.assertEqual(gh.individual_beds[0].area_m2, 8)
+        self.assertEqual(gh.bed_range[0].total_beds_area, 24)
+
+    def test_replanting_a_bed_does_not_touch_its_neighbour(self):
+        house = make_warehouse("TEST GH REPLANTLEDGER")
+        v1, v2 = self._item("TEST-V1"), self._item("TEST-V2")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 2, "variety": v1, "bed_length": 2, "bed_width": 4,
+        }])
+        for b in gh.individual_beds:
+            b.plant_count = 32
+        gh.save(ignore_permissions=True)
+
+        # A replant needs its bed already uprooted; logging both on the same
+        # date does both at once (uproot sorts first on a tie).
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 3, 1), "from_bed": 1, "to_bed": 1,
+            "reason": "Variety Change", "qty_uprooted": 32,
+        })
+        gh.append("replanting_logs", {
+            "replant_date": datetime.date(2026, 3, 1), "from_bed": 1, "to_bed": 1,
+            "qty_replanted": 32, "new_variety": v2,
+        })
+        gh.save(ignore_permissions=True)
+        gh.reload()
+
+        by_number = {b.bed_number: b for b in gh.individual_beds}
+        self.assertEqual(by_number[1].variety, v2)
+        self.assertEqual(by_number[2].variety, v1,
+                          "a log aimed at bed 1 must not touch bed 2")
+
+    def test_replanting_log_refuses_more_than_standing(self):
+        house = make_warehouse("TEST GH REPLANTOVER")
+        v1, v2 = self._item("TEST-V3"), self._item("TEST-V4")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 1, "variety": v1, "bed_length": 2, "bed_width": 4,
+        }])
+        gh.individual_beds[0].plant_count = 32
+        gh.append("replanting_logs", {
+            "replant_date": datetime.date(2026, 3, 1), "from_bed": 1, "to_bed": 1,
+            "qty_replanted": 999, "new_variety": v2,
+        })
+        with self.assertRaises(frappe.ValidationError):
+            gh.save(ignore_permissions=True)
+
+    def test_uprooting_log_marks_the_bed_uprooted_and_out_of_the_rollup(self):
+        house = make_warehouse("TEST GH UPROOTLEDGER")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 2, "variety": self._item(), "bed_length": 2, "bed_width": 4,
+        }])
+        for b in gh.individual_beds:
+            b.plant_count = 32
+        gh.save(ignore_permissions=True)
+
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 4, 1), "from_bed": 1, "to_bed": 1,
+            "reason": "Disease", "qty_uprooted": 32,
+        })
+        gh.save(ignore_permissions=True)
+        gh.reload()
+
+        by_number = {b.bed_number: b for b in gh.individual_beds}
+        self.assertEqual(by_number[1].status, "Uprooted")
+        self.assertEqual(by_number[2].status, "Planted")
+        self.assertEqual(gh.number_of_beds, 1, "the uprooted bed drops out of the rollup")
+        self.assertEqual(gh.number_of_plants, 32)
+
+    def test_resaving_does_not_replay_an_already_applied_log_row(self):
+        """The exact live bug: an uproot+replant pair replanted a bed with a
+        higher-density variety; ANY later, unrelated save must not
+        re-validate that old uproot row against the new (already-changed)
+        plant count and wrongly refuse it."""
+        house = make_warehouse("TEST GH NOREPLAY")
+        v1, v2 = self._item("TEST-NOREPLAY-1"), self._item("TEST-NOREPLAY-2")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 1, "variety": v1, "bed_length": 2, "bed_width": 4,
+        }])
+        gh.individual_beds[0].plant_count = 32
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 1,
+            "reason": "Variety Change", "qty_uprooted": 32,
+        })
+        gh.append("replanting_logs", {
+            "replant_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 1,
+            "qty_replanted": 10, "new_variety": v2,  # far fewer plants than before
+        })
+        gh.save(ignore_permissions=True)
+        self.assertEqual(gh.individual_beds[0].plant_count, 10)
+
+        # An unrelated resave must not re-check the old uproot (32) against
+        # the bed's new count (10) and throw "only 10 are standing".
+        gh.gross_area = 999
+        gh.save(ignore_permissions=True)
+        self.assertEqual(gh.individual_beds[0].variety, v2)
+        self.assertEqual(gh.individual_beds[0].plant_count, 10)
+
+    def test_rollup_sums_area_and_plants_by_variety(self):
+        house = make_warehouse("TEST GH ROLLUP")
+        v = self._item("TEST-V5")
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 2, "variety": v, "bed_length": 2, "bed_width": 4,
+        }])
+        for b in gh.individual_beds:
+            b.plant_count = 32
+        gh.save(ignore_permissions=True)
+
+        self.assertEqual(gh.varieties, 1)
+        self.assertEqual(gh.area_planted, 16)
+        self.assertEqual(gh.number_of_plants, 64)
+        self.assertEqual(gh.plants_per_sqm, 4)
+        self.assertEqual(gh.varieties_grown[0].variety, v)
+        self.assertEqual(gh.varieties_grown[0].beds, 2)
+
+    def test_over_capacity_is_refused(self):
+        house = make_warehouse("TEST GH BEDCAP")
+        gh = frappe.get_doc({
+            "doctype": "Greenhouse", "greenhouse": house, "company": default_company(),
+            "gross_area": 10,
+            "bed_range": [{"from_bed": 1, "to_bed": 3, "variety": self._item(),
+                          "bed_length": 2, "bed_width": 4}],  # 24 m2 of beds, 10 m2 cap
+        })
+        with self.assertRaises(frappe.ValidationError):
+            gh.insert(ignore_permissions=True)
+
+    def test_prefill_reads_the_bed_span_of_existing_crop_cycles(self):
+        from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+            bed_ranges_from_crop_cycles,
+        )
+        house = make_warehouse("TEST GH PREFILL")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                    qty_planted=round(3 * 20 * 0.85 * 7))
+
+        rows = bed_ranges_from_crop_cycles(house)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["from_bed"], rows[0]["to_bed"]), (1, 3))
+        self.assertEqual(rows[0]["variety"], self._item())
+
+    def test_prefill_splits_a_gapped_cycle_into_separate_runs(self):
+        """A cycle on beds '1-3, 7-8' must prefill as two rows, not one
+        1-8 span that would wrongly claim beds 4-6 too."""
+        from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+            bed_ranges_from_crop_cycles,
+        )
+        house = make_warehouse("TEST GH PREFILLGAP")
+        for i in range(1, 9):
+            self._bed(house, i, 20, 0.85)
+        self._cycle(house, bed_range="1-3, 7-8", plants_per_sqm=7,
+                    qty_planted=round(5 * 17 * 7))
+
+        rows = sorted(bed_ranges_from_crop_cycles(house), key=lambda r: r["from_bed"])
+        self.assertEqual([(r["from_bed"], r["to_bed"]) for r in rows], [(1, 3), (7, 8)])
+
+    def test_prefill_skips_ended_cycles(self):
+        from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+            bed_ranges_from_crop_cycles,
+        )
+        house = make_warehouse("TEST GH PREFILLENDED")
+        self._bed(house, 1, 20, 0.85)
+        self._cycle(house, bed_range="1", plants_per_sqm=7,
+                    qty_planted=round(20 * 0.85 * 7),
+                    cycle_end_date=datetime.date(2025, 6, 1))
+        self.assertEqual(bed_ranges_from_crop_cycles(house), [])
+
+    # -- sync from Crop Cycle ---------------------------------------------
+
+    def test_saving_a_crop_cycle_creates_its_greenhouse_ledger(self):
+        house = make_warehouse("TEST GH AUTOSYNC")
+        for i in (1, 2):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-2", plants_per_sqm=7,
+                        qty_planted=round(2 * 17 * 7))
+
+        gh = frappe.get_doc("Greenhouse", house)
+        rows = [r for r in gh.bed_range if r.crop_cycle == c.name]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0].from_bed, rows[0].to_bed), (1, 2))
+        self.assertEqual(rows[0].variety, c.variety)
+
+    def test_resaving_the_crop_cycle_updates_its_own_row_not_a_duplicate(self):
+        house = make_warehouse("TEST GH AUTOSYNC2")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-2", plants_per_sqm=7,
+                        qty_planted=round(2 * 17 * 7))
+        c.bed_range = "1-3"
+        c.qty_planted = round(3 * 17 * 7)
+        c.save(ignore_permissions=True)
+
+        gh = frappe.get_doc("Greenhouse", house)
+        rows = [r for r in gh.bed_range if r.crop_cycle == c.name]
+        self.assertEqual(len(rows), 1, "re-saving must update the tagged row, not add another")
+        self.assertEqual((rows[0].from_bed, rows[0].to_bed), (1, 3))
+
+    def test_resaving_a_partially_uprooted_cycle_does_not_reclaim_its_freed_beds(self):
+        """The exact live bug: beds 1-2 of a 1-3 cycle get replanted as
+        something else; later, ANY resave of the original (still-Active,
+        beds 4-3 standing... i.e. bed 3) cycle must not push its full
+        original 1-3 span back onto the Greenhouse and collide with bed 1-2's
+        new occupant."""
+        house = make_warehouse("TEST GH RESYNCFREED")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        old = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                          qty_planted=round(3 * 17 * 7))
+        old.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 3, 1), "bed_range": "1-2", "plants": 238,
+        })
+        old.save(ignore_permissions=True)
+
+        new_variety = self._item("TEST-RESYNC-VARIETY")
+        new = self._cycle(house, bed_range="1-2", plants_per_sqm=7, qty_planted=238,
+                          variety=new_variety, replaces=old.name)
+
+        # Now resave the OLD cycle again (e.g. an unrelated field edit) --
+        # this must not try to reclaim beds 1-2 for the old variety.
+        old.notes = "unrelated edit"
+        old.save(ignore_permissions=True)
+
+        gh = frappe.get_doc("Greenhouse", house)
+        old_rows = [r for r in gh.bed_range if r.crop_cycle == old.name]
+        self.assertEqual([(r.from_bed, r.to_bed) for r in old_rows], [(3, 3)],
+                         "the old cycle's synced range must exclude the beds it uprooted")
+
+    # -- reverse sync: Greenhouse logs reaching back onto Crop Cycle ------
+
+    def test_uproot_logged_on_greenhouse_updates_the_owning_crop_cycle(self):
+        house = make_warehouse("TEST GH REVSYNC")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                        qty_planted=round(3 * 17 * 7))
+
+        gh = frappe.get_doc("Greenhouse", house)
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 3,
+            "reason": "Age (End of Life)", "qty_uprooted": round(3 * 17 * 7),
+        })
+        gh.save(ignore_permissions=True)
+
+        c.reload()
+        self.assertEqual(c.status, "Ended",
+                         "losing every plant standing should end the cycle")
+        self.assertEqual(len(c.uproot_log), 1)
+
+        gh.reload()
+        self.assertEqual(gh.uprooting_logs[0].variety, c.variety,
+                         "the log should record what was actually standing on the beds")
+
+    def test_untagged_uproot_retries_once_the_bed_range_gets_linked_later(self):
+        """The exact live bug: a Bed Range with no crop_cycle tag (typed by
+        hand, or predating the sync feature) means an uproot logged against
+        it has no owner to reach -- it must NOT be marked synced and
+        forgotten; once something tags that range, the same row should sync
+        on the very next save."""
+        house = make_warehouse("TEST GH LATETAG")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                        qty_planted=round(3 * 17 * 7))
+
+        gh = frappe.get_doc("Greenhouse", house)
+        gh.bed_range = [r for r in gh.bed_range if r.crop_cycle != c.name]  # simulate no tag yet
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 3,
+            "reason": "Age (End of Life)", "qty_uprooted": round(3 * 17 * 7),
+        })
+        gh.save(ignore_permissions=True)
+        row_name = gh.uprooting_logs[0].name
+        self.assertFalse(frappe.db.get_value("Greenhouse Uprooting Log", row_name, "synced"),
+                         "nothing to sync to yet -- must not be marked done")
+
+        c.reload()
+        self.assertEqual(len(c.uproot_log), 0, "no tag existed yet, so nothing should have synced")
+
+        # The tag shows up later (e.g. the cycle gets resaved).
+        c.save(ignore_permissions=True)
+        gh.reload()
+        gh.save(ignore_permissions=True)  # re-trigger the sync now that a tag exists
+
+        self.assertTrue(frappe.db.get_value("Greenhouse Uprooting Log", row_name, "synced"))
+        c.reload()
+        self.assertEqual(len(c.uproot_log), 1)
+        self.assertEqual(c.uproot_log[0].plants, round(3 * 17 * 7))
+
+    def test_replant_and_uproot_logged_together_does_not_hang_or_error(self):
+        """The exact live scenario: an uproot and a replant on the same date,
+        same beds, saved together -- must not recurse between the two sync
+        directions (Crop Cycle <-> Greenhouse)."""
+        house = make_warehouse("TEST GH REVSYNC2")
+        for i in (1, 2, 3):
+            self._bed(house, i, 20, 0.85)
+        old = self._cycle(house, bed_range="1-3", plants_per_sqm=7,
+                          qty_planted=round(3 * 17 * 7))
+        new_variety = self._item("TEST-REPLANT-VARIETY")
+
+        gh = frappe.get_doc("Greenhouse", house)
+        gh.append("uprooting_logs", {
+            "uproot_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 3,
+            "reason": "Variety Change", "qty_uprooted": round(3 * 17 * 7),
+        })
+        gh.append("replanting_logs", {
+            "replant_date": datetime.date(2026, 5, 1), "from_bed": 1, "to_bed": 3,
+            "qty_replanted": 1200, "new_variety": new_variety,
+        })
+        gh.save(ignore_permissions=True)
+
+        old.reload()
+        self.assertEqual(old.status, "Ended")
+        new_cycles = frappe.get_all("Crop Cycle", filters={
+            "greenhouse": house, "variety": new_variety,
+        }, fields=["name", "replaces", "qty_planted"])
+        self.assertEqual(len(new_cycles), 1,
+                         "the replant must create exactly one new Crop Cycle, not zero or several")
+        self.assertEqual(new_cycles[0].replaces, old.name)
+        self.assertEqual(new_cycles[0].qty_planted, 1200)
 
 
 class TestPlanForm(FrappeTestCase):

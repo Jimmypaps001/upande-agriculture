@@ -1,0 +1,134 @@
+{
+ "actions": [],
+ "creation": "2026-08-19 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Bed Range",
+ "owner": "Administrator",
+ "description": "A bulk planting entry: this range of beds, this variety, this protocol. Expanded into Individual Beds on save \u2014 new bed numbers only, so a bed's later replanting/uprooting history is never overwritten by re-saving the range it started from.",
+ "field_order": [
+  "section_bed_number",
+  "from_bed",
+  "to_bed",
+  "variety",
+  "crop_protocol",
+  "column_break_range",
+  "planting_date",
+  "variety_yield",
+  "bed_length",
+  "bed_width",
+  "plants_per_sqm",
+  "total_beds_area",
+  "crop_cycle",
+  "applied"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_bed_number",
+   "fieldtype": "Section Break",
+   "label": "Bed Number"
+  },
+  {
+   "fieldname": "from_bed",
+   "fieldtype": "Int",
+   "label": "From Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "to_bed",
+   "fieldtype": "Int",
+   "label": "To Bed",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "crop_protocol",
+   "fieldtype": "Link",
+   "label": "Crop Protocol",
+   "options": "Crop Protocol",
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "column_break_range",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planting_date",
+   "fieldtype": "Date",
+   "label": "Planting Date",
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "variety_yield",
+   "fieldtype": "Float",
+   "label": "Variety Yield",
+   "description": "Expected stems/plant for this range, if known. Not derived \u2014 an agronomist's number, same as Crop Protocol's own yield fields."
+  },
+  {
+   "fieldname": "bed_length",
+   "fieldtype": "Float",
+   "label": "Bed Length (m)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bed_width",
+   "fieldtype": "Float",
+   "label": "Bed Width (m)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Float",
+   "label": "Plants Per Sqm",
+   "description": "Density for this range. Used to fill in each bed's plant count when expanded."
+  },
+  {
+   "fieldname": "total_beds_area",
+   "fieldtype": "Float",
+   "label": "Total Beds Area",
+   "read_only": 1,
+   "description": "(To Bed - From Bed + 1) x Bed Length x Bed Width."
+  },
+  {
+   "fieldname": "crop_cycle",
+   "fieldtype": "Link",
+   "label": "Crop Cycle",
+   "options": "Crop Cycle",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "Set automatically when this range was synced in from a Crop Cycle. Blank for a range typed directly here."
+  },
+  {
+   "fieldname": "applied",
+   "fieldtype": "Check",
+   "label": "Applied",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "0",
+   "description": "Set once this range has added its beds to Individual Beds. Never reprocessed after that -- a bed it covers may since have been replanted to something else via a log, and re-checking this row against that would conflict with its own history."
+  }
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-08-19 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "from_bed",
+ "sort_order": "ASC"
+}

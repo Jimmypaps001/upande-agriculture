@@ -151,6 +151,9 @@ doc_events = {
         "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
         "on_trash":  "upande_agriculture.controllers.crop_cycle_on_trash",
     },
+    "Greenhouse": {
+        "on_update": "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+    },
     "Production Plan Form": {
         "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
         "on_update":   "upande_agriculture.controllers.production_plan_form_on_update",

@@ -27,12 +27,14 @@ from upande_agriculture.projection_calc import (
 LENGTH_SUFFIX = re.compile(r"-\s*(\d+)\s*cm$", re.IGNORECASE)
 
 PROTOCOL_FIELDS = (
+    "crop_type",
     "weeks_to_first_bending",
     "weeks_to_second_bending",
     "weeks_between_cuts",
     "stems_per_plant_first_harvest",
     "stems_per_cut",
     "max_stems_per_plant_per_cut",
+    "weeks_to_first_flush",
     "reject_pct",
     "productive_life_weeks",
 )
@@ -65,7 +67,14 @@ def _protocol_dict(name: str | None) -> dict | None:
     if not name:
         return None
     doc = frappe.get_cached_doc("Crop Protocol", name)
-    return {f: doc.get(f) for f in PROTOCOL_FIELDS}
+    out = {f: doc.get(f) for f in PROTOCOL_FIELDS}
+    # projection_calc wants plain dicts, not child Documents.
+    out["flush_schedule"] = [
+        {"flush_number": r.flush_number, "weeks_after_first_flush": r.weeks_after_first_flush,
+         "stems_per_plant": r.stems_per_plant}
+        for r in (doc.flush_schedule or [])
+    ]
+    return out
 
 
 def _resolve_protocol(cycle: dict) -> dict | None:

@@ -16,6 +16,7 @@
   "column_break_variety",
   "breeder",
   "reject_pct",
+  "plants_per_sqm",
   "section_establishment",
   "weeks_to_first_bending",
   "weeks_to_second_bending",
@@ -29,6 +30,13 @@
   "stems_per_cut",
   "column_break_yield",
   "max_stems_per_plant_per_cut",
+  "section_flush",
+  "weeks_to_first_flush",
+  "flush_interval_weeks",
+  "column_break_flush",
+  "total_flushes",
+  "total_stems_per_plant_life",
+  "flush_schedule",
   "section_grade_mix",
   "grade_mix",
   "section_growth_stages",
@@ -75,21 +83,30 @@
    "description": "Share of cut stems that fail grading"
   },
   {
+   "fieldname": "plants_per_sqm",
+   "fieldtype": "Float",
+   "label": "Plants Per Sqm",
+   "description": "Standard planting density for this variety. Crop Cycle defaults to it and lets a grower override for an odd bed."
+  },
+  {
    "fieldname": "section_establishment",
    "fieldtype": "Section Break",
-   "label": "Establishment"
+   "label": "Establishment",
+   "description": "Bending applies to roses only; productive life applies to any crop type."
   },
   {
    "fieldname": "weeks_to_first_bending",
    "fieldtype": "Int",
    "label": "Weeks to First Bending",
-   "description": "Planting to primary bend \u2014 builds the framework"
+   "description": "Planting to primary bend \u2014 builds the framework",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "weeks_to_second_bending",
    "fieldtype": "Int",
    "label": "Weeks to Second Bending",
-   "description": "Weeks after the first bend. Production is counted from here."
+   "description": "Weeks after the first bend. Production is counted from here.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "column_break_establishment",
@@ -111,42 +128,96 @@
   {
    "fieldname": "section_cycle",
    "fieldtype": "Section Break",
-   "label": "Cut Cycle"
+   "label": "Cut Cycle",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "weeks_between_cuts",
    "fieldtype": "Int",
    "label": "Weeks Between Cuts",
-   "reqd": 1,
-   "description": "Regrowth period: a cut stem back to harvestable"
+   "description": "Regrowth period: a cut stem back to harvestable",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\"",
+   "mandatory_depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "section_yield",
    "fieldtype": "Section Break",
-   "label": "Yield"
+   "label": "Yield",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "stems_per_plant_first_harvest",
    "fieldtype": "Float",
    "label": "Stems Per Plant, First Harvest",
-   "description": "The first wave off a newly bent plant"
+   "description": "The first wave off a newly bent plant",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "stems_per_cut",
    "fieldtype": "Float",
    "label": "Stems Per Cut",
    "default": "1.5",
-   "description": "Harvestable stems returned per stem cut. Breaks are 2-3; only the ones making grade are counted here."
+   "description": "Harvestable stems returned per stem cut. Breaks are 2-3; only the ones making grade are counted here.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "column_break_yield",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "max_stems_per_plant_per_cut",
    "fieldtype": "Float",
    "label": "Max Stems Per Plant Per Cut",
-   "description": "Canopy ceiling. Without it the multiplier compounds forever."
+   "description": "Canopy ceiling. Without it the multiplier compounds forever.",
+   "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
+  },
+  {
+   "fieldname": "section_flush",
+   "fieldtype": "Section Break",
+   "label": "Flush Cycle",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "A summer flower doesn't compound off a cut stem \u2014 it flushes on a schedule that repeats every year. List each flush once; the pattern is replayed for the whole productive life."
+  },
+  {
+   "fieldname": "weeks_to_first_flush",
+   "fieldtype": "Int",
+   "label": "Weeks to First Flush",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "Planting to the first pick."
+  },
+  {
+   "fieldname": "flush_interval_weeks",
+   "fieldtype": "Int",
+   "label": "Flush Interval Weeks",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "description": "Nominal spacing between flushes \u2014 used to fill in a blank offset below."
+  },
+  {
+   "fieldname": "column_break_flush",
+   "fieldtype": "Column Break",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "total_flushes",
+   "fieldtype": "Int",
+   "label": "Total Flushes",
+   "read_only": 1,
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "total_stems_per_plant_life",
+   "fieldtype": "Float",
+   "label": "Total Stems Per Plant (One Year's Pattern)",
+   "read_only": 1,
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+  },
+  {
+   "fieldname": "flush_schedule",
+   "fieldtype": "Table",
+   "label": "Flush Schedule",
+   "options": "Crop Protocol Flush",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
   },
   {
    "fieldname": "section_grade_mix",
