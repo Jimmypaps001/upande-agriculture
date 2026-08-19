@@ -132,8 +132,6 @@ def _autoseed_milestone_tasks(doc):
         return
     monday = datetime.date.fromisocalendar(int(doc.plan_year), int(doc.plan_week), 1)
     sunday = monday + datetime.timedelta(days=6)
-    days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday",
-                    "Friday", "Saturday", "Sunday"]
 
     cycles = frappe.db.get_all(
         "Crop Cycle",
@@ -156,7 +154,7 @@ def _autoseed_milestone_tasks(doc):
             if monday <= date <= sunday and label not in existing_names:
                 doc.append("tasks", {
                     "task_name": label,
-                    "due_day": days_of_week[(date - monday).days],
+                    "due_date": date,
                     "status": "Open",
                 })
                 existing_names.add(label)
@@ -186,24 +184,17 @@ def production_plan_form_on_update(doc, method=None):
     for i, task in enumerate(doc.tasks or []):
         if not task.assigned_to:
             continue
+        # assigned_to is an Employee; a ToDo is allocated to a User, so it
+        # only gets created once that Employee has a linked account.
+        user = frappe.db.get_value("Employee", task.assigned_to, "user_id")
+        if not user:
+            continue
         tag = f"task-{task.idx or i}"
         upsert_todo(
             reference_type="Production Plan Form",
             reference_name=doc.name,
             tag=tag,
-            description=f"{task.task_name} ({task.due_day or 'this week'})",
-            assigned_to=task.assigned_to,
-            due_date=_due_date_for_plan(doc, task.due_day),
+            description=f"{task.task_name} ({task.due_date or 'this week'})",
+            assigned_to=user,
+            due_date=task.due_date,
         )
-
-
-def _due_date_for_plan(plan, due_day: str | None) -> datetime.date | None:
-    if not (plan.plan_year and plan.plan_week):
-        return None
-    # ISO week -> Monday
-    monday = datetime.date.fromisocalendar(int(plan.plan_year), int(plan.plan_week), 1)
-    if not due_day:
-        return monday + datetime.timedelta(days=6)  # Sunday
-    days = ["Monday", "Tuesday", "Wednesday", "Thursday",
-            "Friday", "Saturday", "Sunday"]
-    return monday + datetime.timedelta(days=days.index(due_day))

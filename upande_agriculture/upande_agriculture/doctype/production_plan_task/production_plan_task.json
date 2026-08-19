@@ -11,14 +11,17 @@
   "task_name",
   "operation",
   "greenhouse",
+  "variety",
   "target",
   "beds",
-  "due_day",
+  "due_date",
+  "estimated_days",
   "assigned_to",
   "status",
   "started_at",
   "completed_at",
-  "completion_note"
+  "completion_note",
+  "harvested"
  ],
  "fields": [
   {
@@ -45,6 +48,14 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "depends_on": "eval:doc.operation==\"Harvest\"",
+   "description": "Set on a Harvest task so it can be matched against Actual Harvest automatically."
+  },
+  {
    "fieldname": "target",
    "fieldtype": "Int",
    "label": "Target",
@@ -54,19 +65,25 @@
    "fieldname": "beds",
    "fieldtype": "Data",
    "label": "Beds",
-   "description": "Which beds this job is on \u2014 numbers and ranges, e.g. 3, 7-12. Blank means the whole house."
+   "description": "Which beds this job is on — numbers and ranges, e.g. 3, 7-12. Blank means the whole house."
   },
   {
-   "fieldname": "due_day",
-   "fieldtype": "Select",
-   "label": "Due Day",
-   "options": "Monday\nTuesday\nWednesday\nThursday\nFriday\nSaturday\nSunday"
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "estimated_days",
+   "fieldtype": "Int",
+   "label": "Estimated Days",
+   "description": "How many days this job is expected to take."
   },
   {
    "fieldname": "assigned_to",
    "fieldtype": "Link",
    "label": "Assigned To",
-   "options": "User"
+   "options": "Employee"
   },
   {
    "fieldname": "status",
@@ -92,9 +109,17 @@
    "fieldname": "completion_note",
    "fieldtype": "Small Text",
    "label": "Completion Note"
+  },
+  {
+   "fieldname": "harvested",
+   "fieldtype": "Int",
+   "label": "Harvested",
+   "read_only": 1,
+   "depends_on": "eval:doc.operation==\"Harvest\"",
+   "description": "Filled in nightly from Actual Harvest for this greenhouse/variety/week."
   }
  ],
- "modified": "2026-07-27 00:00:00",
+ "modified": "2026-08-20 00:00:00",
  "modified_by": "Administrator",
  "permissions": [],
  "sort_field": "modified",

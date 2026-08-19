@@ -47,25 +47,42 @@ def _iso(d=None):
     return y, w, dow
 
 
+def _day_name(d) -> str | None:
+    """A stored due_date -> which weekday it falls on, for the board's day
+    columns. None if the task has no due date yet."""
+    if not d:
+        return None
+    return DAYS[getdate(d).isocalendar()[2] - 1]
+
+
+def _date_for_day(year: int, week: int, day_name: str) -> datetime.date:
+    """The board still drags a card onto a weekday column of the week being
+    viewed -- this resolves that into the real calendar date due_date stores."""
+    return datetime.date.fromisocalendar(int(year), int(week), DAYS.index(day_name) + 1)
+
+
 def _plan_rows(year: int, week: int, greenhouse: str | None = None) -> list:
     """Every task in the week, flattened, with its parent plan."""
     cond, args = "", {"y": int(year), "w": int(week)}
     if greenhouse:
         cond = " AND pp.greenhouse = %(gh)s"
         args["gh"] = greenhouse
-    return frappe.db.sql(
+    rows = frappe.db.sql(
         f"""
         SELECT pp.name AS plan, pp.greenhouse AS plan_house, pp.plan_year, pp.plan_week,
                t.name AS task, t.idx, t.task_name, t.operation, t.greenhouse,
-               t.target, t.due_day, t.assigned_to, t.status, t.beds,
+               t.target, t.due_date, t.assigned_to, t.status, t.beds,
                t.started_at, t.completed_at, t.completion_note
         FROM `tabProduction Plan Form` pp
         JOIN `tabProduction Plan Task` t ON t.parent = pp.name
         WHERE pp.plan_year = %(y)s AND pp.plan_week = %(w)s{cond}
-        ORDER BY t.due_day, pp.greenhouse, t.idx
+        ORDER BY t.due_date, pp.greenhouse, t.idx
         """,
         args, as_dict=True,
     )
+    for r in rows:
+        r["due_day"] = _day_name(r["due_date"])
+    return rows
 
 
 def parse_beds(txt: str | None) -> list:
@@ -193,7 +210,9 @@ def live_operations(year: int | None = None, week: int | None = None) -> dict:
         if not gh:
             continue
         running = r["status"] == "In Progress"
-        due_now = r["status"] == "Open" and r["due_day"] == today
+        # A real calendar date, not a bare weekday name -- a task in some
+        # other week whose weekday happens to match today's no longer counts.
+        due_now = r["status"] == "Open" and r["due_date"] and getdate(r["due_date"]) == getdate()
         # On a stale week "today" has already passed, so anything still open
         # counts as outstanding rather than nothing counting at all.
         if stale:
@@ -263,7 +282,9 @@ def house_bed_load(greenhouse: str, year: int | None = None,
             "due_day": r["due_day"], "assigned_to": r["assigned_to"],
             "target": r["target"], "beds": on,
             "running": r["status"] == "In Progress",
-            "today": r["due_day"] == today,
+            # The actual date, not a weekday-name coincidence -- a future or
+            # past week's same-named weekday no longer reads as "today".
+            "today": bool(r["due_date"] and getdate(r["due_date"]) == getdate()),
         })
 
     # Beds a task names but the house has no record of — surfaced, not hidden.
@@ -332,15 +353,17 @@ def update_task(task: str, due_day: str | None = None, task_name: str | None = N
         frappe.throw(_("Unknown day {0}.").format(due_day))
     if operation is not None and operation not in OPERATIONS:
         frappe.throw(_("Unknown operation {0}.").format(operation))
-    if assigned_to and not frappe.db.exists("User", assigned_to):
-        frappe.throw(_("No user {0}.").format(assigned_to))
+    if assigned_to and not frappe.db.exists("Employee", assigned_to):
+        frappe.throw(_("No employee {0}.").format(assigned_to))
 
     doc = frappe.get_doc("Production Plan Form", parent)
     for row in doc.tasks:
         if row.name != task:
             continue
         if due_day is not None:
-            row.due_day = due_day
+            # due_day names a column on THIS plan's own week -- resolve it
+            # to the real date the doctype stores.
+            row.due_date = _date_for_day(doc.plan_year, doc.plan_week, due_day)
         if task_name:
             row.task_name = task_name
         if operation is not None:
@@ -376,13 +399,13 @@ def delete_task(task: str) -> dict:
 @frappe.whitelist()
 def task_options() -> dict:
     """What the add/edit form may offer: operations, days, and who can be given a job."""
-    users = frappe.get_all(
-        "User", filters={"enabled": 1, "user_type": "System User"},
-        fields=["name", "full_name"], order_by="full_name", limit=200)
+    employees = frappe.get_all(
+        "Employee", filters={"status": "Active"},
+        fields=["name", "employee_name as full_name"], order_by="employee_name", limit=200)
     return {
         "operations": sorted(OPERATIONS),
         "days": DAYS,
-        "users": [u for u in users if u["name"] not in ("Guest",)],
+        "employees": employees,
         "greenhouses": [r["name"] for r in frappe.get_all(
             "Warehouse", filters={"is_group": 0}, fields=["name"], order_by="name")],
     }
@@ -398,6 +421,8 @@ def add_task(greenhouse: str, task_name: str, operation: str = "Other",
     year, week = int(year or ty), int(week or tw)
     if operation not in OPERATIONS:
         frappe.throw(_("Unknown operation {0}.").format(operation))
+    if assigned_to and not frappe.db.exists("Employee", assigned_to):
+        frappe.throw(_("No employee {0}.").format(assigned_to))
     due_day = due_day if due_day in DAYS else DAYS[tdow - 1]
 
     name = frappe.db.get_value("Production Plan Form", {
@@ -413,7 +438,7 @@ def add_task(greenhouse: str, task_name: str, operation: str = "Other",
         })
     doc.append("tasks", {
         "task_name": task_name, "operation": operation, "greenhouse": greenhouse,
-        "due_day": due_day, "target": int(target) if target else None,
+        "due_date": _date_for_day(year, week, due_day), "target": int(target) if target else None,
         "assigned_to": assigned_to, "status": "Open",
         "beds": ", ".join(str(b) for b in parse_beds(beds)) or None,
     })

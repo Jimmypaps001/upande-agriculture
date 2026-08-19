@@ -88,7 +88,8 @@ def run(year=None, week=None):
             di = DAYS.index(day) if day in DAYS else 6
             doc.append("tasks", {
                 "task_name": label, "operation": op, "greenhouse": gh,
-                "due_day": day, "target": target,
+                "due_date": datetime.date.fromisocalendar(year, week, di + 1),
+                "target": target,
                 "status": _status(di, today_index, i * 7 + k),
             })
         doc.insert(ignore_permissions=True)

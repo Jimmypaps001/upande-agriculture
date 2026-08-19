@@ -3,7 +3,7 @@ import datetime
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from upande_agriculture.tests import default_company, default_uom, make_warehouse
+from upande_agriculture.tests import default_company, default_employee, default_uom, make_warehouse
 from upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle import parse_bed_range
 
 
@@ -742,17 +742,31 @@ class TestGreenhouse(TestCropCycle):
 class TestPlanForm(FrappeTestCase):
     def test_plan_form_creates_todos_from_tasks(self):
         gh = make_warehouse("TEST GH PLAN")
+        emp = default_employee()
         plan = frappe.get_doc({
             "doctype": "Production Plan Form",
             "company": default_company(), "greenhouse": gh,
             "plan_year": 2026, "plan_week": 27, "plan_period": "2026-W27",
             "tasks": [
-                {"task_name": "Bend blind shoots", "due_day": "Tuesday",
-                 "assigned_to": "Administrator", "status": "Open"},
-                {"task_name": "Spray fungicide", "due_day": "Friday",
-                 "assigned_to": "Administrator", "status": "Open"},
+                {"task_name": "Bend blind shoots", "due_date": datetime.date(2026, 6, 30),
+                 "assigned_to": emp, "status": "Open"},
+                {"task_name": "Spray fungicide", "due_date": datetime.date(2026, 7, 3),
+                 "assigned_to": emp, "status": "Open"},
             ],
         }).insert(ignore_permissions=True, ignore_mandatory=True)
         todos = frappe.db.get_all("ToDo", filters={
             "reference_type": "Production Plan Form", "reference_name": plan.name})
         self.assertGreaterEqual(len(todos), 2)
+
+    def test_task_on_a_bed_the_house_does_not_have_is_refused(self):
+        gh = make_warehouse("TEST GH PLAN BEDS")
+        with self.assertRaises(frappe.ValidationError):
+            frappe.get_doc({
+                "doctype": "Production Plan Form",
+                "company": default_company(), "greenhouse": gh,
+                "plan_year": 2026, "plan_week": 27, "plan_period": "2026-W27",
+                "tasks": [
+                    {"task_name": "Harvest bed 3", "operation": "Harvest",
+                     "greenhouse": gh, "beds": "3", "status": "Open"},
+                ],
+            }).insert(ignore_permissions=True, ignore_mandatory=True)

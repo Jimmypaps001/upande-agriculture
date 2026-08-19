@@ -13,7 +13,7 @@ import unittest
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from upande_agriculture.tests import default_company, default_uom, make_warehouse
+from upande_agriculture.tests import default_company, default_employee, default_uom, make_warehouse
 
 from upande_agriculture import api
 
@@ -176,8 +176,8 @@ class TestApi(FrappeTestCase):
             "tasks": [
                 {
                     "task_name": "API test task",
-                    "due_day": "Monday",
-                    "assigned_to": "Administrator",
+                    "due_date": datetime.date(2026, 7, 6),
+                    "assigned_to": default_employee(),
                     "status": "Open",
                 }
             ],

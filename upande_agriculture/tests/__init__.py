@@ -63,6 +63,29 @@ def farm_with_beds() -> str | None:
     return row or frappe.db.get_value("Farm", {}, "name")
 
 
+def default_employee(user: str = "Administrator") -> str:
+    """An Employee linked to `user`, creating one if none exists yet.
+
+    Production Plan Task assigns work to an Employee, not a User directly --
+    tests that exercise that path need one to hand.
+    """
+    import frappe
+
+    existing = frappe.db.get_value("Employee", {"user_id": user}, "name")
+    if existing:
+        return existing
+    return frappe.get_doc({
+        "doctype": "Employee",
+        "first_name": user.split("@")[0] if "@" in user else user,
+        "gender": frappe.db.get_value("Gender", {}, "name"),
+        "date_of_birth": "1990-01-01",
+        "date_of_joining": frappe.utils.nowdate(),
+        "company": default_company(),
+        "status": "Active",
+        "user_id": user,
+    }).insert(ignore_permissions=True).name
+
+
 def make_warehouse(name: str, supervisor: str | None = None) -> str:
     """Return a non-group Warehouse typed as a Greenhouse, creating it if needed."""
     import frappe

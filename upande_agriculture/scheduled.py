@@ -38,9 +38,9 @@ def rollup_actuals() -> int:
             end = start + datetime.timedelta(days=6)
             actual = frappe.db.sql(
                 """
-                SELECT COALESCE(SUM(stems), 0)
+                SELECT COALESCE(SUM(quantity), 0)
                 FROM `tabActual Harvest`
-                WHERE warehouse=%s AND variety=%s
+                WHERE greenhouse=%s AND variety=%s
                   AND harvest_date BETWEEN %s AND %s
                 """,
                 (p["greenhouse"], p["variety"], start, end),
@@ -57,5 +57,46 @@ def rollup_actuals() -> int:
             )
             updated += 1
 
+    updated += _rollup_plan_tasks()
     frappe.db.commit()
+    return updated
+
+
+def _rollup_plan_tasks() -> int:
+    """Same idea for Production Plan Task: a Harvest-operation task with a
+    variety set gets its actual weekly total filled in, so the plan shows
+    target vs. what was actually picked without anyone opening Actual
+    Harvest by hand.
+
+    Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
+    """
+    if not frappe.db.has_table("tabActual Harvest"):
+        return 0
+
+    tasks = frappe.db.sql(
+        """
+        SELECT t.name, t.greenhouse, t.variety, p.plan_year, p.plan_week
+        FROM `tabProduction Plan Task` t
+        JOIN `tabProduction Plan Form` p ON p.name = t.parent
+        WHERE t.operation = 'Harvest' AND t.variety IS NOT NULL AND t.variety != ''
+          AND t.greenhouse IS NOT NULL AND t.greenhouse != ''
+        """,
+        as_dict=True,
+    )
+    updated = 0
+    for t in tasks:
+        monday = datetime.date.fromisocalendar(int(t.plan_year), int(t.plan_week), 1)
+        sunday = monday + datetime.timedelta(days=6)
+        harvested = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(quantity), 0)
+            FROM `tabActual Harvest`
+            WHERE greenhouse=%s AND variety=%s
+              AND harvest_date BETWEEN %s AND %s
+            """,
+            (t.greenhouse, t.variety, monday, sunday),
+        )[0][0]
+        frappe.db.set_value("Production Plan Task", t.name, "harvested", harvested,
+                            update_modified=False)
+        updated += 1
     return updated

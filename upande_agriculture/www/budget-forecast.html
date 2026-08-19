@@ -1867,7 +1867,7 @@ function renderTaskForm(taskId, o) {
         <input id="tf-target" type="number" min="0" placeholder="optional"
           value="${t && t.target ? t.target : ""}"></label>
       <label class="tf"><span>Assign to</span>
-        ${sel("tf-who", o.users, t ? (t.assigned_to || "") : "", "Nobody yet")}</label>
+        ${sel("tf-who", o.employees, t ? (t.assigned_to || "") : "", "Nobody yet")}</label>
     </div>
     <div class="tbox__f">
       ${t ? `<button class="tfbtn danger" id="tf-del">Delete</button>` : ""}

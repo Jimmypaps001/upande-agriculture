@@ -6,4 +6,6 @@ from frappe.model.document import Document
 
 
 class ProductionPlanForm(Document):
-    pass
+    def validate(self):
+        for task in (self.tasks or []):
+            task.check_beds_exist()
