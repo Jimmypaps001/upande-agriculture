@@ -57,6 +57,10 @@ body.sb-collapsed{--sbw:64px}
   padding:14px 9px;z-index:50;transition:width .15s}
 .sidebar__logo{display:flex;align-items:center;gap:9px;padding:4px 9px;margin-bottom:12px;text-decoration:none}
 .sidebar__logo img{height:22px;width:auto;max-width:100%}
+/* Hosted inside the desk (Production Budget page): the desk provides the
+   way back, so the "Back to Desk" logo link would just nest desks. */
+.embedded .sidebar__logo{display:none}
+.embedded .sidebar{top:10px;bottom:10px;left:10px}
 .sidebar__nav{flex:1;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overflow-x:hidden}
 .snav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;
   font:500 11.5px var(--sans);color:var(--ink-4);cursor:pointer;border:0;background:transparent;
@@ -1120,6 +1124,7 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
 .toast.on{opacity:1}
 </style></head>
 <body>
+<script>if (window.self !== window.top) document.documentElement.classList.add("embedded");</script>
 <aside class="sidebar" id="sidebar">
   <a class="sidebar__logo" href="/app" title="Back to Desk"><img alt="Upande" src="data:image/png;base64,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"/></a>
   <nav class="sidebar__nav">
@@ -1482,11 +1487,14 @@ function drawKpis() {
       note: `${blocks.length} blocks · ${houses} houses`, col: "var(--s-budget)",
       art: spark(bud, "#8a8780") },
     { label: "This week", val: fmtM(week), unit: unitM(week),
-      note: `W${s.now_week} planned`, col: "var(--s-forecast)",
+      note: `W${s.now_week} planned · ${fmt(s.week_actual_total || 0)} cut`,
+      col: "var(--s-forecast)",
       art: spark(bud.slice(Math.max(0, nowIdx - 5), nowIdx + 1), "#2a6f8f") },
     { label: "Actual vs budget", val: vsBudget === null ? "—" : signed(vsBudget),
       unit: vsBudget === null ? "" : "%",
-      note: mCount ? `${mCount} month${mCount === 1 ? "" : "s"} harvested` : "no actuals yet",
+      note: mCount ? `${mCount} month${mCount === 1 ? "" : "s"} harvested`
+        : (s.actual_total ? `${fmt(s.actual_total)} stems cut · no budget to compare`
+                          : "no actuals yet"),
       col: vsBudget === null ? "var(--ink-faint)" : vsBudget >= 0 ? "var(--pos)" : "var(--neg)",
       art: spark(act.filter((_, i) => hasAct[i]), vsBudget >= 0 ? "#3f8f4f" : "#c4302b") },
     { label: "Planted area", val: (area / 10000).toFixed(2), unit: "ha",
@@ -1498,6 +1506,21 @@ function drawKpis() {
     <div class="kpi__value">${k.val}<i>${k.unit}</i></div>
     <div class="kpi__trend"><i></i>${esc(k.note)}</div>
     ${k.art}</div>`).join("");
+
+  // Stems cut for a variety with no crop cycle would otherwise vanish from
+  // this page entirely — name them so the gap gets fixed, not overlooked.
+  document.getElementById("kpi-unassigned")?.remove();
+  const un = s.unassigned_actuals || [];
+  if (un.length) {
+    const list = un.slice(0, 6).map(u =>
+      `${esc(u.variety)} @ ${esc(house(u.greenhouse))} — ${fmt(u.stems)}`).join(" · ");
+    $("#kpis").insertAdjacentHTML("afterend",
+      `<div class="kpi" id="kpi-unassigned" style="--acc:var(--warn);margin-top:10px">
+         <div class="kpi__label">Harvested with no crop cycle</div>
+         <div class="kpi__trend"><i></i>${list}${un.length > 6 ? " · …" : ""}
+           — plant these as crop cycles so their actuals join the budget.</div>
+       </div>`);
+  }
 
   DASH = { blocks, M, bud, act, hasAct, nowIdx, actCmp };
 }

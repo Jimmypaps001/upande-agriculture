@@ -52,6 +52,9 @@ def cycle_bed_ranges(cycles: list[dict]) -> list[dict]:
     )
     by_cycle: dict[str, list] = {}
     for row in beds:
+        # upande_scp's Bed stores the number as Data — normalise so the
+        # set arithmetic against uprooted_bed_numbers() (ints) holds.
+        row.bed_number = int(row.bed_number)
         by_cycle.setdefault(row.parent, []).append(row)
 
     out = []
@@ -137,6 +140,18 @@ class Greenhouse(Document):
                                 n, existing.variety, existing.status, r.variety),
                             title=_("Bed already occupied"),
                         )
+                    if existing.status not in OCCUPIED_STATUSES:
+                        # An uprooted bed reappearing under a range is a
+                        # replant -- a new Crop Cycle planted on freed ground
+                        # syncs in through here, so the ledger row comes back
+                        # to life instead of staying Uprooted forever.
+                        existing.variety = r.variety
+                        existing.status = "Planted"
+                        existing.plant_date = r.planting_date
+                        existing.length_m = r.bed_length
+                        existing.width_m = r.bed_width
+                        existing.area_m2 = area
+                        existing.plant_count = plants
                     continue
                 new_row = self.append("individual_beds", {
                     "bed_number": n,
@@ -294,6 +309,39 @@ class Greenhouse(Document):
             for n in range(lo, hi + 1):
                 out[n] = r.crop_cycle
         return out
+
+
+def sync_bed_master(doc, method=None):
+    """Mirror each bed's status and variety from the ledger onto its Bed record.
+
+    Individual Beds stays the source of truth; the Bed master just shows it,
+    so a grower filtering the Bed list sees what's standing without opening
+    the Greenhouse. Only runs where the site's Bed has the custom status
+    field (added by the add_bed_status_field patch); variety is cleared when
+    nothing is growing. db.set_value keeps this out of the modified-stamp
+    churn -- these are derived values, not edits.
+    """
+    meta = frappe.get_meta("Bed")
+    if not meta.has_field("status"):
+        return
+    house = doc.get("greenhouse") or doc.name
+    ledger = {int(b.bed_number): b for b in (doc.individual_beds or []) if b.bed_number}
+    if not ledger:
+        return
+
+    for bed in frappe.get_all("Bed", filters={"greenhouse": house},
+                              fields=["name", "bed", "status", "variety"]):
+        row = ledger.get(int(bed.bed))
+        if not row:
+            continue
+        variety = row.variety if row.status in OCCUPIED_STATUSES else None
+        updates = {}
+        if (row.status or "") != (bed.status or ""):
+            updates["status"] = row.status
+        if (variety or "") != (bed.variety or ""):
+            updates["variety"] = variety
+        if updates:
+            frappe.db.set_value("Bed", bed.name, updates, update_modified=False)
 
 
 def sync_logs_to_crop_cycles(doc, method=None):

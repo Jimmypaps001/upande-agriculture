@@ -28,6 +28,8 @@ frappe.ui.form.on("Crop Cycle", {
         }, __("Actions"));
     },
 
+    validate: preflight_gate,
+
     bed_range: bed_range_hint,
     plants_per_sqm(frm) { bed_range_hint(frm); show_density(frm); },
     qty_planted(frm) { show_density(frm); cost_hint(frm); },
@@ -42,6 +44,104 @@ frappe.ui.form.on("Crop Cycle", {
     beds_add: show_density,
     beds_remove: show_density,
 });
+
+// Saving over occupied or missing beds shouldn't be a dead end: preflight
+// asks the server what's in the way, lays it out in one dialog, and on
+// Proceed does the uproots / bed creation and re-runs the save. Validation
+// server-side stays exactly as strict — this only clears the path first.
+function preflight_gate(frm) {
+    if (frm.__bed_prep_done) {
+        frm.__bed_prep_done = false;
+        return;
+    }
+    if (!frm.doc.bed_range || !frm.doc.greenhouse) return;
+
+    return frappe
+        .call({
+            method: "upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle.bed_range_preflight",
+            args: {
+                greenhouse: frm.doc.greenhouse,
+                bed_range: frm.doc.bed_range,
+                new_variety: frm.doc.variety,
+                exclude_cycle: frm.doc.__islocal ? null : frm.doc.name,
+            },
+        })
+        .then(({ message: r }) => {
+            if (!r) return;
+            const anything = r.missing.length || r.conflicts.length || r.stale.length;
+            if (!anything) return;
+            frappe.validated = false;
+            show_preflight_dialog(frm, r);
+        });
+}
+
+function show_preflight_dialog(frm, r) {
+    const lines = [];
+    for (const c of r.conflicts) {
+        lines.push(__("Beds <b>{0}</b> carry <b>{1}</b> ({2}) — <b>{3}</b> standing plants will be uprooted.",
+            [c.beds_label, c.variety, c.cycle, cint(c.plants).toLocaleString()]));
+    }
+    for (const s of r.stale) {
+        lines.push(__("Bed <b>{0}</b> still shows <b>{1}</b> on the greenhouse ledger with no active crop cycle — it will be cleared.",
+            [s.bed, s.variety]));
+    }
+    if (r.missing.length) {
+        lines.push(__("Beds <b>{0}</b> don't exist in {1} yet — they will be created with the dimensions below.",
+            [r.missing_label, frm.doc.greenhouse]));
+    }
+
+    const fields = [{
+        fieldtype: "HTML", fieldname: "summary",
+        options: "<ul style='padding-left:1.2em'><li>" + lines.join("</li><li>") + "</li></ul>",
+    }];
+    if (r.missing.length) {
+        fields.push(
+            { fieldtype: "Float", fieldname: "bed_length", label: __("Bed Length (m)"),
+              default: r.default_length, reqd: 1 },
+            { fieldtype: "Column Break", fieldname: "cb1" },
+            { fieldtype: "Float", fieldname: "bed_width", label: __("Bed Width (m)"),
+              default: r.default_width, reqd: 1 },
+        );
+    }
+
+    const d = new frappe.ui.Dialog({
+        title: __("This planting needs the ground prepared"),
+        fields: fields,
+        primary_action_label: __("Proceed"),
+        primary_action(values) {
+            d.hide();
+            frappe.call({
+                method: "upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle.prepare_bed_range",
+                args: {
+                    greenhouse: frm.doc.greenhouse,
+                    bed_range: frm.doc.bed_range,
+                    new_variety: frm.doc.variety,
+                    exclude_cycle: frm.doc.__islocal ? null : frm.doc.name,
+                    planting_date: frm.doc.planting_date,
+                    bed_length: values.bed_length,
+                    bed_width: values.bed_width,
+                },
+                freeze: true,
+                freeze_message: __("Preparing beds…"),
+                callback: ({ message: res }) => {
+                    if (!res) return;
+                    const bits = [];
+                    if (res.beds_created) bits.push(__("{0} bed(s) created", [res.beds_created]));
+                    for (const u of res.uprooted) {
+                        bits.push(__("{0} uprooted on {1}{2}",
+                            [u.cycle, u.beds, u.ended ? __(" (cycle ended)") : ""]));
+                    }
+                    if (res.stale_cleared) bits.push(__("{0} stale ledger bed(s) cleared", [res.stale_cleared]));
+                    if (bits.length) frappe.show_alert({ message: bits.join("<br>"), indicator: "orange" }, 8);
+                    frm.__bed_prep_done = true;
+                    frm.save();
+                },
+            });
+        },
+        secondary_action_label: __("Cancel"),
+    });
+    d.show();
+}
 
 frappe.ui.form.on("Crop Cycle Bed", {
     bed: show_density,
@@ -67,7 +167,7 @@ function show_density(frm) {
     const bad = density < 0.5 || density > 30;
     const colour = bad ? "var(--red-500)" : "var(--text-muted)";
     const note = bad
-        ? " &mdash; cut flowers run about 6-8. This will be refused on save."
+        ? " &mdash; cut flowers run about 6-8. This will save with a warning."
         : "";
     frm.set_df_property("plants_per_sqm", "description",
         `<span style="color:${colour}">${qty.toLocaleString()} plants over `

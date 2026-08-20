@@ -1,19 +1,71 @@
 # Copyright (c) 2026, Upande Ltd and contributors
 # For license information, please see license.txt
 
+import datetime
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import getdate, nowdate
 
 from upande_agriculture.projection_calc import iso_weeks_in_year
 
 MAX_WINDOW = 26
+
+# Child-row fields this module derives; everything else on a week row is a
+# human judgement and is never written back programmatically.
+DERIVED_FIELDS = (
+    "actual_stems", "var_forecast_vs_budget", "var_actual_vs_budget",
+    "var_actual_vs_manual", "var_actual_vs_revised",
+)
 
 
 class ProductionForecast(Document):
     def validate(self):
         self.check_window()
         self.sync_weeks()
+        self.pull_actuals()
+
+    def on_update_after_submit(self):
+        # A revised forecast or manual budget typed after submit must move
+        # the variances with it -- otherwise the headline number lies.
+        self.pull_actuals(persist=True)
+
+    def pull_actuals(self, persist: bool = False):
+        """Fill actual_stems from harvest records and recompute variances.
+
+        Only 'all' rows get actuals (harvest records don't carry a length
+        grade), and only for weeks that have started -- a future week showing
+        actual 0 would read as a catastrophe instead of just not-yet.
+        With persist=True the derived values are written straight to the DB
+        rows, which is what a submitted document needs.
+        """
+        keys = set()
+        for w in (self.weeks or []):
+            if w.week_number and (w.grade or "all") == "all":
+                keys.add((int(w.iso_year or self.forecast_year), int(w.week_number)))
+        totals = actual_week_totals(self.greenhouse, self.variety, keys)
+        today = getdate(nowdate())
+
+        for w in (self.weeks or []):
+            if not w.week_number:
+                continue
+            started = False
+            if (w.grade or "all") == "all":
+                yr = int(w.iso_year or self.forecast_year)
+                wk = int(w.week_number)
+                # Int columns can't hold NULL, so "hasn't happened yet" is 0
+                # actuals AND 0 variances -- a future week must read neutral,
+                # not like a total crop failure against its forecast.
+                started = _week_start(yr, wk) <= today
+                w.actual_stems = totals.get((yr, wk), 0) if started else 0
+            _set_variances(w, started)
+            if persist and w.name:
+                frappe.db.set_value(
+                    "Production Forecast Week", w.name,
+                    {f: int(w.get(f) or 0) for f in DERIVED_FIELDS},
+                    update_modified=False,
+                )
 
     def check_window(self):
         last = iso_weeks_in_year(self.forecast_year) if self.forecast_year else 53
@@ -83,6 +135,85 @@ class ProductionForecast(Document):
         for idx, row in enumerate(rows, start=1):
             row.idx = idx
             self.weeks.append(row)
+
+
+def _week_start(iso_year: int, week: int) -> datetime.date:
+    return datetime.date.fromisocalendar(iso_year, week, 1)
+
+
+def _set_variances(w, started: bool) -> None:
+    """Forecast vs budget always; anything vs actuals only once the week has
+    started (before that everything against actuals reads a neutral 0).
+
+    'Actual - Revised' falls back to the original forecast when no revision
+    was typed: an unrevised week's latest call IS the original forecast, so
+    the headline variance never goes blank just because nobody revised.
+    'Actual - Manual' stays 0 until a manual budget is actually entered.
+    """
+    w.var_forecast_vs_budget = int(w.forecasted_stems or 0) - int(w.budget_stems or 0)
+    if not started:
+        w.var_actual_vs_budget = 0
+        w.var_actual_vs_manual = 0
+        w.var_actual_vs_revised = 0
+        return
+    actual = int(w.actual_stems or 0)
+    w.var_actual_vs_budget = actual - int(w.budget_stems or 0)
+    w.var_actual_vs_manual = actual - int(w.manual_budget_stems) if w.manual_budget_stems else 0
+    latest_call = (
+        w.revised_forecast_stems if w.revised_forecast_stems is not None
+        else w.forecasted_stems
+    )
+    w.var_actual_vs_revised = actual - int(latest_call or 0)
+
+
+def actual_week_totals(greenhouse, variety, keys: set[tuple[int, int]]) -> dict[tuple[int, int], int]:
+    """{(iso_year, iso_week): stems actually harvested} for this house x variety.
+
+    Reads Actual Harvest where the site has it; otherwise falls back to
+    submitted 'Harvesting' Stock Entries, which receive cut stems INTO the
+    greenhouse warehouse (item = variety) -- that's how the packhouse apps
+    record a harvest.
+    """
+    if not (keys and greenhouse and variety):
+        return {}
+    lo = min(_week_start(y, w) for y, w in keys)
+    hi = max(_week_start(y, w) for y, w in keys) + datetime.timedelta(days=6)
+
+    if frappe.db.has_table("tabActual Harvest"):
+        rows = frappe.db.sql(
+            """SELECT harvest_date AS d, quantity AS q FROM `tabActual Harvest`
+               WHERE greenhouse=%s AND variety=%s AND harvest_date BETWEEN %s AND %s""",
+            (greenhouse, variety, lo, hi), as_dict=True,
+        )
+    else:
+        rows = frappe.db.sql(
+            """SELECT se.posting_date AS d, sed.qty AS q
+               FROM `tabStock Entry` se
+               JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+               WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting'
+                 AND sed.t_warehouse = %s AND sed.item_code = %s
+                 AND se.posting_date BETWEEN %s AND %s""",
+            (greenhouse, variety, lo, hi), as_dict=True,
+        )
+
+    totals: dict[tuple[int, int], int] = {}
+    for r in rows:
+        iso = getdate(r.d).isocalendar()
+        key = (iso[0], iso[1])
+        if key in keys:
+            totals[key] = totals.get(key, 0) + int(r.q or 0)
+    return totals
+
+
+@frappe.whitelist()
+def refresh_actuals(forecast: str) -> dict:
+    """Pull today's harvest numbers into a forecast on demand (works on
+    submitted documents too -- the derived columns are allow_on_submit)."""
+    doc = frappe.get_doc("Production Forecast", forecast)
+    doc.pull_actuals(persist=True)
+    filled = [w for w in (doc.weeks or []) if w.actual_stems is not None]
+    return {"weeks_filled": len(filled),
+            "total_actual": sum(int(w.actual_stems) for w in filled)}
 
 
 def budget_weeks(greenhouse, variety, year) -> dict[int, int]:

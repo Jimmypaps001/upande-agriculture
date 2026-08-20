@@ -1,0 +1,45 @@
+{
+ "app": "upande_agriculture",
+ "charts": [],
+ "content": "[{\"id\": \"rpn_block_1\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Roses Production Navigation\", \"col\": 12}}]",
+ "creation": "2026-08-20 11:22:14.085154",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Roses Production Navigation",
+   "label": "Roses Production Navigation"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "flower",
+ "idx": 0,
+ "indicator_color": "pink",
+ "is_hidden": 0,
+ "label": "Roses Production",
+ "link_type": "DocType",
+ "links": [],
+ "modified": "2026-08-20 11:28:25.234000",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Roses Production",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Agriculture User"
+  },
+  {
+   "role": "Agriculture Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [],
+ "title": "Roses Production",
+ "type": "Workspace"
+}

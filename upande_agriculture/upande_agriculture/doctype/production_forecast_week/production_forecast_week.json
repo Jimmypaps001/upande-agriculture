@@ -1,27 +1,144 @@
 {
-  "doctype": "DocType",
-  "engine": "InnoDB",
-  "istable": 1,
-  "module": "Upande Agriculture",
-  "name": "Production Forecast Week",
-  "owner": "Administrator",
-  "creation": "2026-06-20 08:00:00",
-  "modified": "2026-07-27 00:00:00",
-  "modified_by": "Administrator",
-  "field_order": ["week_number", "iso_year", "grade", "forecasted_stems", "budget_stems", "reason", "note"],
-  "fields": [
-    {"fieldname": "week_number", "fieldtype": "Int", "label": "ISO Week", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "iso_year", "fieldtype": "Int", "label": "ISO Year", "in_list_view": 1,
-     "description": "A forecast window may cross a year end, so the week alone is not a key"},
-    {"fieldname": "grade", "fieldtype": "Data", "label": "Grade", "default": "all", "in_list_view": 1,
-     "description": "The length grade this row revises, or 'all' for the whole week"},
-    {"fieldname": "forecasted_stems", "fieldtype": "Int", "label": "Forecasted Stems", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "budget_stems", "fieldtype": "Int", "label": "Budget Stems", "read_only": 1, "in_list_view": 1, "description": "Snapshot of the Production Projection at creation"},
-    {"fieldname": "reason", "fieldtype": "Select", "label": "Reason",
-     "options": "\nWeather\nDisease\nBending delay\nBud drop\nMarket\nOther"},
-    {"fieldname": "note", "fieldtype": "Small Text", "label": "Note"}
-  ],
-  "permissions": [],
-  "sort_field": "week_number",
-  "sort_order": "ASC"
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "module": "Upande Agriculture",
+ "name": "Production Forecast Week",
+ "owner": "Administrator",
+ "creation": "2026-06-20 08:00:00",
+ "modified": "2026-08-20 12:00:00",
+ "modified_by": "Administrator",
+ "field_order": [
+  "week_number",
+  "iso_year",
+  "grade",
+  "budget_stems",
+  "manual_budget_stems",
+  "forecasted_stems",
+  "revised_forecast_stems",
+  "actual_stems",
+  "var_forecast_vs_budget",
+  "var_actual_vs_budget",
+  "var_actual_vs_manual",
+  "var_actual_vs_revised",
+  "reason",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "week_number",
+   "fieldtype": "Int",
+   "label": "ISO Week",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "iso_year",
+   "fieldtype": "Int",
+   "label": "ISO Year",
+   "description": "A forecast window may cross a year end, so the week alone is not a key"
+  },
+  {
+   "fieldname": "grade",
+   "fieldtype": "Data",
+   "label": "Grade",
+   "default": "all",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "The length grade this row revises, or 'all' for the whole week"
+  },
+  {
+   "fieldname": "budget_stems",
+   "fieldtype": "Int",
+   "label": "System Budget",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "System-generated: snapshot of the Production Projection, refreshed on save"
+  },
+  {
+   "fieldname": "manual_budget_stems",
+   "fieldtype": "Int",
+   "label": "Manual Budget",
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Budget uploaded or typed by hand, when it differs from the system one"
+  },
+  {
+   "fieldname": "forecasted_stems",
+   "fieldtype": "Int",
+   "label": "Forecasted Stems",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "revised_forecast_stems",
+   "fieldtype": "Int",
+   "label": "Revised Forecast",
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Editable after submit — the latest call for this week. Blank means the original forecast stands."
+  },
+  {
+   "fieldname": "actual_stems",
+   "fieldtype": "Int",
+   "label": "Actual Harvest",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Summed from harvest records for this greenhouse and variety; blank until the week starts"
+  },
+  {
+   "fieldname": "var_forecast_vs_budget",
+   "fieldtype": "Int",
+   "label": "Fcst - Budget",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "var_actual_vs_budget",
+   "fieldtype": "Int",
+   "label": "Act - Budget",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "var_actual_vs_manual",
+   "fieldtype": "Int",
+   "label": "Act - Manual",
+   "read_only": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "var_actual_vs_revised",
+   "fieldtype": "Int",
+   "label": "Act - Revised",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "The headline variance: what was actually cut against the latest call (revised forecast, or the original where no revision was made)"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Select",
+   "label": "Reason",
+   "allow_on_submit": 1,
+   "options": "\nWeather\nDisease\nBending delay\nBud drop\nMarket\nOther"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "allow_on_submit": 1
+  }
+ ],
+ "permissions": [],
+ "sort_field": "week_number",
+ "sort_order": "ASC"
 }

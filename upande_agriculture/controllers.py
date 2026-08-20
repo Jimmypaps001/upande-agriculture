@@ -31,6 +31,7 @@ def _sync_greenhouse_from_crop_cycle(cycle) -> None:
     """
     from frappe import _
     from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+        OCCUPIED_STATUSES,
         cycle_bed_ranges,
     )
 
@@ -45,8 +46,21 @@ def _sync_greenhouse_from_crop_cycle(cycle) -> None:
         "doctype": "Greenhouse", "greenhouse": house,
     })
 
+    # Beds the ledger currently credits to this cycle -- captured BEFORE the
+    # rows are rebuilt below, so ground the cycle has since given up (ended,
+    # or partially uprooted on its own Uproot Log) can be recognised and
+    # cleared on Individual Beds too. Without that, an ended cycle keeps its
+    # variety standing on the ledger forever: varieties_grown is rolled up
+    # from Individual Beds, not from Bed Range.
+    owned: set[int] = set()
+    for r in (gh.bed_range or []):
+        if r.crop_cycle == cycle.name and r.from_bed and r.to_bed:
+            lo, hi = sorted((int(r.from_bed), int(r.to_bed)))
+            owned.update(range(lo, hi + 1))
+
     gh.bed_range = [r for r in (gh.bed_range or []) if r.crop_cycle != cycle.name]
 
+    standing: set[int] = set()
     if cycle.get("status") != "Ended":
         # cycle_bed_ranges excludes anything this cycle has since logged as
         # uprooted -- without that, this sync would re-claim the cycle's
@@ -60,6 +74,21 @@ def _sync_greenhouse_from_crop_cycle(cycle) -> None:
         }]):
             row["crop_cycle"] = cycle.name
             gh.append("bed_range", row)
+            standing.update(range(int(row["from_bed"]), int(row["to_bed"]) + 1))
+
+    # A bed this cycle owned but no longer stands on is out of the ground.
+    # Only rows still showing THIS cycle's variety are touched -- a bed
+    # already replanted to something else (via a Greenhouse Replanting Log)
+    # belongs to that new planting now.
+    for b in (gh.individual_beds or []):
+        if not b.bed_number:
+            continue
+        n = int(b.bed_number)
+        if (n in owned and n not in standing
+                and b.variety == cycle.get("variety")
+                and b.status in OCCUPIED_STATUSES):
+            b.status = "Uprooted"
+            b.plant_count = 0
 
     try:
         gh.save(ignore_permissions=True)
@@ -84,6 +113,48 @@ def crop_cycle_on_trash(doc, method=None):
         "reference_type": "Crop Cycle",
         "reference_name": doc.name,
     })
+    _release_greenhouse_beds(doc)
+
+
+def _release_greenhouse_beds(cycle) -> None:
+    """A deleted cycle can't keep ground painted on the Greenhouse ledger.
+
+    Same clearing the Ended path in _sync_greenhouse_from_crop_cycle does,
+    but on_trash: without it a deleted cycle's beds stay standing under its
+    variety forever, and the next planting on them is refused for a conflict
+    nobody can see anymore. Best-effort -- a ledger problem must not block
+    the delete itself.
+    """
+    from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+        OCCUPIED_STATUSES,
+    )
+
+    if frappe.flags.get("in_greenhouse_cycle_sync"):
+        return
+    house = cycle.get("greenhouse")
+    if not house or not frappe.db.exists("Greenhouse", house):
+        return
+
+    gh = frappe.get_doc("Greenhouse", house)
+    owned: set[int] = set()
+    for r in (gh.bed_range or []):
+        if r.crop_cycle == cycle.name and r.from_bed and r.to_bed:
+            lo, hi = sorted((int(r.from_bed), int(r.to_bed)))
+            owned.update(range(lo, hi + 1))
+    gh.bed_range = [r for r in (gh.bed_range or []) if r.crop_cycle != cycle.name]
+
+    for b in (gh.individual_beds or []):
+        if not b.bed_number:
+            continue
+        if (int(b.bed_number) in owned and b.variety == cycle.get("variety")
+                and b.status in OCCUPIED_STATUSES):
+            b.status = "Uprooted"
+            b.plant_count = 0
+
+    try:
+        gh.save(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(title=f"Greenhouse ledger release failed for deleted {cycle.name}")
 
 
 def _seasonal_factor_map(variety: str | None) -> dict[int, float]:
@@ -158,6 +229,37 @@ def _autoseed_milestone_tasks(doc):
                     "status": "Open",
                 })
                 existing_names.add(label)
+
+
+def stock_entry_on_submit(doc, method=None):
+    """A submitted harvest feeds the forecast immediately.
+
+    The nightly rollup still runs as the safety net, but a grower checking
+    the forecast minutes after scanning buckets should already see the
+    stems. Cancel goes through the same path so a reversed entry pulls the
+    number back down. Best-effort: forecast bookkeeping must never block a
+    harvest from being recorded.
+    """
+    if doc.stock_entry_type != "Harvesting":
+        return
+    house = doc.get("custom_greenhouse") or doc.get("to_warehouse")
+    if not house:
+        return
+    varieties = {d.item_code for d in (doc.items or []) if d.item_code}
+    if not varieties:
+        return
+    forecasts = frappe.get_all(
+        "Production Forecast",
+        filters={"greenhouse": house, "variety": ("in", list(varieties)),
+                 "status": ("!=", "Closed")},
+        pluck="name",
+    )
+    for name in forecasts:
+        try:
+            fc = frappe.get_doc("Production Forecast", name)
+            fc.pull_actuals(persist=True)
+        except Exception:
+            frappe.log_error(title=f"Live forecast refresh failed for {name}")
 
 
 def production_plan_form_before_save(doc, method=None):

@@ -15,7 +15,11 @@ def rollup_actuals() -> int:
     Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
     """
     if not frappe.db.has_table("tabActual Harvest"):
-        return 0
+        # Forecasts read actuals from Harvesting Stock Entries as a fallback,
+        # so they refresh even on sites without the Actual Harvest doctype.
+        n = _refresh_forecast_actuals()
+        frappe.db.commit()
+        return n
 
     projections = frappe.get_all(
         "Production Projection",
@@ -58,7 +62,24 @@ def rollup_actuals() -> int:
             updated += 1
 
     updated += _rollup_plan_tasks()
+    updated += _refresh_forecast_actuals()
     frappe.db.commit()
+    return updated
+
+
+def _refresh_forecast_actuals() -> int:
+    """Keep every open Production Forecast's actuals and variances current,
+    so the morning review reads yesterday's harvest without anyone pressing
+    Refresh. Closed forecasts are history and stay as scored."""
+    updated = 0
+    for name in frappe.get_all("Production Forecast",
+                               filters={"status": ("!=", "Closed")}, pluck="name"):
+        try:
+            doc = frappe.get_doc("Production Forecast", name)
+            doc.pull_actuals(persist=True)
+            updated += 1
+        except Exception:
+            frappe.log_error(title=f"Forecast actuals refresh failed for {name}")
     return updated
 
 

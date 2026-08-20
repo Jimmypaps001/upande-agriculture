@@ -6,3 +6,5 @@ upande_agriculture.patches.v1_0.take_ownership
 upande_agriculture.patches.v1_0.seed_existing_projection_source
 upande_agriculture.patches.v1_0.seed_existing_plan_tasks
 upande_agriculture.patches.v1_0.seed_agriculture_workspace
+upande_agriculture.patches.v1_0.add_bed_status_field
+upande_agriculture.patches.v1_0.fix_plan_task_name_column

@@ -494,6 +494,10 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
 
     blocks, budget_total, forecast_total = [], 0, 0
     for c in cycles:
+        # Old-model leftovers carry no variety — nothing to budget, forecast
+        # or attach actuals to, so they'd only render as empty "None" blocks.
+        if not c.get("variety"):
+            continue
         proto = _resolve_protocol(c)
         sf = _seasonal_for(c["variety"])
         by_year = ({y: build_budget_year([(c, proto)], y, sf) for y in span_years}
@@ -570,7 +574,46 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
             alert = f"Light sum {-drop}% above normal ahead — flush likely to arrive early"
 
     actual_weeks = [w for (y, w) in pairs if (y, w) < (iso_year, now_week)]
+
+    # Farm-wide actuals, crop-year-to-date. The blocks only carry actuals for
+    # varieties that HAVE a cycle -- stems cut for anything else would simply
+    # vanish from this page, which reads as "no actuals" right after a real
+    # harvest. Total everything, and name what has no cycle to land on.
+    cy_start = datetime.date(today.year if today.month >= 9 else today.year - 1, 9, 1)
+    harvest_rows = frappe.db.sql(
+        """
+        SELECT sed.item_code AS variety,
+               COALESCE(NULLIF(se.custom_greenhouse, ''), sed.t_warehouse) AS greenhouse,
+               SUM(sed.qty) AS stems,
+               SUM(CASE WHEN se.posting_date >= %(monday)s THEN sed.qty ELSE 0 END) AS week_stems
+        FROM `tabStock Entry` se
+        JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+        WHERE se.docstatus = 1 AND se.stock_entry_type LIKE '%%Harvest%%'
+          AND se.posting_date BETWEEN %(start)s AND %(today)s
+        GROUP BY sed.item_code, COALESCE(NULLIF(se.custom_greenhouse, ''), sed.t_warehouse)
+        """,
+        {"start": cy_start, "today": today,
+         "monday": datetime.date.fromisocalendar(iso_year, now_week, 1)},
+        as_dict=True,
+    )
+    covered = {(base_variety(b["variety"]).upper(), b["greenhouse"]) for b in blocks}
+    unassigned: dict[tuple, int] = {}
+    actual_total = week_actual_total = 0
+    for r in harvest_rows:
+        actual_total += int(r.stems or 0)
+        week_actual_total += int(r.week_stems or 0)
+        key = (base_variety(r.variety or "").upper(), r.greenhouse)
+        if key not in covered:
+            uk = (base_variety(r.variety or ""), r.greenhouse)
+            unassigned[uk] = unassigned.get(uk, 0) + int(r.stems or 0)
+
     return {
+        "actual_total": actual_total,
+        "week_actual_total": week_actual_total,
+        "unassigned_actuals": [
+            {"variety": v, "greenhouse": g, "stems": s}
+            for (v, g), s in sorted(unassigned.items(), key=lambda kv: -kv[1])
+        ],
         "crop_year": crop_year_of(today),
         "year": year,
         "weeks": weeks,
@@ -631,7 +674,9 @@ def _lifetime(cycle: dict, proto: dict, mix: list, grades: list) -> dict:
     A rose block runs 5-8 years, so the annual figure alone hides the ramp at
     the start and the decline into uprooting. Crop years are Sep-Aug.
     """
-    if not cycle.get("planting_date"):
+    # No protocol means no yield model at all — the block appears in the grid
+    # (its actuals still count) but a lifetime budget can't be derived for it.
+    if not cycle.get("planting_date") or not proto:
         return {"years": [], "grades": [], "budget": [], "actual": []}
     plant = getdate(cycle["planting_date"])
     life_weeks = int(proto.get("productive_life_weeks") or 0) or 260

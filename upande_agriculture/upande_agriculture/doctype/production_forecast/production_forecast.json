@@ -2,6 +2,7 @@
  "actions": [],
  "autoname": "format:PF-{YYYY}-{####}",
  "creation": "2026-06-20 08:00:00",
+ "is_submittable": 1,
  "doctype": "DocType",
  "engine": "InnoDB",
  "module": "Upande Agriculture",
@@ -142,6 +143,9 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
    "write": 1
   }
  ],

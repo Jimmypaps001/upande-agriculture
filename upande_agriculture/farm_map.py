@@ -324,6 +324,11 @@ def map_payload(year: int | None = None) -> dict:
 
     houses: dict[str, dict] = {}
     for c in cycles:
+        # Old-model leftovers (a cycle named after its greenhouse, no
+        # variety) can't be budgeted or drawn — they'd crash the variety
+        # rollup below and add empty houses.
+        if not c.get("variety"):
+            continue
         gh = c["greenhouse"]
         h = houses.setdefault(gh, {
             "name": gh, "label": house(gh), "plantings": [], "area": 0.0,

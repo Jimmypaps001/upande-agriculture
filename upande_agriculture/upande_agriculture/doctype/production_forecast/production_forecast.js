@@ -3,6 +3,21 @@ frappe.ui.form.on("Production Forecast", {
         fill_window(frm);
         if (frm.is_new()) return;
 
+        frm.add_custom_button(__("Refresh Actuals"), () => {
+            frappe.call({
+                method: "upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast.refresh_actuals",
+                args: { forecast: frm.doc.name },
+                freeze: true,
+                callback: ({ message: r }) => {
+                    if (r) frappe.show_alert({
+                        message: __("{0} week(s) filled — {1} stems harvested so far.",
+                            [r.weeks_filled, (r.total_actual || 0).toLocaleString()]),
+                        indicator: "green",
+                    }, 6);
+                    frm.reload_doc();
+                },
+            });
+        });
         if (frm.doc.status === "Active") {
             frm.add_custom_button(__("New Revision"), () => new_revision(frm));
         }
@@ -56,7 +71,15 @@ function fill_window(frm) {
                     budget_stems: budgeted,
                     forecasted_stems: old ? old.forecasted_stems : budgeted,
                 });
-                if (old) { row.reason = old.reason; row.note = old.note; }
+                if (old) {
+                    // Reshaping the window must not eat judgements already
+                    // typed — carry every human-entered column across.
+                    for (const f of ["reason", "note", "iso_year", "grade",
+                                     "manual_budget_stems", "revised_forecast_stems",
+                                     "actual_stems"]) {
+                        row[f] = old[f];
+                    }
+                }
             });
             frm.refresh_field("weeks");
             budget_headline(frm, r, wanted);

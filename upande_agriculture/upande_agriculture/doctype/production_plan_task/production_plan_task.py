@@ -24,9 +24,11 @@ class ProductionPlanTask(Document):
         wanted, _partial = parse_bed_range(self.beds)
         if not wanted:
             return
-        existing = set(frappe.get_all(
+        # int-cast: upande_scp's Bed stores the number as Data, and 'wanted'
+        # holds ints — without the cast every bed reads as missing there.
+        existing = {int(b) for b in frappe.get_all(
             "Bed", filters={"greenhouse": self.greenhouse, "bed": ("in", wanted)}, pluck="bed",
-        ))
+        )}
         missing = sorted(n for n in wanted if n not in existing)
         if missing:
             frappe.throw(

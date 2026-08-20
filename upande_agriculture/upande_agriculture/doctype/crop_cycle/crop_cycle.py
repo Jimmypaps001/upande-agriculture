@@ -66,6 +66,15 @@ def parse_bed_range(spec: str | None) -> tuple[list[int], dict[int, float]]:
     return sorted(numbers), partial
 
 
+def bed_area_field() -> str:
+    """The Bed doctype differs by site: upande_core's has bed_area (Float),
+    upande_scp's older one has bed__area and stores bed numbers as Data.
+    Everything here reads the area via this alias and casts bed numbers
+    through int() so both shapes work.
+    """
+    return "bed_area" if frappe.get_meta("Bed").has_field("bed_area") else "bed__area"
+
+
 def uprooted_bed_numbers(cycle_name: str) -> set[int]:
     """Bed numbers already logged as removed from this cycle via its own
     Uproot Log.
@@ -94,6 +103,158 @@ def _compact(numbers: list[int]) -> str:
         out.append(str(start) if start == prev else f"{start}-{prev}")
         start = prev = n
     return ", ".join(out)
+
+
+def _range_conflicts(greenhouse: str, wanted: list[int], exclude_cycle: str | None) -> list[dict]:
+    """Active cycles still standing on any of these beds, with what's standing.
+
+    Reads each Crop Cycle Bed row's own status (recomputed on every save from
+    the Uproot Log), so beds a cycle has already given up don't count.
+    """
+    if not wanted:
+        return []
+    rows = frappe.db.sql(
+        """
+        SELECT cc.name, cc.variety, b.bed, ccb.plants, ccb.status
+        FROM `tabCrop Cycle Bed` ccb
+        JOIN `tabBed` b ON b.name = ccb.bed
+        JOIN `tabCrop Cycle` cc ON cc.name = ccb.parent
+        WHERE cc.greenhouse = %(gh)s
+          AND cc.status != 'Ended'
+          AND cc.name != %(self)s
+          AND b.bed IN %(wanted)s
+        """,
+        {"gh": greenhouse, "self": exclude_cycle or "", "wanted": wanted},
+        as_dict=True,
+    )
+    grouped: dict[str, dict] = {}
+    uprooted_cache: dict[str, set[int]] = {}
+    for r in rows:
+        n = int(r.bed)
+        if r.status == "Uprooted":
+            continue
+        removed = uprooted_cache.setdefault(r.name, uprooted_bed_numbers(r.name))
+        if n in removed:
+            continue
+        g = grouped.setdefault(r.name, {"cycle": r.name, "variety": r.variety, "beds": [], "plants": 0})
+        g["beds"].append(n)
+        g["plants"] += int(r.plants or 0)
+    for g in grouped.values():
+        g["beds"].sort()
+        g["beds_label"] = _compact(g["beds"])
+    return list(grouped.values())
+
+
+def _stale_occupants(greenhouse: str, wanted: list[int], new_variety: str | None,
+                     conflicts: list[dict]) -> list[dict]:
+    """Greenhouse ledger beds still showing a DIFFERENT variety standing with
+    no active Crop Cycle behind them -- ground that history left painted
+    (e.g. a deleted cycle). These block expand_bed_ranges just as hard as a
+    live conflict, but there's nothing to uproot: they just get cleared."""
+    if not frappe.db.exists("Greenhouse", greenhouse):
+        return []
+    from upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse import (
+        OCCUPIED_STATUSES,
+    )
+    claimed = {n for c in conflicts for n in c["beds"]}
+    gh = frappe.get_doc("Greenhouse", greenhouse)
+    out = []
+    for b in (gh.individual_beds or []):
+        if not b.bed_number:
+            continue
+        n = int(b.bed_number)
+        if (n in wanted and n not in claimed and b.status in OCCUPIED_STATUSES
+                and (not new_variety or b.variety != new_variety)):
+            out.append({"bed": n, "variety": b.variety})
+    return out
+
+
+@frappe.whitelist()
+def bed_range_preflight(greenhouse: str, bed_range: str, new_variety: str | None = None,
+                        exclude_cycle: str | None = None) -> dict:
+    """Everything that would stop this planting, so the form can lay it out
+    for the grower BEFORE save instead of failing one throw at a time."""
+    wanted, _partial = parse_bed_range(bed_range)
+    if not (wanted and greenhouse):
+        return {"missing": [], "conflicts": [], "stale": []}
+
+    found = {int(b.bed) for b in frappe.get_all(
+        "Bed", filters={"greenhouse": greenhouse, "bed": ("in", wanted)}, fields=["bed"])}
+    missing = [n for n in wanted if n not in found]
+
+    conflicts = _range_conflicts(greenhouse, wanted, exclude_cycle)
+    stale = _stale_occupants(greenhouse, wanted, new_variety, conflicts)
+
+    dims = frappe.db.sql(
+        """SELECT bed_length, bed_width, COUNT(*) AS c FROM `tabBed`
+           WHERE greenhouse = %(gh)s GROUP BY bed_length, bed_width
+           ORDER BY c DESC LIMIT 1""",
+        {"gh": greenhouse}, as_dict=True,
+    )
+    return {
+        "missing": missing,
+        "missing_label": _compact(missing) if missing else "",
+        "conflicts": conflicts,
+        "stale": stale,
+        "default_length": float(dims[0].bed_length) if dims and dims[0].bed_length else 30.0,
+        "default_width": float(dims[0].bed_width) if dims and dims[0].bed_width else 1.0,
+    }
+
+
+@frappe.whitelist()
+def prepare_bed_range(greenhouse: str, bed_range: str, new_variety: str | None = None,
+                      exclude_cycle: str | None = None, planting_date: str | None = None,
+                      bed_length: float | None = None, bed_width: float | None = None) -> dict:
+    """Do what the preflight dialog promised: create the missing Bed records,
+    log uproots on the cycles still standing there (ending one that comes out
+    entirely), and clear stale ledger rows. The Crop Cycle save that follows
+    then passes validation on its own merits -- nothing here is bypassed.
+    """
+    from frappe.utils import nowdate
+
+    pf = bed_range_preflight(greenhouse, bed_range, new_variety, exclude_cycle)
+    date = planting_date or nowdate()
+    area_f = bed_area_field()
+
+    length = float(bed_length or pf["default_length"])
+    width = float(bed_width or pf["default_width"])
+    has_variety = frappe.get_meta("Bed").has_field("variety")
+    for n in pf["missing"]:
+        bed = {
+            "doctype": "Bed", "greenhouse": greenhouse, "unit_type": "Bed",
+            "bed": n, "bed_length": length, "bed_width": width,
+            area_f: round(length * width, 2),
+        }
+        if has_variety and new_variety:
+            bed["variety"] = new_variety
+        frappe.get_doc(bed).insert(ignore_permissions=True)
+
+    uprooted = []
+    for c in pf["conflicts"]:
+        cycle = frappe.get_doc("Crop Cycle", c["cycle"])
+        cycle.append("uproot_log", {
+            "uproot_date": date, "bed_range": c["beds_label"], "plants": c["plants"],
+        })
+        cycle.save(ignore_permissions=True)
+        if (cycle.plants_standing or 0) <= 0 and cycle.status != "Ended":
+            cycle.cycle_end_date = date
+            cycle.save(ignore_permissions=True)
+        uprooted.append({"cycle": c["cycle"], "variety": c["variety"],
+                         "beds": c["beds_label"], "plants": c["plants"],
+                         "ended": cycle.status == "Ended"})
+
+    cleared = 0
+    if pf["stale"]:
+        stale_beds = {s["bed"] for s in pf["stale"]}
+        gh = frappe.get_doc("Greenhouse", greenhouse)
+        for b in (gh.individual_beds or []):
+            if b.bed_number and int(b.bed_number) in stale_beds:
+                b.status = "Uprooted"
+                b.plant_count = 0
+                cleared += 1
+        gh.save(ignore_permissions=True)
+
+    return {"beds_created": len(pf["missing"]), "uprooted": uprooted, "stale_cleared": cleared}
 
 
 class CropCycle(Document):
@@ -129,7 +290,7 @@ class CropCycle(Document):
             for b in frappe.get_all(
                 "Bed",
                 filters={"greenhouse": self.greenhouse, "bed": ("in", wanted)},
-                fields=["name", "bed", "bed_length", "bed_width", "bed_area"],
+                fields=["name", "bed", "bed_length", "bed_width", f"{bed_area_field()} as bed_area"],
             )
         }
         missing = [n for n in wanted if n not in found]
@@ -204,7 +365,9 @@ class CropCycle(Document):
             cycle_name: uprooted_bed_numbers(cycle_name)
             for cycle_name in {row.name for row in conflicts}
         }
-        real = [row for row in conflicts if row.bed not in uprooted_by_cycle.get(row.name, set())]
+        # int-cast: upande_scp's Bed stores the number as Data, and the
+        # uprooted sets hold ints -- without it every freed bed still conflicts.
+        real = [row for row in conflicts if int(row.bed) not in uprooted_by_cycle.get(row.name, set())]
         if not real:
             return
         c = real[0]
@@ -229,7 +392,7 @@ class CropCycle(Document):
             full_areas = {
                 b.name: float(b.bed_area or 0)
                 for b in frappe.get_all(
-                    "Bed", filters={"name": ("in", bed_names)}, fields=["name", "bed_area"]
+                    "Bed", filters={"name": ("in", bed_names)}, fields=["name", f"{bed_area_field()} as bed_area"]
                 )
             }
 
@@ -413,10 +576,11 @@ class CropCycle(Document):
         self.cost_per_plant = round(amount / qty, 4) if qty else 0
 
     def check_density(self):
-        """Beds, density and plant count must tell the same story.
-
-        This is the guard that catches a bed length recorded as 4m when it is
-        really 20m - the kind of error that silently makes a budget 5x wrong.
+        """Beds, density and plant count should tell the same story — but a
+        grower doesn't have to plant exactly what the beds imply, so a
+        mismatch warns instead of blocking the save. The warning still
+        catches a bed length recorded as 4m when it is really 20m - the kind
+        of error that silently makes a budget 5x wrong.
         """
         if not (self.planted_area and self.qty_planted):
             return
@@ -425,32 +589,36 @@ class CropCycle(Document):
         # blank roll_up_beds derived it, so the two agree by construction.
         drift = abs(self.implied_plants - self.qty_planted) / float(self.qty_planted)
         if drift > DENSITY_TOLERANCE:
-            frappe.throw(
+            frappe.msgprint(
                 _(
                     "Plants Planted ({0:,}) and the beds disagree: {1:,.0f} m2 x "
                     "{2:g} plants/m2 implies {3:,} plants ({4:.0%} out).<br><br>"
-                    "Check the bed dimensions or the density before budgeting off this."
+                    "Saved anyway — check the bed dimensions or the density "
+                    "before budgeting off this."
                 ).format(
                     int(self.qty_planted), self.planted_area,
                     float(self.plants_per_sqm), int(self.implied_plants), drift,
                 ),
                 title=_("Bed area and plant count disagree"),
+                indicator="orange",
             )
+            return
 
         density = float(self.plants_per_sqm)
         if not (MIN_DENSITY <= density <= MAX_DENSITY):
-            frappe.throw(
+            frappe.msgprint(
                 _(
                     "{0:,} plants over {1:,.0f} m2 of beds is <b>{2:,.1f} plants/m2</b>. "
                     "Cut flowers run about 6-8.<br><br>"
-                    "Either the beds are mis-measured ({3} bed(s) averaging "
-                    "{4:,.1f} m2 each), or the plant count is wrong."
+                    "Saved anyway — either the beds are mis-measured ({3} bed(s) "
+                    "averaging {4:,.1f} m2 each), or the plant count is wrong."
                 ).format(
                     int(self.qty_planted), self.planted_area, density,
                     len(self.beds or []),
                     self.planted_area / max(len(self.beds or []), 1),
                 ),
                 title=_("Implausible planting density"),
+                indicator="orange",
             )
 
     def check_greenhouse_capacity(self):

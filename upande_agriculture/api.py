@@ -93,9 +93,14 @@ def _sum_projection_week(gh: str, variety: str, w: int, y: int) -> int:
 
 def _sum_forecast_week(gh: str, variety: str, w: int, y: int) -> int:
     # Production Forecast Week child table uses field `week_number` (verified).
+    # A revised forecast (typed after submit) is the latest call for the week
+    # and supersedes the original number; 0/unset means "not revised".
     r = frappe.db.sql(
         """
-        SELECT COALESCE(SUM(fw.forecasted_stems), 0) AS s
+        SELECT COALESCE(SUM(
+            CASE WHEN fw.revised_forecast_stems > 0
+                 THEN fw.revised_forecast_stems
+                 ELSE fw.forecasted_stems END), 0) AS s
         FROM `tabProduction Forecast` pf
         JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
         WHERE pf.greenhouse = %s AND pf.variety = %s
@@ -449,7 +454,10 @@ def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
     placeholders = ", ".join(["%s"] * len(codes))
     rows = frappe.db.sql(
         f"""
-        SELECT fw.week_number, SUM(fw.forecasted_stems) AS s
+        SELECT fw.week_number, SUM(
+            CASE WHEN fw.revised_forecast_stems > 0
+                 THEN fw.revised_forecast_stems
+                 ELSE fw.forecasted_stems END) AS s
         FROM `tabProduction Forecast` pf
         JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
         WHERE pf.greenhouse = %s AND pf.variety IN ({placeholders})

@@ -152,7 +152,14 @@ doc_events = {
         "on_trash":  "upande_agriculture.controllers.crop_cycle_on_trash",
     },
     "Greenhouse": {
-        "on_update": "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+        "on_update": [
+            "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+            "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_bed_master",
+        ],
+    },
+    "Stock Entry": {
+        "on_submit": "upande_agriculture.controllers.stock_entry_on_submit",
+        "on_cancel": "upande_agriculture.controllers.stock_entry_on_submit",
     },
     "Production Plan Form": {
         "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
