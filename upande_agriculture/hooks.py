@@ -197,6 +197,10 @@ scheduler_events = {
 
 fixtures = [
     {"dt": "Workspace", "filters": [["module", "=", "Upande Agriculture"]]},
+    {
+        "dt": "Custom HTML Block",
+        "filters": [["name", "in", ["Roses Production Navigation", "Crop Cycle Dashboard"]]],
+    },
 ]
 
 # Testing

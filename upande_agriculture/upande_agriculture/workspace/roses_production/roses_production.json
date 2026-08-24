@@ -1,9 +1,13 @@
 {
  "app": "upande_agriculture",
  "charts": [],
- "content": "[{\"id\": \"rpn_block_1\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Roses Production Navigation\", \"col\": 12}}]",
+ "content": "[{\"id\": \"ccd_dash_1\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Crop Cycle Dashboard\", \"col\": 12}}, {\"id\": \"rpn_block_1\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Roses Production Navigation\", \"col\": 12}}]",
  "creation": "2026-08-20 11:22:14.085154",
  "custom_blocks": [
+  {
+   "custom_block_name": "Crop Cycle Dashboard",
+   "label": "Crop Cycle Dashboard"
+  },
   {
    "custom_block_name": "Roses Production Navigation",
    "label": "Roses Production Navigation"
@@ -19,7 +23,7 @@
  "label": "Roses Production",
  "link_type": "DocType",
  "links": [],
- "modified": "2026-08-20 11:28:25.234000",
+ "modified": "2026-08-20 13:13:14.514540",
  "modified_by": "Administrator",
  "module": "Upande Agriculture",
  "name": "Roses Production",
