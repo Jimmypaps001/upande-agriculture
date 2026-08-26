@@ -128,13 +128,13 @@
   {
    "fieldname": "section_cycle",
    "fieldtype": "Section Break",
-   "label": "Cut Cycle",
+   "label": "Cut to Cut Cycle",
    "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "weeks_between_cuts",
    "fieldtype": "Int",
-   "label": "Weeks Between Cuts",
+   "label": "Cut to Cut Cycle (Weeks)",
    "description": "Regrowth period: a cut stem back to harvestable",
    "depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\"",
    "mandatory_depends_on": "eval:doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
@@ -176,7 +176,7 @@
    "fieldname": "section_flush",
    "fieldtype": "Section Break",
    "label": "Flush Cycle",
-   "depends_on": "eval:doc.crop_type==\"Summer Flower\"",
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\" || doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\"",
    "description": "A summer flower doesn't compound off a cut stem \u2014 it flushes on a schedule that repeats every year. List each flush once; the pattern is replayed for the whole productive life."
   },
   {
@@ -217,7 +217,7 @@
    "fieldtype": "Table",
    "label": "Flush Schedule",
    "options": "Crop Protocol Flush",
-   "depends_on": "eval:doc.crop_type==\"Summer Flower\""
+   "depends_on": "eval:doc.crop_type==\"Summer Flower\" || doc.crop_type==\"Rose\" || doc.crop_type==\"Spray Rose\""
   },
   {
    "fieldname": "section_grade_mix",

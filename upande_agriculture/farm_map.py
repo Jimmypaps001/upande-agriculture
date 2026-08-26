@@ -1,9 +1,11 @@
 """Farm map: what is planted where, and which houses are about to run hot.
 
 Geometry comes from upande_scp when that app is on the site (it owns the
-surveyed polygons on Warehouse.custom_raw_geojson). Sites without it fall back
-to the bundled Mona survey so the page still draws something real rather than
-an empty canvas.
+surveyed polygons on Warehouse.custom_raw_geojson). The bundled survey is
+Karen Roses' own map (exported from kaitet.local) -- it is not a generic
+placeholder, so it only applies on a site that is actually Karen Roses.
+Every other site without live geometry just gets an empty map rather than
+someone else's farm.
 """
 
 from __future__ import annotations
@@ -53,7 +55,16 @@ GEOMETRY_TTL = 60 * 60
 BUNDLED_SURVEY = "karen_roses_geometry.json"
 
 
+def _bundled_survey_enabled() -> bool:
+    """Opt-in per site: the bundled file is Karen Roses' own survey, not a
+    generic placeholder, so it must not appear on somebody else's site just
+    because that site has no upande_scp geometry of its own."""
+    return bool(frappe.conf.get("upande_agriculture_bundled_survey"))
+
+
 def _bundled_file() -> dict:
+    if not _bundled_survey_enabled():
+        return {}
     # Not under fixtures/ — Frappe tries to import every JSON in there as a
     # document and migrate dies on a file that is plain app data.
     path = os.path.join(os.path.dirname(__file__), "data", BUNDLED_SURVEY)
@@ -432,9 +443,12 @@ def map_payload(year: int | None = None) -> dict:
         },
         "weather": weather_now(),
         "site": frappe.db.get_single_value("Global Defaults", "default_company") or "Farm",
-        "geometry_source": ("surveyed" if frappe.db.has_column("Warehouse", "custom_raw_geojson")
-                            and frappe.db.count("Warehouse", {"custom_raw_geojson": ("is", "set")})
-                            else "bundled"),
+        "geometry_source": (
+            "surveyed" if frappe.db.has_column("Warehouse", "custom_raw_geojson")
+            and frappe.db.count("Warehouse", {"custom_raw_geojson": ("is", "set")})
+            else "bundled" if _bundled_survey_enabled()
+            else "none"
+        ),
         # Karen Roses is three farms up to 3 km apart, so the page needs to know
         # which house belongs where and how far it has to zoom out to show them.
         "farms": _farm_summary(geom, out),
