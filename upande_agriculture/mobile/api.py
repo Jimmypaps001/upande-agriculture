@@ -132,7 +132,7 @@ def createGradingStockEntry():
                         harvest_doc.stock_entry_type = "Harvesting"
                         harvest_doc.custom_bucket_id = bucket_id
                         harvest_doc.custom_greenhouse = source_warehouse
-                        harvest_doc.custom_farm = farm
+                        harvest_doc.farm = farm   # Farm accounting dimension (mirrored to custom_farm by hook)
                         harvest_doc.custom_business_unit = "Roses"
                         harvest_doc.company = company
                         harvest_doc.custom_harvester = graded_by
@@ -181,7 +181,7 @@ def createGradingStockEntry():
                         ref_harvest = frappe.db.get_value("Stock Entry", {"custom_bucket_id": bucket_id, "stock_entry_type": "Harvesting", "docstatus": 1}, ["custom_greenhouse", "custom_harvester", "custom_cut_stage", "posting_date"], as_dict=True, order_by="creation desc")
                     se = frappe.new_doc("Stock Entry")
                     se.stock_entry_type = stock_entry_type
-                    se.custom_farm = farm
+                    se.farm = farm   # Farm accounting dimension (mirrored to custom_farm by hook)
                     se.company = company
                     se.custom_business_unit = "Roses"
                     se.custom_scanned_grading = 1
@@ -315,7 +315,9 @@ def createHarvestStockEntry():
         farm_doc = frappe.get_doc("Farm", farm)
         stock_entry.stock_entry_type = "Harvesting"
         stock_entry.company = farm_doc.company
-        stock_entry.custom_farm = farm
+        # Set the Farm accounting dimension (source of truth). The
+        # sync_accounting_dimensions validate hook mirrors it to custom_farm.
+        stock_entry.farm = farm
         stock_entry.custom_greenhouse = greenhouse
         stock_entry.custom_harvester = harvester
         stock_entry.custom_bucket_id = bucket_id
