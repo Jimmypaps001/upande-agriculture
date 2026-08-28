@@ -258,18 +258,40 @@ def createHarvestStockEntry():
             if resolved_harvester:
                 harvester = resolved_harvester
 
-        # Enforce the configurable per-bucket standards limit (Production Settings); 0/unset means no cap.
+        # Enforce the configurable per-bucket limit (Production Settings). The
+        # config is keyed by item group, but it is usually set on a PARENT group
+        # (e.g. "Standard Roses"), while an item lives in a leaf group (e.g.
+        # "Standard Roses - Intermediate"). So resolve the cap against the item's
+        # whole ancestor chain and use the NEAREST configured ancestor.
+        # 0 / unset means no cap.
         limit_item_group = frappe.db.get_value("Item", item_code, "item_group") if item_code else None
         max_standard_limit = 0
+        matched_group = limit_item_group
         if limit_item_group:
-            max_standard_limit = frappe.db.get_value(
+            configs = frappe.get_all(
                 "Harvest Item Group Config",
-                {"parent": "Production Settings", "parenttype": "Production Settings", "item_group": limit_item_group},
-                "max_stems_per_bucket",
-            ) or 0
+                filters={"parent": "Production Settings", "parenttype": "Production Settings"},
+                fields=["item_group", "max_stems_per_bucket"],
+            )
+            config_map = {c["item_group"]: c["max_stems_per_bucket"] for c in configs}
+            if config_map:
+                # Ancestors of the item's group (self + parents), nearest first.
+                bounds = frappe.db.get_value("Item Group", limit_item_group, ["lft", "rgt"], as_dict=True)
+                if bounds:
+                    ancestors = frappe.get_all(
+                        "Item Group",
+                        filters={"lft": ["<=", bounds.lft], "rgt": [">=", bounds.rgt]},
+                        fields=["name"],
+                        order_by="lft desc",   # deepest (most specific) first
+                    )
+                    for a in ancestors:
+                        if a["name"] in config_map:
+                            max_standard_limit = config_map[a["name"]] or 0
+                            matched_group = a["name"]
+                            break
         if max_standard_limit and float(quantity or 0) > float(max_standard_limit):
             frappe.log_error("Bucket Rate Error", data)
-            frappe.throw(_(f"The maximum stems per bucket for {limit_item_group} is {int(max_standard_limit)}"))
+            frappe.throw(_(f"The maximum stems per bucket for {matched_group} is {int(max_standard_limit)}"))
 
         # Check if the item is a Spray Rose
         if item_code:
@@ -464,6 +486,15 @@ def createHarvestStockEntry():
         frappe.throw("Permission denied: You do not have sufficient permissions to create Stock Entry")
 
 
+    except frappe.ValidationError as e:
+        # Deliberate business rejections raised above (bucket already in use,
+        # spray roses on the harvest form, over the per-bucket stem cap). Surface
+        # them as a clean 400 with the specific message — must be caught BEFORE the
+        # generic handler, or it would mask them as a 500 "An error occurred".
+        frappe.response["http_status_code"] = frappe.response.get("http_status_code") or 400
+        frappe.response["message"] = str(e)
+        frappe.response["error"] = frappe.response.get("error") or str(e)
+
     except Exception as e:
         frappe.log_error("Harvesting Error", str(e))
         frappe.response["http_status_code"] = 500
@@ -515,8 +546,9 @@ def getGreenhouseData():
 
         # Varieties come from the Greenhouse doctype's live ledger
         # (varieties_grown) — exactly what is standing in the house today.
-        # Active Crop Cycles (one cycle = one variety now) are the fallback
-        # for a greenhouse whose ledger has not been built yet.
+        # This is the sole source: a greenhouse whose ledger is empty shows no
+        # varieties (the notice below tells the user to build it), rather than
+        # falling back to Crop Cycles.
         varieties = []
         seen = []
         vg_rows = frappe.get_all(
@@ -531,18 +563,6 @@ def getGreenhouseData():
                 seen.append(v)
                 item_group = frappe.db.get_value("Item", v, "item_group")
                 varieties.append({"variety": v, "area": r.get("area_m2"), "item_group": item_group})
-        if not varieties:
-            cc_rows = frappe.get_all(
-                "Crop Cycle",
-                filters={"greenhouse": greenhouse_name, "status": ["!=", "Ended"]},
-                fields=["variety", "planted_area"],
-            )
-            for r in cc_rows:
-                v = r.get("variety")
-                if v and v not in seen:
-                    seen.append(v)
-                    item_group = frappe.db.get_value("Item", v, "item_group")
-                    varieties.append({"variety": v, "area": r.get("planted_area"), "item_group": item_group})
 
         # Fetch employees (harvesters) linked to this greenhouse via the
         # custom_greenhouses child table. A harvester can belong to several
