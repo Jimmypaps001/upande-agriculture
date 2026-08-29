@@ -415,7 +415,7 @@ def createHarvestStockEntry():
         #             receiving_stock_entry = frappe.get_doc({
         #                 "doctype": "Stock Entry",
         #                 "stock_entry_type": "Receiving",
-        #                 "custom_received_bucket_id": bucket_id,
+        #                 "custom_bucket_id": bucket_id,
         #                 "custom_harvest_batch_no": batch_no,
         #                 "set_posting_time": 1,
         #                 "posting_date": last_se_doc.posting_date,
