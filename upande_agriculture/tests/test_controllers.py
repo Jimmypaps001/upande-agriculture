@@ -312,6 +312,38 @@ class TestCropCycle(FrappeTestCase):
         with self.assertRaises(frappe.ValidationError):
             c.save(ignore_permissions=True)
 
+    def test_partial_uproot_leaves_the_remainder_standing(self):
+        """Uprooting 100 of a bed's 314 stems leaves 214 -- on the row, and
+        mirrored onto the Bed master -- and reads as partial, not gone."""
+        house = make_warehouse("TEST GH PARTIALUPROOT")
+        bed = self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, beds=[{"bed": bed, "plants": 314}], qty_planted=314)
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 100,
+        })
+        c.save(ignore_permissions=True)
+
+        self.assertEqual(c.beds[0].plants, 314, "the original planting never shrinks")
+        self.assertEqual(c.beds[0].plants_remaining, 214)
+        self.assertEqual(c.beds[0].status, "Partially Uprooted")
+
+        bed_row = frappe.db.get_value("Bed", bed, ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed_row.status, "Partially Uprooted")
+        self.assertEqual(bed_row.variety, c.variety)
+        self.assertEqual(bed_row.plant_count, 214)
+
+        # Finishing the job empties the bed out on both sides.
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 8), "bed_range": "1", "plants": 214,
+        })
+        c.save(ignore_permissions=True)
+        self.assertEqual(c.beds[0].plants_remaining, 0)
+        self.assertEqual(c.beds[0].status, "Uprooted")
+        bed_row = frappe.db.get_value("Bed", bed, ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed_row.status, "Uprooted")
+        self.assertFalse(bed_row.variety)
+        self.assertEqual(bed_row.plant_count, 0)
+
     def test_uprooted_beds_show_status_on_the_table_itself(self):
         house = make_warehouse("TEST GH BEDSTATUS")
         for i in (1, 2, 3):

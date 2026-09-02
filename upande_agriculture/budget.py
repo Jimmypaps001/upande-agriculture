@@ -501,7 +501,10 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
     # THE fix: the grid used to hardcode revised=[None]*n, so every number a
     # planner typed was saved and then never read back.
     _pairs = [(c["greenhouse"], c["variety"], year) for c in cycles]
-    fc = active_forecasts(_pairs)
+    # Revised Forecast lives on Production Forecast, same as the Production
+    # Budget mb reads below -- Automated must show the live model untouched
+    # by anything a human typed there, not just its budget line.
+    fc = active_forecasts(_pairs) if mode == "manual" else {}
     mo = manual_month_overrides(_pairs)
     revs = active_revisions(_pairs)
     mb = manual_budget_map(_pairs) if mode == "manual" else {}
