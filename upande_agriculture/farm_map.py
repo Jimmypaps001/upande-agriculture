@@ -488,14 +488,20 @@ def _farm_summary(geom: dict, houses: list) -> list:
 
 @frappe.whitelist()
 def bed_geometry(greenhouse: str) -> dict:
-    """Row lines for one house, if upande_scp's Zone data is on this site."""
+    """Row lines for one house, from whichever Zone schema this site has.
+
+    upande_core's Zone holds the geometry in `geojson`; upande_scp's older
+    one calls the same field `raw_geojson`. Same trick as bed_area_field()
+    in crop_cycle.py for the same cross-app split on Bed.
+    """
     if not frappe.db.exists("DocType", "Zone"):
         return {"rows": [], "source": "none"}
+    geojson_field = "geojson" if frappe.get_meta("Zone").has_field("geojson") else "raw_geojson"
     try:
         zones = frappe.db.get_all(
             "Zone",
-            filters={"greenhouse": greenhouse, "raw_geojson": ("is", "set")},
-            fields=["name", "bed", "zone", "raw_geojson"],
+            filters={"greenhouse": greenhouse, geojson_field: ("is", "set")},
+            fields=["name", "bed", "zone", f"{geojson_field} as raw_geojson"],
             limit=6000,
         )
     except Exception:
