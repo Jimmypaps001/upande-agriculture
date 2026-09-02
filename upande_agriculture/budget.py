@@ -449,8 +449,15 @@ def week_span(sy: int, sw: int, ey: int, ew: int) -> list:
 
 @frappe.whitelist()
 def grid_payload(year: int | None = None, start_year=None, start_week=None,
-                 end_year=None, end_week=None) -> dict:
-    """Everything the Production Budget page draws in one round trip."""
+                 end_year=None, end_week=None, mode: str | None = None) -> dict:
+    """Everything the Production Budget page draws in one round trip.
+
+    mode picks what the "budget" line actually shows: "manual" (default) is
+    the Production Forecast's own figure -- typed by hand, falling back to
+    its system snapshot where nobody has typed one yet. "automated" is the
+    Production Projection model, computed live from the crop cycles.
+    """
+    mode = "automated" if (mode or "").lower() == "automated" else "manual"
     today = getdate(frappe.utils.nowdate())
     year = int(year or today.year)
     # The axis is a calendar axis, so it follows whatever rule is configured now.
@@ -491,6 +498,7 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
     fc = active_forecasts(_pairs)
     mo = manual_month_overrides(_pairs)
     revs = active_revisions(_pairs)
+    mb = manual_budget_map(_pairs) if mode == "manual" else {}
 
     blocks, budget_total, forecast_total = [], 0, 0
     for c in cycles:
@@ -503,9 +511,18 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
         by_year = ({y: build_budget_year([(c, proto)], y, sf) for y in span_years}
                    if proto else {})
         wk = by_year.get(year) or (build_budget_year([(c, proto)], year, sf) if proto else {})
+        manual_wk = mb.get((c["greenhouse"], c["variety"]), {})
+        if mode == "manual":
+            # The typed budget wins week by week; a week nobody has opened a
+            # forecast for yet still reads as the automated figure.
+            wk = {**wk, **{w: v for (y2, w), v in manual_wk.items() if y2 == year}}
         annual = sum(wk.values())
         budget_total += annual
-        per_week = [by_year.get(y, {}).get(w) for y, w in pairs]
+        per_week = [
+            (manual_wk.get((y, w)) if mode == "manual" and (y, w) in manual_wk
+             else by_year.get(y, {}).get(w))
+            for y, w in pairs
+        ]
         forecast_total += sum(v for v in per_week if v)
 
         rev = fc.get((c["greenhouse"], c["variety"]), {})
@@ -616,6 +633,7 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
         ],
         "crop_year": crop_year_of(today),
         "year": year,
+        "mode": mode,
         "weeks": weeks,
         "week_years": week_years,
         # Parallel to `weeks`. Nobody knows W35 means 24-30 Aug, so send both a
@@ -989,6 +1007,38 @@ def active_forecasts(pairs: list) -> dict:
         key = (r["greenhouse"], r["variety"])
         y = int(r["iso_year"] or r["forecast_year"])
         out.setdefault(key, {})[(y, int(r["week_number"]), normalise_grade(r["grade"]))] = fc
+    return out
+
+
+def manual_budget_map(pairs: list) -> dict:
+    """{(greenhouse, variety): {(iso_year, week): stems}} — the Production
+    Forecast's own budget line: what was typed by hand, falling back to its
+    System Budget snapshot for any week nobody has typed over yet."""
+    if not pairs:
+        return {}
+    years = sorted({y for _, _, y in pairs})
+    houses = sorted({h for h, _, _ in pairs})
+    rows = frappe.db.sql(
+        """
+        SELECT pf.greenhouse, pf.variety, pf.forecast_year,
+               fw.week_number, fw.iso_year, fw.manual_budget_stems, fw.budget_stems
+        FROM `tabProduction Forecast` pf
+        JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
+        WHERE pf.status = 'Active'
+          AND (fw.grade IS NULL OR fw.grade IN ('', 'all'))
+          AND pf.greenhouse IN %(houses)s
+          AND pf.forecast_year IN %(years)s
+        """,
+        {"houses": houses, "years": years}, as_dict=True,
+    )
+    out: dict = {}
+    for r in rows:
+        y = int(r["iso_year"] or r["forecast_year"])
+        # Int columns can't hold NULL, so an untyped manual budget reads back
+        # as 0 same as a deliberate one -- same convention _set_variances()
+        # already uses for "Act - Manual". Fall back to the system snapshot.
+        stems = r["manual_budget_stems"] or r["budget_stems"]
+        out.setdefault((r["greenhouse"], r["variety"]), {})[(y, int(r["week_number"]))] = int(stems or 0)
     return out
 
 

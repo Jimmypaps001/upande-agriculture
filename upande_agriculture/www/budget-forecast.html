@@ -1289,6 +1289,13 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
       </div>
       <div class="tgrp">
         <div class="tgrp__row">
+          <button class="tbtn on" data-src="manual" data-tip="Manual — budget typed by hand on Production Forecast"><b>M</b></button>
+          <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+        </div>
+        <div class="tgrp__lbl">Source</div>
+      </div>
+      <div class="tgrp">
+        <div class="tgrp__row">
           <button class="tbtn" id="t-rebuild" data-tip="Rebuild budgets from crop cycles"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></button>
           <button class="tbtn" id="t-revise" data-tip="Start a new forecast revision"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
@@ -1374,6 +1381,7 @@ function load() {
   const r = PREFS.range;
   const args = r && r.sw && r.ew
     ? { start_year: r.sy, start_week: r.sw, end_year: r.ey, end_week: r.ew } : {};
+  args.mode = PREFS.src || "manual";
   api("budget.grid_payload", args).then(s => {
     STATE = s;
     draw(); restoreScroll();
@@ -2192,7 +2200,7 @@ let PREFS = {
   collapsed: false, focus: false, grain: "week", dens: "normal",
   show: { grades: false, daily: false, budget: false, actual: false },
   sort: "greenhouse", view: "forecast", closed: {}, unticked: [],
-  widths: {}, range: null, scroll: 0, query: "",
+  widths: {}, range: null, scroll: 0, query: "", src: "manual",
 };
 function loadPrefs() {
   try { Object.assign(PREFS, JSON.parse(localStorage.getItem(PKEY) || "{}")); }
@@ -2226,6 +2234,8 @@ function applyPrefs() {
     b.classList.toggle("on", b.dataset.dens === DENS));
   document.querySelectorAll("[data-show]").forEach(b =>
     b.classList.toggle("on", !!SHOW[b.dataset.show]));
+  document.querySelectorAll("[data-src]").forEach(b =>
+    b.classList.toggle("on", b.dataset.src === (PREFS.src || "manual")));
   const f = $("#t-focus"); if (f) f.classList.toggle("on", !!PREFS.focus);
   const st = $("#t-sort");
   if (st) st.dataset.tip = "Sort: " + { greenhouse: "Greenhouse", variety: "Variety", size: "Largest" }[SORT];
@@ -2473,6 +2483,15 @@ function bindToolbar() {
     b.classList.add("on"); DENS = PREFS.dens = b.dataset.dens; savePrefs();
     const t = document.querySelector(".grid");
     if (t) t.className = "grid d-" + DENS;
+  }));
+  // Source picks what the server sends as "budget" — Manual (Production
+  // Forecast) or Automated (the live Production Projection model) — so it
+  // has to reload, not just re-render.
+  document.querySelectorAll("[data-src]").forEach(b => b.addEventListener("click", () => {
+    if (b.classList.contains("on")) return;
+    document.querySelectorAll("[data-src]").forEach(x => x.classList.remove("on"));
+    b.classList.add("on"); PREFS.src = b.dataset.src; savePrefs();
+    keepScroll(); load();
   }));
   document.querySelectorAll("[data-show]").forEach(b => b.addEventListener("click", () => {
     const k = b.dataset.show;
