@@ -10,8 +10,6 @@ from frappe.utils import getdate, nowdate
 
 from upande_agriculture.projection_calc import iso_weeks_in_year
 
-MAX_WINDOW = 26
-
 # Child-row fields this module derives; everything else on a week row is a
 # human judgement and is never written back programmatically.
 DERIVED_FIELDS = (
@@ -73,11 +71,10 @@ class ProductionForecast(Document):
             frappe.throw(_("Start Week must be between 1 and {0}.").format(last))
         if not self.window_weeks:
             self.window_weeks = 6
-        if not (1 <= int(self.window_weeks) <= MAX_WINDOW):
-            frappe.throw(
-                _("Window must be 1 to {0} weeks. A forecast reaching further "
-                  "than that is a budget, not a forecast.").format(MAX_WINDOW)
-            )
+        # Production Forecast now carries the full-season manual budget too, so
+        # the window may run the whole year -- only the calendar itself bounds it.
+        if not (1 <= int(self.window_weeks) <= last):
+            frappe.throw(_("Window must be 1 to {0} weeks.").format(last))
 
     def sync_weeks(self):
         """Reshape the weeks table to match the window, keeping what's typed.

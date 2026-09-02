@@ -222,12 +222,65 @@ class TestForecastRevisions(FrappeTestCase):
         doc.save(ignore_permissions=True)
         self.assertEqual(doc.weeks[0].budget_stems, 999)
 
+    def test_grid_payload_mode_picks_manual_vs_automated_budget(self):
+        """The web page's Source toggle: Manual reads the typed Production
+        Forecast figure, Automated reads the live Production Projection model
+        untouched."""
+        self._budget()
+
+        def block_of(payload):
+            return next(b for b in payload["blocks"]
+                        if b["greenhouse"] == self.house and b["variety"] == self.VARIETY)
+
+        def week10(mode):
+            return block_of(budget.grid_payload(
+                year=2028, start_year=2028, start_week=10,
+                end_year=2028, end_week=10, mode=mode))["weekly"]["budget"][0]
+
+        baseline = week10("automated")
+
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": 2028,
+            "start_week": 10, "window_weeks": 4, "status": "Active",
+        }).insert(ignore_permissions=True)
+        doc.weeks[0].manual_budget_stems = 9999
+        doc.save(ignore_permissions=True)
+
+        manual_payload = budget.grid_payload(year=2028, start_year=2028, start_week=10,
+                                              end_year=2028, end_week=10, mode="manual")
+        self.assertEqual(manual_payload["mode"], "manual")
+        self.assertEqual(block_of(manual_payload)["weekly"]["budget"][0], 9999)
+
+        # Typing a manual figure must never leak back into the automated model.
+        self.assertEqual(week10("automated"), baseline)
+
+        # Week 11 was never typed by hand — manual mode falls back to the
+        # forecast's own System Budget snapshot rather than showing a false zero.
+        week11_row = next(w for w in doc.weeks if w.week_number == 11)
+        self.assertTrue(week11_row.budget_stems)
+        manual11 = block_of(budget.grid_payload(
+            year=2028, start_year=2028, start_week=11,
+            end_year=2028, end_week=11, mode="manual"))["weekly"]["budget"][0]
+        self.assertEqual(manual11, week11_row.budget_stems)
+
+    def test_window_can_now_span_the_full_year(self):
+        # Production Forecast carries the full-season manual budget too, so a
+        # window that used to be refused past 26 weeks is fine up to the
+        # calendar year itself.
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": 2028,
+            "start_week": 1, "window_weeks": 40, "status": "Active",
+        }).insert(ignore_permissions=True)
+        self.assertEqual(len(doc.weeks), 40)
+
     def test_absurd_window_is_refused(self):
         with self.assertRaises(frappe.ValidationError):
             frappe.get_doc({
                 "doctype": "Production Forecast", "greenhouse": self.house,
                 "variety": self.VARIETY, "forecast_year": 2028,
-                "start_week": 10, "window_weeks": 40, "status": "Active",
+                "start_week": 10, "window_weeks": 60, "status": "Active",
             }).insert(ignore_permissions=True)
 
     def test_first_revision_starts_at_one(self):
