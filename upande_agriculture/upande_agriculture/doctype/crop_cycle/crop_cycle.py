@@ -453,14 +453,19 @@ class CropCycle(Document):
                     title=_("Bed not in this cycle"),
                 )
             # Rows replay in order, so a bed an EARLIER row already uprooted
-            # is caught here before a later row can silently uproot it again.
-            already = [n for n in wanted if by_number[n].status == "Uprooted"]
-            if already:
-                frappe.throw(
-                    _("{0} already uprooted — can't uproot it again.").format(
-                        _compact(already)),
-                    title=_("Already uprooted"),
-                )
+            # shows up here as already gone. Only refuse it for a row being
+            # typed IN THIS SAVE -- a row already on record is history, and
+            # re-checking it on every future save (for any other reason)
+            # would lock the cycle out of saving the moment any old overlap
+            # exists, rather than just catching a NEW mistake as it happens.
+            if u.is_new():
+                already = [n for n in wanted if by_number[n].status == "Uprooted"]
+                if already:
+                    frappe.throw(
+                        _("{0} already uprooted — can't uproot it again.").format(
+                            _compact(already)),
+                        title=_("Already uprooted"),
+                    )
             u.area_sqm = round(
                 sum(float(by_number[n].bed_area or 0) * partial.get(n, 1.0) for n in wanted), 2
             )
