@@ -265,6 +265,7 @@ class CropCycle(Document):
         self.roll_up_beds()
         self.check_uproot_log()
         self.derive_bending_dates()
+        self.check_actual_dates()
         self.pull_from_invoice()
         self.check_density()
         self.check_greenhouse_capacity()
@@ -533,6 +534,32 @@ class CropCycle(Document):
             self.first_bending_date = self.actual_first_bending_date
         if self.actual_second_bending_date:
             self.second_bending_date = self.actual_second_bending_date
+
+    def check_actual_dates(self):
+        """A recorded date has to make sense against the rest of this
+        cycle's own timeline -- these are events that actually happened, in
+        order, not planned estimates that can drift.
+        """
+        planting = getdate(self.planting_date) if self.planting_date else None
+
+        if self.actual_first_bending_date and planting:
+            if getdate(self.actual_first_bending_date) < planting:
+                frappe.throw(
+                    _("Actual First Bending Date can't be before Planting Date."),
+                    title=_("Date out of order"),
+                )
+        if self.actual_second_bending_date and self.actual_first_bending_date:
+            if getdate(self.actual_second_bending_date) < getdate(self.actual_first_bending_date):
+                frappe.throw(
+                    _("Actual Second Bending Date can't be before Actual First Bending Date."),
+                    title=_("Date out of order"),
+                )
+        if self.cycle_end_date and planting:
+            if getdate(self.cycle_end_date) < planting:
+                frappe.throw(
+                    _("Cycle End Date (uprooting) can't be before Planting Date."),
+                    title=_("Date out of order"),
+                )
 
     def check_lifecycle(self):
         """Uprooting and replanting must leave the record able to stop producing.

@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_rename": 1,
  "autoname": "field:protocol_name",
  "naming_rule": "By fieldname",
  "creation": "2026-06-20 08:00:00",
@@ -61,9 +62,9 @@
   },
   {
    "fieldname": "crop_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Crop Type",
-   "options": "\nRose\nSpray Rose\nSummer Flower\nOther"
+   "options": "Crop Type"
   },
   {
    "fieldname": "column_break_variety",

@@ -191,6 +191,7 @@ class TestCropCycle(FrappeTestCase):
             self._bed(house, i, 20, 0.85)
         old = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
                           qty_planted=round(5 * 17 * 7),
+                          planting_date=datetime.date(2025, 1, 1),
                           cycle_end_date=datetime.date(2026, 1, 1))
         # old is Ended -- its beds no longer block a fresh cycle over the same ground.
         new = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
@@ -665,6 +666,7 @@ class TestGreenhouse(TestCropCycle):
         self._bed(house, 1, 20, 0.85)
         self._cycle(house, bed_range="1", plants_per_sqm=7,
                     qty_planted=round(20 * 0.85 * 7),
+                    planting_date=datetime.date(2025, 1, 1),
                     cycle_end_date=datetime.date(2025, 6, 1))
         self.assertEqual(bed_ranges_from_crop_cycles(house), [])
 
