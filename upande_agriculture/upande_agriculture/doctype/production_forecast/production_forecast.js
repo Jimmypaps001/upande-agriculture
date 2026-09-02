@@ -1,4 +1,12 @@
 frappe.ui.form.on("Production Forecast", {
+    setup(frm) {
+        // Only varieties this greenhouse has actually grown — not every Item.
+        frm.set_query("variety", () => ({
+            query: "upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast.variety_query",
+            filters: { greenhouse: frm.doc.greenhouse },
+        }));
+    },
+
     refresh(frm) {
         fill_window(frm);
         if (frm.is_new()) return;
@@ -55,7 +63,7 @@ function fill_window(frm) {
             const wanted = [];
             for (let i = 0; i < window_weeks; i++) {
                 const wk = start_week + i;
-                if (wk <= 52) wanted.push(wk);
+                if (wk <= 53) wanted.push(wk);
             }
 
             // Keep what is already typed; only reshape the window.
@@ -69,7 +77,6 @@ function fill_window(frm) {
                 const row = frm.add_child("weeks", {
                     week_number: wk,
                     budget_stems: budgeted,
-                    forecasted_stems: old ? old.forecasted_stems : budgeted,
                 });
                 if (old) {
                     // Reshaping the window must not eat judgements already
@@ -82,31 +89,8 @@ function fill_window(frm) {
                 }
             });
             frm.refresh_field("weeks");
-            budget_headline(frm, r, wanted);
         },
     });
-}
-
-function budget_headline(frm, r, wanted) {
-    if (frm.doc.status === "Superseded") return;
-    if (!r.has_budget) {
-        frm.dashboard.set_headline(
-            __("No budget exists for {0} / {1} in {2}, so every week reads zero. "
-               + "Generate the budget from the Crop Cycle first.",
-               [frm.doc.variety, frm.doc.greenhouse, frm.doc.forecast_year]), "orange");
-        return;
-    }
-    const inWindow = wanted.reduce((t, wk) => t + (r.weeks[wk] || 0), 0);
-    if (!inWindow) {
-        frm.dashboard.set_headline(
-            __("The budget has {0} stems in {1}, but none in weeks {2}-{3}. "
-               + "Check the window.",
-               [r.total.toLocaleString(), frm.doc.forecast_year,
-                wanted[0], wanted[wanted.length - 1]]), "orange");
-        return;
-    }
-    frm.dashboard.set_headline(
-        __("Budget across this window: <b>{0}</b> stems.", [inWindow.toLocaleString()]));
 }
 
 // Revising never overwrites: the live doc flips to Superseded and stays
