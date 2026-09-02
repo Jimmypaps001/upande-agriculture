@@ -295,6 +295,23 @@ class TestCropCycle(FrappeTestCase):
         with self.assertRaises(frappe.ValidationError):
             c.save(ignore_permissions=True)
 
+    def test_uproot_log_refuses_a_bed_already_uprooted(self):
+        house = make_warehouse("TEST GH DOUBLEUPROOT")
+        for i in (1, 2):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-2", plants_per_sqm=7,
+                        qty_planted=round(2 * 20 * 0.85 * 7))
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 119,
+        })
+        c.save(ignore_permissions=True)
+
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 8), "bed_range": "1-2", "plants": 119,
+        })
+        with self.assertRaises(frappe.ValidationError):
+            c.save(ignore_permissions=True)
+
     def test_uprooted_beds_show_status_on_the_table_itself(self):
         house = make_warehouse("TEST GH BEDSTATUS")
         for i in (1, 2, 3):
