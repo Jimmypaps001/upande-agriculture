@@ -650,10 +650,12 @@ def getProductionProjection():
         if iso[0] == year:
             startweek = iso[1]
         window = lastweek - startweek + 1
-        if window > 26:
-            window = 26
         if window < 1:
             window = 1
+        from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
+            ensure_fiscal_year,
+        )
+        ensure_fiscal_year(year)
         fdoc = frappe.new_doc("Production Forecast")
         fdoc.greenhouse = greenhouse
         fdoc.variety = variety
@@ -667,7 +669,7 @@ def getProductionProjection():
     fcrows = {}
     for r in frappe.get_all("Production Forecast Week",
             filters={"parent": fcname, "grade": "all"},
-            fields=["name", "week_number", "budget_stems", "forecasted_stems",
+            fields=["name", "week_number", "budget_stems",
                     "revised_forecast_stems", "actual_stems", "note"]):
         fcrows[int(r.get("week_number") or 0)] = r
 

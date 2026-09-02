@@ -254,8 +254,13 @@ def revise_forecast(greenhouse: str, variety: str, year: int,
     Nothing is overwritten: the previous revision flips to Superseded and stays
     readable, so forecast accuracy can be scored by horizon later.
     """
+    from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
+        ensure_fiscal_year,
+    )
+
     year, start_week = int(year), int(start_week)
     window_weeks = int(window_weeks or 6)
+    ensure_fiscal_year(year)
 
     current = frappe.db.get_value("Production Forecast", {
         "greenhouse": greenhouse, "variety": variety,
@@ -284,7 +289,8 @@ def revise_forecast(greenhouse: str, variety: str, year: int,
         for row in doc.weeks:
             old = prior.get(int(row.week_number))
             if old:
-                row.forecasted_stems = old.forecasted_stems
+                row.manual_budget_stems = old.manual_budget_stems
+                row.revised_forecast_stems = old.revised_forecast_stems
                 row.reason = old.reason
                 row.note = old.note
 
@@ -780,7 +786,7 @@ def set_forecast_cell(block: str, grade: str, week: int, value: int,
         if (int(row.week_number) == week
                 and int(row.iso_year or year) == year
                 and normalise_grade(row.grade) == grade):
-            row.forecasted_stems = value
+            row.revised_forecast_stems = value
             if reason is not None:
                 row.reason = reason
             if note is not None:
@@ -789,7 +795,7 @@ def set_forecast_cell(block: str, grade: str, week: int, value: int,
     else:
         doc.append("weeks", {
             "week_number": week, "iso_year": year, "grade": grade,
-            "forecasted_stems": value, "reason": reason, "note": note,
+            "revised_forecast_stems": value, "reason": reason, "note": note,
         })
     doc.save(ignore_permissions=True)
     return {"forecast": doc.name, "revision": doc.revision,
@@ -854,26 +860,35 @@ def cell_history(block: str, week: int, grade: str = "all",
         row = frappe.db.get_value(
             "Production Forecast Week",
             {"parent": d["name"], "week_number": week, "grade": grade},
-            ["name", "forecasted_stems", "budget_stems", "reason", "note"], as_dict=True)
+            ["name", "revised_forecast_stems", "manual_budget_stems", "budget_stems",
+             "reason", "note"], as_dict=True)
         if not row and grade == "all":
             # rows written before the grade column existed
             row = frappe.db.get_value(
                 "Production Forecast Week",
                 {"parent": d["name"], "week_number": week, "grade": ("in", ["", None])},
-                ["name", "forecasted_stems", "budget_stems", "reason", "note"], as_dict=True)
+                ["name", "revised_forecast_stems", "manual_budget_stems", "budget_stems",
+                 "reason", "note"], as_dict=True)
         if not row:
             continue
         row_names[row["name"]] = d["revision"]
         if budget is None:
             budget = int(row["budget_stems"] or 0)
+        # Int columns can't hold NULL, so a revision and an untouched row
+        # both default to 0 -- a reason or note typed alongside it is what
+        # tells a deliberate revision-to-zero apart from nothing having
+        # happened yet (same convention active_forecasts() uses).
+        rev = int(row["revised_forecast_stems"] or 0)
+        changed = bool(rev or row["reason"] or row["note"])
+        base = int(row["manual_budget_stems"] or row["budget_stems"] or 0)
         revisions.append({
             "revision": d["revision"], "status": d["status"], "forecast": d["name"],
-            "value": int(row["forecasted_stems"] or 0),
+            "value": rev if changed else base,
             "budget": int(row["budget_stems"] or 0),
             "reason": row["reason"], "note": row["note"],
             "by": d["owner"], "at": str(d["modified"]), "opened": str(d["creation"]),
             "window": f"W{d['start_week']}+{d['window_weeks']}",
-            "changed": int(row["forecasted_stems"] or 0) != int(row["budget_stems"] or 0),
+            "changed": changed,
         })
 
     actual = _actual_weekly(cycle.variety, cycle.greenhouse).get((year, week))
@@ -913,7 +928,7 @@ def _cell_edits(row_names: list, doc_names: list) -> list:
             if len(ch) < 4 or ch[0] != "weeks" or ch[2] not in wanted:
                 continue
             for field, old, new in ch[3]:
-                if field != "forecasted_stems":
+                if field != "revised_forecast_stems":
                     continue
                 out.append({"at": str(v["creation"]), "by": v["owner"],
                             "from": old, "to": new})
@@ -987,8 +1002,8 @@ def active_forecasts(pairs: list) -> dict:
     rows = frappe.db.sql(
         """
         SELECT pf.greenhouse, pf.variety, pf.forecast_year,
-               fw.week_number, fw.iso_year, fw.grade, fw.forecasted_stems,
-               fw.budget_stems, fw.reason, fw.note
+               fw.week_number, fw.iso_year, fw.grade, fw.revised_forecast_stems,
+               fw.reason, fw.note
         FROM `tabProduction Forecast` pf
         JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
         WHERE pf.status = 'Active'
@@ -999,14 +1014,15 @@ def active_forecasts(pairs: list) -> dict:
     )
     out: dict = {}
     for r in rows:
-        # Opening a window seeds every week with the budget. Those rows are
-        # scaffolding, not judgement — only surface a week somebody changed.
-        fc = int(r["forecasted_stems"] or 0)
-        if fc == int(r["budget_stems"] or 0) and not r["reason"] and not r["note"]:
+        # Int columns can't hold NULL, so an untouched row and one revised
+        # down to a deliberate zero both read back as 0 -- a reason or note
+        # typed alongside it is what tells them apart.
+        rev = int(r["revised_forecast_stems"] or 0)
+        if not rev and not r["reason"] and not r["note"]:
             continue
         key = (r["greenhouse"], r["variety"])
         y = int(r["iso_year"] or r["forecast_year"])
-        out.setdefault(key, {})[(y, int(r["week_number"]), normalise_grade(r["grade"]))] = fc
+        out.setdefault(key, {})[(y, int(r["week_number"]), normalise_grade(r["grade"]))] = rev
     return out
 
 

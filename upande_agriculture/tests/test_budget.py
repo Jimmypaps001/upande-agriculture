@@ -114,6 +114,10 @@ class TestForecastRevisions(FrappeTestCase):
     VARIETY = "TEST-BUDGET-VARIETY"
 
     def setUp(self):
+        from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
+            ensure_fiscal_year,
+        )
+
         self.house = make_warehouse(self.HOUSE)
         if not frappe.db.exists("Item", self.VARIETY):
             frappe.get_doc({
@@ -122,6 +126,7 @@ class TestForecastRevisions(FrappeTestCase):
                 "stock_uom": default_uom(),
             }).insert(ignore_permissions=True, ignore_mandatory=True)
         frappe.db.delete("Production Forecast", {"greenhouse": self.house})
+        ensure_fiscal_year(2028)
 
     def _budget(self):
         """A real budget so forecast rows have something to pull."""
@@ -156,7 +161,6 @@ class TestForecastRevisions(FrappeTestCase):
         self.assertEqual([w.week_number for w in doc.weeks], [10, 11, 12, 13, 14, 15])
         # 2028 is a mature year: every week budgets 2,300.
         self.assertTrue(all(w.budget_stems == 2300 for w in doc.weeks))
-        self.assertTrue(all(w.forecasted_stems == 2300 for w in doc.weeks))
 
     def test_widening_the_window_adds_weeks_and_keeps_edits(self):
         self._budget()
@@ -165,14 +169,14 @@ class TestForecastRevisions(FrappeTestCase):
             "variety": self.VARIETY, "forecast_year": 2028,
             "start_week": 10, "window_weeks": 4, "status": "Active",
         }).insert(ignore_permissions=True)
-        doc.weeks[0].forecasted_stems = 1500
+        doc.weeks[0].revised_forecast_stems = 1500
         doc.weeks[0].reason = "Weather"
         doc.save(ignore_permissions=True)
 
         doc.window_weeks = 8
         doc.save(ignore_permissions=True)
         self.assertEqual(len(doc.weeks), 8)
-        self.assertEqual(doc.weeks[0].forecasted_stems, 1500)
+        self.assertEqual(doc.weeks[0].revised_forecast_stems, 1500)
         self.assertEqual(doc.weeks[0].reason, "Weather")
 
     def test_narrowing_the_window_drops_weeks(self):
@@ -186,20 +190,20 @@ class TestForecastRevisions(FrappeTestCase):
         doc.save(ignore_permissions=True)
         self.assertEqual([w.week_number for w in doc.weeks], [10, 11, 12])
 
-    def test_a_deliberate_zero_forecast_is_not_reset(self):
-        """Forecasting nothing is a judgement, not a blank."""
+    def test_a_deliberate_zero_revision_is_not_reset(self):
+        """Revising a week down to nothing is a judgement, not a blank."""
         self._budget()
         doc = frappe.get_doc({
             "doctype": "Production Forecast", "greenhouse": self.house,
             "variety": self.VARIETY, "forecast_year": 2028,
             "start_week": 10, "window_weeks": 4, "status": "Active",
         }).insert(ignore_permissions=True)
-        doc.weeks[0].forecasted_stems = 0
+        doc.weeks[0].revised_forecast_stems = 0
         doc.weeks[0].reason = "Disease"
         doc.save(ignore_permissions=True)
         doc.window_weeks = 6
         doc.save(ignore_permissions=True)
-        self.assertEqual(doc.weeks[0].forecasted_stems, 0)
+        self.assertEqual(doc.weeks[0].revised_forecast_stems, 0)
 
     def test_budget_figures_refresh_when_the_budget_changes(self):
         self._budget()
