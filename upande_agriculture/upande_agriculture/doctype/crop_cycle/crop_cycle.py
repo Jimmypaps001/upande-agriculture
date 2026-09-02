@@ -452,6 +452,15 @@ class CropCycle(Document):
                         u.bed_range, _compact(missing)),
                     title=_("Bed not in this cycle"),
                 )
+            # Rows replay in order, so a bed an EARLIER row already uprooted
+            # is caught here before a later row can silently uproot it again.
+            already = [n for n in wanted if by_number[n].status == "Uprooted"]
+            if already:
+                frappe.throw(
+                    _("{0} already uprooted — can't uproot it again.").format(
+                        _compact(already)),
+                    title=_("Already uprooted"),
+                )
             u.area_sqm = round(
                 sum(float(by_number[n].bed_area or 0) * partial.get(n, 1.0) for n in wanted), 2
             )
