@@ -459,9 +459,12 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
     """Everything the Production Budget page draws in one round trip.
 
     mode picks what the "budget" line actually shows: "manual" (default) is
-    the Production Forecast's own figure -- typed by hand, falling back to
-    its system snapshot where nobody has typed one yet. "automated" is the
-    Production Projection model, computed live from the crop cycles.
+    ONLY the Production Forecast's own figure for each week -- typed by hand,
+    or its system snapshot where a week exists but nobody's typed over it --
+    and blank for a week (or a whole greenhouse) with no Production Forecast
+    at all, never the live model. "automated" is the Production Projection
+    model, computed live from the crop cycles, untouched by anything on
+    Production Forecast.
     """
     mode = "automated" if (mode or "").lower() == "automated" else "manual"
     today = getdate(frappe.utils.nowdate())
@@ -522,14 +525,15 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
         wk = by_year.get(year) or (build_budget_year([(c, proto)], year, sf) if proto else {})
         manual_wk = mb.get((c["greenhouse"], c["variety"]), {})
         if mode == "manual":
-            # The typed budget wins week by week; a week nobody has opened a
-            # forecast for yet still reads as the automated figure.
-            wk = {**wk, **{w: v for (y2, w), v in manual_wk.items() if y2 == year}}
+            # Manual shows ONLY what's on Production Forecast -- a greenhouse
+            # nobody has opened one for yet reads blank, not the automated
+            # model. Falling back would make "manual" quietly lie about
+            # having a plan when there isn't one.
+            wk = {w: v for (y2, w), v in manual_wk.items() if y2 == year}
         annual = sum(wk.values())
         budget_total += annual
         per_week = [
-            (manual_wk.get((y, w)) if mode == "manual" and (y, w) in manual_wk
-             else by_year.get(y, {}).get(w))
+            (manual_wk.get((y, w)) if mode == "manual" else by_year.get(y, {}).get(w))
             for y, w in pairs
         ]
         forecast_total += sum(v for v in per_week if v)

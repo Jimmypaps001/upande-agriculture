@@ -242,6 +242,10 @@ class TestForecastRevisions(FrappeTestCase):
                 end_year=2028, end_week=10, mode=mode))["weekly"]["budget"][0]
 
         baseline = week10("automated")
+        self.assertTrue(baseline, "the automated model should have a real number to contrast against")
+        # No Production Forecast exists yet -- manual must read blank, not
+        # quietly fall back to the automated figure.
+        self.assertIsNone(week10("manual"))
 
         doc = frappe.get_doc({
             "doctype": "Production Forecast", "greenhouse": self.house,
