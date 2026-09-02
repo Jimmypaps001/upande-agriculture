@@ -312,34 +312,42 @@ class Greenhouse(Document):
 
 
 def sync_bed_master(doc, method=None):
-    """Mirror each bed's status and variety from the ledger onto its Bed record.
+    """Mirror each bed's status, variety and plant count from the ledger onto
+    its Bed record.
 
     Individual Beds stays the source of truth; the Bed master just shows it,
-    so a grower filtering the Bed list sees what's standing without opening
-    the Greenhouse. Only runs where the site's Bed has the custom status
-    field (added by the add_bed_status_field patch); variety is cleared when
-    nothing is growing. db.set_value keeps this out of the modified-stamp
-    churn -- these are derived values, not edits.
+    so a grower filtering the Bed list sees what's standing -- and how many
+    plants -- without opening the Greenhouse. Only runs where the site's Bed
+    has the custom status field (added by the add_bed_status_field patch);
+    variety and plant count are cleared when nothing is growing. db.set_value
+    keeps this out of the modified-stamp churn -- these are derived values,
+    not edits.
     """
     meta = frappe.get_meta("Bed")
     if not meta.has_field("status"):
         return
+    has_plant_count = meta.has_field("plant_count")
     house = doc.get("greenhouse") or doc.name
     ledger = {int(b.bed_number): b for b in (doc.individual_beds or []) if b.bed_number}
     if not ledger:
         return
 
-    for bed in frappe.get_all("Bed", filters={"greenhouse": house},
-                              fields=["name", "bed", "status", "variety"]):
+    fields = ["name", "bed", "status", "variety"] + (["plant_count"] if has_plant_count else [])
+    for bed in frappe.get_all("Bed", filters={"greenhouse": house}, fields=fields):
         row = ledger.get(int(bed.bed))
         if not row:
             continue
-        variety = row.variety if row.status in OCCUPIED_STATUSES else None
+        occupied = row.status in OCCUPIED_STATUSES
+        variety = row.variety if occupied else None
         updates = {}
         if (row.status or "") != (bed.status or ""):
             updates["status"] = row.status
         if (variety or "") != (bed.variety or ""):
             updates["variety"] = variety
+        if has_plant_count:
+            plants = int(row.plant_count or 0) if occupied else 0
+            if plants != int(bed.plant_count or 0):
+                updates["plant_count"] = plants
         if updates:
             frappe.db.set_value("Bed", bed.name, updates, update_modified=False)
 

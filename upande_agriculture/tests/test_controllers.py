@@ -440,6 +440,40 @@ class TestGreenhouse(TestCropCycle):
         self.assertEqual(gh.individual_beds[0].area_m2, 8)
         self.assertEqual(gh.bed_range[0].total_beds_area, 24)
 
+    def test_bed_master_mirrors_status_variety_and_plant_count(self):
+        house = make_warehouse("TEST GH BEDMASTER")
+        variety = self._item()
+        for i in (1, 2):
+            self._bed(house, i, 20, 0.85)
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 2, "variety": variety,
+            "bed_length": 20, "bed_width": 0.85,
+            "planting_date": datetime.date(2026, 1, 1),
+        }])
+        for b in gh.individual_beds:
+            b.plant_count = 119
+        gh.save(ignore_permissions=True)
+
+        bed1 = frappe.db.get_value(
+            "Bed", {"greenhouse": house, "bed": 1},
+            ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed1.status, "Planted")
+        self.assertEqual(bed1.variety, variety)
+        self.assertEqual(bed1.plant_count, 119)
+
+        # Uprooting clears the ledger's OCCUPIED status -- variety and plant
+        # count should clear on the Bed master right along with it.
+        gh.individual_beds[0].status = "Uprooted"
+        gh.individual_beds[0].plant_count = 0
+        gh.save(ignore_permissions=True)
+
+        bed1 = frappe.db.get_value(
+            "Bed", {"greenhouse": house, "bed": 1},
+            ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed1.status, "Uprooted")
+        self.assertFalse(bed1.variety)
+        self.assertEqual(bed1.plant_count, 0)
+
     def test_replanting_a_bed_does_not_touch_its_neighbour(self):
         house = make_warehouse("TEST GH REPLANTLEDGER")
         v1, v2 = self._item("TEST-V1"), self._item("TEST-V2")
