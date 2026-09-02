@@ -1,19 +1,11 @@
 {
  "actions": [],
+ "allow_import": 1,
  "autoname": "naming_series:",
- "naming_rule": "By \"Naming Series\" field",
  "creation": "2026-06-20 08:00:00",
+ "description": "One plant life: a variety planted in a set of beds on a date, cut repeatedly, then uprooted.",
  "doctype": "DocType",
  "engine": "InnoDB",
- "istable": 0,
- "issingle": 0,
- "is_submittable": 0,
- "track_changes": 1,
- "module": "Upande Agriculture",
- "name": "Crop Cycle",
- "owner": "Administrator",
- "title_field": "title",
- "description": "One plant life: a variety planted in a set of beds on a date, cut repeatedly, then uprooted.",
  "field_order": [
   "naming_series",
   "greenhouse",
@@ -59,75 +51,75 @@
  ],
  "fields": [
   {
+   "default": "CC-.YYYY.-.####",
    "fieldname": "naming_series",
    "fieldtype": "Select",
+   "hidden": 1,
    "label": "Series",
-   "options": "CC-.YYYY.-.####",
-   "default": "CC-.YYYY.-.####",
-   "hidden": 1
+   "options": "CC-.YYYY.-.####"
   },
   {
    "fieldname": "greenhouse",
    "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Greenhouse",
    "options": "Warehouse",
-   "reqd": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1
+   "reqd": 1
   },
   {
+   "description": "Fetched from the greenhouse. Frappe's own User Permission on Farm restricts who can see this Crop Cycle \u2014 no extra code needed.",
+   "fetch_from": "greenhouse.custom_farm",
+   "fetch_if_empty": 1,
    "fieldname": "farm",
    "fieldtype": "Link",
    "label": "Farm",
    "options": "Farm",
-   "read_only": 1,
-   "fetch_from": "greenhouse.custom_farm",
-   "fetch_if_empty": 1,
-   "description": "Fetched from the greenhouse. Frappe's own User Permission on Farm restricts who can see this Crop Cycle — no extra code needed."
+   "read_only": 1
   },
   {
+   "description": "Base variety (Athena), not a length grade",
    "fieldname": "variety",
    "fieldtype": "Link",
-   "label": "Variety",
-   "options": "Item",
-   "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Base variety (Athena), not a length grade"
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1
   },
   {
    "fieldname": "crop_protocol",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Crop Protocol",
-   "options": "Crop Protocol",
-   "in_list_view": 1
+   "options": "Crop Protocol"
   },
   {
    "fieldname": "column_break_head",
    "fieldtype": "Column Break"
   },
   {
+   "default": "Production",
    "fieldname": "crop_type",
    "fieldtype": "Select",
    "label": "Crop Type",
-   "options": "Production\nMotherstock\nTrial",
-   "default": "Production"
+   "options": "Production\nMotherstock\nTrial"
   },
   {
+   "default": "Active",
    "fieldname": "status",
    "fieldtype": "Select",
-   "label": "Status",
-   "options": "Planned\nActive\nEnded",
-   "default": "Active",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Planned\nActive\nEnded"
   },
   {
    "fieldname": "title",
    "fieldtype": "Data",
+   "hidden": 1,
    "label": "Title",
-   "read_only": 1,
-   "hidden": 1
+   "read_only": 1
   },
   {
    "fieldname": "section_timeline",
@@ -137,33 +129,33 @@
   {
    "fieldname": "planting_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Planting Date",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
+   "description": "Left empty, derived from the protocol",
    "fieldname": "first_bending_date",
    "fieldtype": "Date",
-   "label": "First Bending Date",
-   "description": "Left empty, derived from the protocol"
+   "label": "First Bending Date"
   },
   {
+   "description": "Production is counted from here",
    "fieldname": "second_bending_date",
    "fieldtype": "Date",
-   "label": "Second Bending Date",
-   "description": "Production is counted from here"
+   "label": "Second Bending Date"
   },
   {
+   "description": "Recorded once it actually happened. Overrides the planned date above.",
    "fieldname": "actual_first_bending_date",
    "fieldtype": "Date",
-   "label": "Actual First Bending Date",
-   "description": "Recorded once it actually happened. Overrides the planned date above."
+   "label": "Actual First Bending Date"
   },
   {
+   "description": "Recorded once it actually happened. Overrides the planned date above.",
    "fieldname": "actual_second_bending_date",
    "fieldtype": "Date",
-   "label": "Actual Second Bending Date",
-   "description": "Recorded once it actually happened. Overrides the planned date above."
+   "label": "Actual Second Bending Date"
   },
   {
    "fieldname": "column_break_timeline",
@@ -175,17 +167,17 @@
    "label": "Planned Uprooting Date"
   },
   {
+   "description": "Actual uprooting. Empty means the cycle is still running.",
    "fieldname": "cycle_end_date",
    "fieldtype": "Date",
-   "label": "Cycle End Date",
-   "description": "Actual uprooting. Empty means the cycle is still running."
+   "label": "Cycle End Date"
   },
   {
+   "description": "The block this planting replaced. Filled by Replant.",
    "fieldname": "replaces",
    "fieldtype": "Link",
    "label": "Replaces",
-   "options": "Crop Cycle",
-   "description": "The block this planting replaced. Filled by Replant."
+   "options": "Crop Cycle"
   },
   {
    "fieldname": "section_planting",
@@ -195,46 +187,46 @@
   {
    "fieldname": "qty_planted",
    "fieldtype": "Int",
-   "label": "Plants Planted",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "label": "Plants Planted"
   },
   {
+   "description": "Plants Planted minus everything logged as uprooted below.",
    "fieldname": "plants_standing",
    "fieldtype": "Int",
    "label": "Plants Standing",
-   "read_only": 1,
-   "description": "Plants Planted minus everything logged as uprooted below."
+   "read_only": 1
   },
   {
+   "fetch_from": "crop_protocol.plants_per_sqm",
+   "fetch_if_empty": 1,
    "fieldname": "plants_per_sqm",
    "fieldtype": "Float",
-   "label": "Plants Per Sqm",
-   "fetch_from": "crop_protocol.plants_per_sqm",
-   "fetch_if_empty": 1
+   "label": "Plants Per Sqm"
   },
   {
    "fieldname": "column_break_planting",
    "fieldtype": "Column Break"
   },
   {
+   "description": "Summed from the beds below",
    "fieldname": "planted_area",
    "fieldtype": "Float",
-   "label": "Planted Area (m²)",
-   "read_only": 1,
-   "description": "Summed from the beds below"
+   "label": "Planted Area (m\u00b2)",
+   "read_only": 1
   },
   {
+   "description": "Area \u00d7 density. Checked against Plants Planted on save.",
    "fieldname": "implied_plants",
    "fieldtype": "Int",
    "label": "Implied Plants",
-   "read_only": 1,
-   "description": "Area × density. Checked against Plants Planted on save."
+   "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "section_uprooting",
    "fieldtype": "Section Break",
-   "label": "Uprooting",
-   "collapsible": 1
+   "label": "Uprooting"
   },
   {
    "fieldname": "uproot_log",
@@ -248,32 +240,32 @@
    "label": "Beds"
   },
   {
+   "description": "Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. The table below fills itself on save.",
    "fieldname": "bed_range",
    "fieldtype": "Data",
-   "label": "Beds",
-   "description": "Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. The table below fills itself on save."
+   "label": "Beds"
   },
   {
+   "description": "Filled from the range above. Clear the range to edit by hand.",
    "fieldname": "beds",
    "fieldtype": "Table",
    "label": "Beds",
    "options": "Crop Cycle Bed",
-   "read_only_depends_on": "eval:!!doc.bed_range",
-   "description": "Filled from the range above. Clear the range to edit by hand."
+   "read_only_depends_on": "eval:!!doc.bed_range"
   },
   {
+   "collapsible": 1,
    "fieldname": "section_source",
    "fieldtype": "Section Break",
-   "label": "Source & Cost",
-   "collapsible": 1
+   "label": "Source & Cost"
   },
   {
+   "depends_on": "eval:doc.seedling_source==\"Purchased from Breeder\" || doc.seedling_source==\"Mixed\"",
+   "description": "Link the seedling invoice and the breeder and cost fill themselves. Leave blank to type them.",
    "fieldname": "purchase_invoice",
    "fieldtype": "Link",
    "label": "Purchase Invoice",
-   "options": "Purchase Invoice",
-   "depends_on": "eval:doc.seedling_source==\"Purchased from Breeder\" || doc.seedling_source==\"Mixed\"",
-   "description": "Link the seedling invoice and the breeder and cost fill themselves. Leave blank to type them."
+   "options": "Purchase Invoice"
   },
   {
    "fieldname": "seedling_source",
@@ -294,10 +286,10 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.seedling_source==\"In-house Propagation\" || doc.seedling_source==\"Mixed\"",
    "fieldname": "propagation_batch",
    "fieldtype": "Data",
-   "label": "Propagation Batch",
-   "depends_on": "eval:doc.seedling_source==\"In-house Propagation\" || doc.seedling_source==\"Mixed\""
+   "label": "Propagation Batch"
   },
   {
    "fieldname": "cost_per_plant",
@@ -306,18 +298,18 @@
    "read_only_depends_on": "eval:!!doc.purchase_invoice"
   },
   {
+   "depends_on": "purchase_invoice",
+   "description": "Plants billed on the invoice \u2014 compared with Plants Planted",
    "fieldname": "invoiced_qty",
    "fieldtype": "Int",
    "label": "Invoiced Qty",
-   "read_only": 1,
-   "depends_on": "purchase_invoice",
-   "description": "Plants billed on the invoice — compared with Plants Planted"
+   "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "section_notes",
    "fieldtype": "Section Break",
-   "label": "Notes",
-   "collapsible": 1
+   "label": "Notes"
   },
   {
    "fieldname": "notes",
@@ -325,38 +317,44 @@
    "label": "Notes"
   }
  ],
+ "is_calendar_and_gantt": 1,
+ "links": [],
+ "modified": "2026-09-02 11:03:58.662578",
+ "modified_by": "jimmy@upande.com",
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
  "permissions": [
   {
-   "role": "System Manager",
-   "permlevel": 0,
-   "read": 1,
-   "write": 1,
    "create": 1,
    "delete": 1,
-   "report": 1,
-   "import": 1,
-   "export": 1,
-   "print": 1,
    "email": 1,
-   "share": 1
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
   },
   {
-   "role": "Stock User",
-   "permlevel": 0,
-   "read": 1,
-   "write": 1,
    "create": 1,
-   "delete": 0,
-   "report": 1,
+   "email": 1,
    "export": 1,
    "print": 1,
-   "email": 1,
-   "share": 1
+   "read": 1,
+   "report": 1,
+   "role": "Stock User",
+   "share": 1,
+   "write": 1
   }
  ],
- "links": [],
- "modified": "2026-08-19 00:00:00",
- "modified_by": "Administrator",
+ "row_format": "Dynamic",
  "sort_field": "planting_date",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
 }
