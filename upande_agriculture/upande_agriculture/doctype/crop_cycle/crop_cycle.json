@@ -134,16 +134,18 @@
    "reqd": 1
   },
   {
-   "description": "Left empty, derived from the protocol",
+   "description": "Derived from the protocol. Record the Actual date instead of typing here.",
    "fieldname": "first_bending_date",
    "fieldtype": "Date",
-   "label": "First Bending Date"
+   "label": "First Bending Date",
+   "read_only": 1
   },
   {
-   "description": "Production is counted from here",
+   "description": "Production is counted from here. Derived from the protocol -- record the Actual date instead of typing here.",
    "fieldname": "second_bending_date",
    "fieldtype": "Date",
-   "label": "Second Bending Date"
+   "label": "Second Bending Date",
+   "read_only": 1
   },
   {
    "description": "Recorded once it actually happened. Overrides the planned date above.",
@@ -162,9 +164,11 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Derived from the protocol's productive life. Record the actual uprooting on Cycle End Date instead.",
    "fieldname": "planned_uprooting_date",
    "fieldtype": "Date",
-   "label": "Planned Uprooting Date"
+   "label": "Planned Uprooting Date",
+   "read_only": 1
   },
   {
    "description": "Actual uprooting. Empty means the cycle is still running.",

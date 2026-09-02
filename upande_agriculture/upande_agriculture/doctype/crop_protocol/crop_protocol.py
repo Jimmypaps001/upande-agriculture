@@ -1,3 +1,5 @@
+import frappe
+from frappe import _
 from frappe.model.document import Document
 
 
@@ -11,6 +13,19 @@ class CropProtocol(Document):
 
 		if self.crop_type == "Summer Flower":
 			self.set_flush_schedule()
+
+		self.check_grade_mix()
+
+	def check_grade_mix(self):
+		"""The length grades a plant produces are a split of the same
+		stems -- their shares can't add up to more than the whole."""
+		total = sum(float(r.pct or 0) for r in (self.grade_mix or []))
+		if total > 100.0001:  # float slop from repeating decimals (33.33 x 3)
+			frappe.throw(
+				_("Grade Mix shares add up to {0}%, which is more than 100%.").format(
+					round(total, 2)),
+				title=_("Grade Mix over 100%"),
+			)
 
 	def set_flush_schedule(self):
 		"""Number the flushes in order and fill in any blank offset.
