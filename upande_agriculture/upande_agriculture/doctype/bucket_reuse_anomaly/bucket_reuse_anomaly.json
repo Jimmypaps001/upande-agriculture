@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-09 17:00:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bucket_id",
+  "skipped_step",
+  "detected_on",
+  "column_break_1",
+  "farm",
+  "greenhouse",
+  "section_break_1",
+  "variety",
+  "stems",
+  "previous_shelf",
+  "discard_request",
+  "harvest_stock_entry"
+ ],
+ "fields": [
+  {
+   "fieldname": "bucket_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Bucket",
+   "options": "Bucket QR Code",
+   "reqd": 1
+  },
+  {
+   "fieldname": "skipped_step",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Skipped Step",
+   "options": "Issuing Skipped\nDiscarding Skipped",
+   "reqd": 1
+  },
+  {
+   "fieldname": "detected_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Detected On"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm"
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Previous Life"
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item"
+  },
+  {
+   "fieldname": "stems",
+   "fieldtype": "Int",
+   "label": "Stems"
+  },
+  {
+   "description": "Set only when the bucket was still listed as a Shelf Item -- the shelf it was on before being cleared.",
+   "fieldname": "previous_shelf",
+   "fieldtype": "Data",
+   "label": "Previous Shelf"
+  },
+  {
+   "description": "Set only when the bucket had a pending (undischarged) Discard Request row -- voided (marked discarded) as part of this cleanup.",
+   "fieldname": "discard_request",
+   "fieldtype": "Link",
+   "label": "Discard Request",
+   "options": "Discard Request"
+  },
+  {
+   "description": "The new Harvesting entry whose journey-start triggered this cleanup.",
+   "fieldname": "harvest_stock_entry",
+   "fieldtype": "Link",
+   "label": "Harvest Stock Entry",
+   "options": "Stock Entry"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-09 17:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Bucket Reuse Anomaly",
+ "naming_rule": "Expression (old style)",
+ "autoname": "format:BRA-{bucket_id}-{#####}",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Agriculture User"
+  },
+  {
+   "read": 1,
+   "role": "Stock User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "detected_on",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
