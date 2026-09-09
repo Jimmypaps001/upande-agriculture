@@ -104,7 +104,7 @@ def release_stale_buckets() -> int:
     frappe.db.set_value(
         "Bucket QR Code",
         {"name": ["in", stuck]},
-        {"status": "Available", "last_stock_entry": None},
+        {"status": "Available", "last_stock_entry": None, "current_journey_start": None},
         update_modified=False,
     )
     frappe.db.commit()

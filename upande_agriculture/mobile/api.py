@@ -232,7 +232,13 @@ def createGradingStockEntry():
                         # one.
                         spray_bucket_doc = frappe.get_doc("Bucket QR Code", bucket_id, for_update=True)
                         if spray_bucket_doc.status != "In Use":
+                            # Only THIS transition (Available -> In Use) starts a
+                            # new journey -- a later scan in the same session
+                            # finds the bucket already In Use and must not move
+                            # the marker, or it would orphan the earlier scans
+                            # of this same session from Receiving's aggregation.
                             spray_bucket_doc.status = "In Use"
+                            spray_bucket_doc.current_journey_start = harvest_doc.name
                         spray_bucket_doc.last_stock_entry = harvest_doc.name
                         spray_bucket_doc.save(ignore_permissions=True)
                         frappe.db.commit()
@@ -551,8 +557,16 @@ def createHarvestStockEntry():
             # ======================================
             # Mark bucket as In Use and link this stock entry so subsequent
             # harvest attempts on the same bucket are blocked until receiving.
+            # This harvest is ALWAYS a new journey's start -- the guard above
+            # already refused to reach here while the bucket was In Use, so
+            # every Standard Roses harvest is, by construction, the one entry
+            # of its own journey. current_journey_start is what Receiving and
+            # Bucket Status scope aggregation to, so an earlier abandoned
+            # journey's leftover unclaimed entries (stems never received,
+            # long gone) can never get swept into this one.
             bucket_qr_doc.status = "In Use"
             bucket_qr_doc.last_stock_entry = stock_entry.name
+            bucket_qr_doc.current_journey_start = stock_entry.name
             bucket_qr_doc.save(ignore_permissions=True)
             frappe.db.commit()
 
@@ -630,8 +644,12 @@ def getBucketStatus():
 
     "Latest journey" = every Harvesting entry sharing the same fate:
       - if the most recent Harvesting entry is still unclaimed, the journey
-        is every unclaimed entry (mirrors createReceivingStockEntry's own
-        scoping -- exactly what a receive would pick up right now);
+        is every unclaimed entry from Bucket QR Code.current_journey_start
+        onward (mirrors createReceivingStockEntry's own scoping -- exactly
+        what a receive would pick up right now). An EARLIER, abandoned
+        journey's leftover unclaimed entries must never be included -- those
+        stems were simply never received, and the bucket has since moved on
+        to a new journey, so they are not sitting in it any more;
       - if it's already been received, the journey is every Harvesting
         entry that was linked to that SAME Receiving entry, and the
         response says so explicitly (received=True, plus when).
@@ -669,7 +687,25 @@ def getBucketStatus():
         return
 
     latest_receiving_entry = harvests[0].get("custom_receiving_entry")
-    journey = [h for h in harvests if h.get("custom_receiving_entry") == latest_receiving_entry]
+    if latest_receiving_entry:
+        journey = [h for h in harvests if h.get("custom_receiving_entry") == latest_receiving_entry]
+    else:
+        # Unclaimed -- scope to the CURRENT journey only, via the marker
+        # current_journey_start (set on every harvest that starts a fresh
+        # journey; see createHarvestStockEntry / createGradingStockEntry).
+        # Falls back to "every unclaimed entry" only when no marker was ever
+        # recorded (a bucket whose current journey started before this field
+        # existed) -- not a deliberate design choice, just the honest state
+        # of pre-existing data.
+        journey_start = frappe.db.get_value("Bucket QR Code", bucket_id, "current_journey_start")
+        start_creation = frappe.db.get_value("Stock Entry", journey_start, "creation") if journey_start else None
+        if start_creation:
+            journey = [
+                h for h in harvests
+                if not h.get("custom_receiving_entry") and h.get("creation") >= start_creation
+            ]
+        else:
+            journey = [h for h in harvests if not h.get("custom_receiving_entry")]
 
     received_at = None
     if latest_receiving_entry:
