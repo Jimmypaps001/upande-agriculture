@@ -192,6 +192,7 @@ doc_events = {
 scheduler_events = {
     "daily": [
         "upande_agriculture.scheduled.rollup_actuals",
+        "upande_agriculture.scheduled.release_stale_buckets",
     ],
 }
 
@@ -229,6 +230,9 @@ fixtures = [
 # override_doctype_dashboards = {
 # 	"Task": "upande_agriculture.task.get_dashboard_data"
 # }
+override_doctype_dashboards = {
+	"Stock Entry": "upande_agriculture.stock_entry_connections.get_dashboard_data"
+}
 
 # exempt linked doctypes from being automatically cancelled
 #

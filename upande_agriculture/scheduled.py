@@ -83,6 +83,38 @@ def _refresh_forecast_actuals() -> int:
     return updated
 
 
+def release_stale_buckets() -> int:
+    """Nightly cleanup: a bucket left "In Use" from a day that's already
+    ended never got received in time, so it's stuck until someone manually
+    frees it -- exactly the backlog that piled up before 2026-09-05 and had
+    to be cleared by hand. Anything not touched since before today is
+    assumed abandoned and released back to Available for reuse; a bucket
+    genuinely mid-harvest right now was modified today and is left alone.
+
+    Returns count of buckets released.
+    """
+    cutoff = frappe.utils.today()
+    stuck = frappe.get_all(
+        "Bucket QR Code",
+        filters={"status": "In Use", "modified": ["<", cutoff]},
+        pluck="name",
+    )
+    if not stuck:
+        return 0
+    frappe.db.set_value(
+        "Bucket QR Code",
+        {"name": ["in", stuck]},
+        {"status": "Available", "last_stock_entry": None},
+        update_modified=False,
+    )
+    frappe.db.commit()
+    frappe.log_error(
+        title="Released {0} stale bucket(s)".format(len(stuck)),
+        message=", ".join(stuck[:200]),
+    )
+    return len(stuck)
+
+
 def _rollup_plan_tasks() -> int:
     """Same idea for Production Plan Task: a Harvest-operation task with a
     variety set gets its actual weekly total filled in, so the plan shows

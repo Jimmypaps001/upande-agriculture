@@ -11,6 +11,87 @@ from frappe import _
 import json
 
 
+def resolve_item_group_stem_limit(item_code):
+    """Resolves the configured max-stems-per-bucket cap for an item, from
+    Production Settings' Harvest Item Group Config child table.
+
+    The config is keyed by item group, but it is usually set on a PARENT
+    group (e.g. "Standard Roses", "Spray Roses"), while real items live in a
+    leaf group (e.g. "Standard Roses - Intermediate", "Spray Roses - The
+    Classics" -- items are never assigned directly to the parent group
+    itself). So this walks the item's whole ancestor chain and uses the
+    NEAREST configured ancestor -- shared by both createHarvestStockEntry
+    (Standard Roses) and createGradingStockEntry (Spray Roses) so a cap set
+    once applies consistently to both harvest paths.
+
+    Returns (max_limit, matched_group) -- max_limit is 0 if unconfigured
+    (0 / unset means no cap).
+    """
+    item_group = frappe.db.get_value("Item", item_code, "item_group") if item_code else None
+    max_limit = 0
+    matched_group = item_group
+    if not item_group:
+        return max_limit, matched_group
+
+    configs = frappe.get_all(
+        "Harvest Item Group Config",
+        filters={"parent": "Production Settings", "parenttype": "Production Settings"},
+        fields=["item_group", "max_stems_per_bucket"],
+    )
+    config_map = {c["item_group"]: c["max_stems_per_bucket"] for c in configs}
+    if not config_map:
+        return max_limit, matched_group
+
+    # Ancestors of the item's group (self + parents), nearest first.
+    bounds = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"], as_dict=True)
+    if bounds:
+        ancestors = frappe.get_all(
+            "Item Group",
+            filters={"lft": ["<=", bounds.lft], "rgt": [">=", bounds.rgt]},
+            fields=["name"],
+            order_by="lft desc",   # deepest (most specific) first
+        )
+        for a in ancestors:
+            if a["name"] in config_map:
+                max_limit = config_map[a["name"]] or 0
+                matched_group = a["name"]
+                break
+    return max_limit, matched_group
+
+
+def validate_variety_planted_in_greenhouse(variety, greenhouse):
+    """Returns None if `variety` is planted in `greenhouse`, or an error
+    message string otherwise. Shared by createGradingStockEntry (Spray Roses
+    at grading-time) and amendHarvestEntry (correcting either rose type's
+    variety after the fact) -- keeping this in one place is exactly what
+    resolve_item_group_stem_limit above already does for the stem cap, for
+    the same reason: two copies of the same check drift apart silently.
+
+    Varieties standing in a greenhouse come from the Greenhouse doctype's
+    varieties_grown ledger; active Crop Cycles (one per variety) are the
+    fallback for houses without a ledger yet.
+    """
+    if not (variety and greenhouse):
+        return None
+
+    vg_rows = frappe.get_all(
+        "Greenhouse Variety",
+        filters={"parent": greenhouse, "parenttype": "Greenhouse", "parentfield": "varieties_grown"},
+        fields=["variety"],
+    )
+    varieties_planted = [r.variety for r in vg_rows]
+    if not varieties_planted:
+        varieties_planted = frappe.get_all(
+            "Crop Cycle",
+            filters={"greenhouse": greenhouse, "status": ["!=", "Ended"]},
+            pluck="variety",
+        )
+
+    if variety not in varieties_planted:
+        return f"Item '{variety}' is not planted in warehouse '{greenhouse}'. Please verify the correct location."
+    return None
+
+
 @frappe.whitelist()
 def createGradingStockEntry():
     try:
@@ -36,14 +117,15 @@ def createGradingStockEntry():
         # today's Harvesting entries for this bucket so a scan that would overfill is blocked
         # before any stock entry is created.
         if rose_type == "Spray Roses" and bucket_id:
-            spray_item_group = frappe.db.get_value("Item", variety, "item_group") if variety else None
-            max_spray_limit = 0
-            if spray_item_group:
-                max_spray_limit = frappe.db.get_value(
-                    "Harvest Item Group Config",
-                    {"parent": "Production Settings", "parenttype": "Production Settings", "item_group": spray_item_group},
-                    "max_stems_per_bucket",
-                ) or 0
+            # Same ancestor-chain resolution createHarvestStockEntry uses for
+            # Standard Roses -- a cap configured on the parent group (e.g.
+            # "Spray Roses") previously never matched here, since this used
+            # to do a flat, exact match against the item's own leaf group
+            # (e.g. "Spray Roses - The Classics") and real items are never
+            # assigned directly to the parent group. That silently disabled
+            # the cap for every spray variety unless every leaf group was
+            # configured individually.
+            max_spray_limit, _matched_spray_group = resolve_item_group_stem_limit(variety)
             size_digits = "".join([c for c in str(raw_bunch_size) if c.isdigit()])
             bunch_size_stems = int(size_digits) if size_digits else 0
             if max_spray_limit and bunch_size_stems:
@@ -84,27 +166,13 @@ def createGradingStockEntry():
         # ======================================
         if source_warehouse and variety:
             try:
-                # Varieties standing in this greenhouse come from the Greenhouse
-                # doctype's varieties_grown ledger; active Crop Cycles (one per
-                # variety) are the fallback for houses without a ledger yet.
-                vg_rows = frappe.get_all(
-                    "Greenhouse Variety",
-                    filters={"parent": source_warehouse, "parenttype": "Greenhouse", "parentfield": "varieties_grown"},
-                    fields=["variety"],
-                )
-                varieties_planted = [r.variety for r in vg_rows]
-                if not varieties_planted:
-                    varieties_planted = frappe.get_all(
-                        "Crop Cycle",
-                        filters={"greenhouse": source_warehouse, "status": ["!=", "Ended"]},
-                        pluck="variety",
-                    )
+                not_planted_error = validate_variety_planted_in_greenhouse(variety, source_warehouse)
 
                 # Check if the item being graded is planted in this warehouse
-                if variety not in varieties_planted:
+                if not_planted_error:
                     frappe.response["http_status_code"] = 400
-                    frappe.response["error"] = f"Item '{variety}' is not planted in warehouse '{source_warehouse}'. Please verify the correct location."
-                    frappe.response["message"] = f"Item '{variety}' is not planted in warehouse '{source_warehouse}'. Please verify the correct location."
+                    frappe.response["error"] = not_planted_error
+                    frappe.response["message"] = not_planted_error
                 else:
                     timestamp = frappe.utils.now_datetime()
                     harvest_batch_id = f"{bucket_id}-{farm}-{variety}-{timestamp}"
@@ -148,6 +216,26 @@ def createGradingStockEntry():
                         harvest_doc.insert(ignore_permissions=True)
                         harvest_doc.submit()
                         frappe.log_error("Grading Debug", f"Harvest Stock Entry created: {harvest_doc.name}")
+
+                        # Spray roses skip createHarvestStockEntry entirely (this
+                        # IS the harvest, done in the field during grading), so it
+                        # never got the same bucket status/last_stock_entry update
+                        # that function gives every other harvest -- meaning
+                        # receiving could never tell a spray bucket was "In Use"
+                        # at all. Mirror that same update here so the bucket
+                        # lifecycle is consistent across both rose types. Several
+                        # grading scans can legitimately top up the same bucket
+                        # before it's received, so this only ever moves it INTO
+                        # "In Use" (never flips an already-In-Use bucket back);
+                        # createReceivingStockEntry aggregates every harvest
+                        # entry accumulated since the last receive, not just this
+                        # one.
+                        spray_bucket_doc = frappe.get_doc("Bucket QR Code", bucket_id, for_update=True)
+                        if spray_bucket_doc.status != "In Use":
+                            spray_bucket_doc.status = "In Use"
+                        spray_bucket_doc.last_stock_entry = harvest_doc.name
+                        spray_bucket_doc.save(ignore_permissions=True)
+                        frappe.db.commit()
 
                     if rose_type == "Spray Roses":
                         # Spray roses are graded in place: source and target are the
@@ -212,6 +300,27 @@ def createGradingStockEntry():
                     se.submit()
                     frappe.log_error("Grading Debug", f"Final Stock Entry created: {se.name}")
 
+                    if rose_type == "Spray Roses":
+                        # Real, persisted link between the two entries this
+                        # single scan creates -- custom_harvest_batch_no was
+                        # meant to be this link but is not a real column, so
+                        # no stored connection between them existed before.
+                        # amendHarvestEntry needs custom_grading_entry to find
+                        # and correct this Grading entry too when the
+                        # Harvesting side is edited. Raw db.set_value rather
+                        # than a full doc.save(): both are already-submitted
+                        # Stock Entries, and re-running full validate on a
+                        # doctype this size for a single field is unnecessary
+                        # overhead neither side's data actually needs.
+                        frappe.db.set_value(
+                            "Stock Entry", harvest_doc.name, "custom_grading_entry", se.name,
+                            update_modified=False,
+                        )
+                        frappe.db.set_value(
+                            "Stock Entry", se.name, "custom_harvest_entry", harvest_doc.name,
+                            update_modified=False,
+                        )
+
                     frappe.response["message"] = "Stock Entry submitted successfully"
                     frappe.response["stock_entry"] = se.name
             except frappe.DoesNotExistError:
@@ -258,37 +367,10 @@ def createHarvestStockEntry():
             if resolved_harvester:
                 harvester = resolved_harvester
 
-        # Enforce the configurable per-bucket limit (Production Settings). The
-        # config is keyed by item group, but it is usually set on a PARENT group
-        # (e.g. "Standard Roses"), while an item lives in a leaf group (e.g.
-        # "Standard Roses - Intermediate"). So resolve the cap against the item's
-        # whole ancestor chain and use the NEAREST configured ancestor.
-        # 0 / unset means no cap.
-        limit_item_group = frappe.db.get_value("Item", item_code, "item_group") if item_code else None
-        max_standard_limit = 0
-        matched_group = limit_item_group
-        if limit_item_group:
-            configs = frappe.get_all(
-                "Harvest Item Group Config",
-                filters={"parent": "Production Settings", "parenttype": "Production Settings"},
-                fields=["item_group", "max_stems_per_bucket"],
-            )
-            config_map = {c["item_group"]: c["max_stems_per_bucket"] for c in configs}
-            if config_map:
-                # Ancestors of the item's group (self + parents), nearest first.
-                bounds = frappe.db.get_value("Item Group", limit_item_group, ["lft", "rgt"], as_dict=True)
-                if bounds:
-                    ancestors = frappe.get_all(
-                        "Item Group",
-                        filters={"lft": ["<=", bounds.lft], "rgt": [">=", bounds.rgt]},
-                        fields=["name"],
-                        order_by="lft desc",   # deepest (most specific) first
-                    )
-                    for a in ancestors:
-                        if a["name"] in config_map:
-                            max_standard_limit = config_map[a["name"]] or 0
-                            matched_group = a["name"]
-                            break
+        # Enforce the configurable per-bucket limit (Production Settings) --
+        # shared with the Spray Roses cap in createGradingStockEntry so a
+        # limit configured once applies consistently to both harvest paths.
+        max_standard_limit, matched_group = resolve_item_group_stem_limit(item_code)
         if max_standard_limit and float(quantity or 0) > float(max_standard_limit):
             frappe.log_error("Bucket Rate Error", data)
             frappe.throw(_(f"The maximum stems per bucket for {matched_group} is {int(max_standard_limit)}"))
@@ -536,6 +618,246 @@ def fetchBucketContents():
             for v in sorted(agg):
                 contents.append({"variety": v, "stems": agg[v]})
     frappe.response["message"] = {"bucket_id": bucket_id, "contents": contents, "total_stems": total}
+
+
+@frappe.whitelist()
+def getBucketStatus():
+    """Read-only "what's in this bucket" lookup for the mobile Bucket Status
+    screen: always the LATEST harvest journey for this bucket, whether or
+    not it's been received yet -- a bucket harvested a week ago and still
+    genuinely unreceived must keep showing that, not silently reset to
+    "nothing here" the moment a day boundary passes.
+
+    "Latest journey" = every Harvesting entry sharing the same fate:
+      - if the most recent Harvesting entry is still unclaimed, the journey
+        is every unclaimed entry (mirrors createReceivingStockEntry's own
+        scoping -- exactly what a receive would pick up right now);
+      - if it's already been received, the journey is every Harvesting
+        entry that was linked to that SAME Receiving entry, and the
+        response says so explicitly (received=True, plus when).
+
+    Deliberately NOT scoped to today (unlike fetchBucketContents, the live
+    tally on the grading screen) and NOT gated on Bucket QR Code.status --
+    that field only tracks "can this be harvested into right now", not
+    "has the latest journey been received", which is what this answers.
+
+    Spray Roses naturally show one row per grading scan (each is its own
+    Harvesting entry, possibly mixed varieties/lengths); Standard Roses
+    show a single row, since a second harvest into an In Use bucket is
+    blocked outright.
+    """
+    data = frappe.request.get_json() or {}
+    bucket_id = (data.get("bucket_id") or "").strip()
+    if not bucket_id:
+        frappe.response["data"] = {"error": "bucket_id is required."}
+        return
+    if not frappe.db.exists("Bucket QR Code", bucket_id):
+        frappe.response["data"] = {"error": "Bucket " + bucket_id + " does not exist."}
+        return
+
+    harvests = frappe.get_all(
+        "Stock Entry",
+        filters={"custom_bucket_id": bucket_id, "stock_entry_type": "Harvesting", "docstatus": 1},
+        fields=["name", "custom_greenhouse", "custom_stem_length", "creation", "custom_receiving_entry"],
+        order_by="creation desc",
+    )
+    if not harvests:
+        frappe.response["data"] = {
+            "bucket_id": bucket_id, "received": None, "received_at": None,
+            "entries": [], "total_stems": 0,
+        }
+        return
+
+    latest_receiving_entry = harvests[0].get("custom_receiving_entry")
+    journey = [h for h in harvests if h.get("custom_receiving_entry") == latest_receiving_entry]
+
+    received_at = None
+    if latest_receiving_entry:
+        received_at = frappe.db.get_value("Stock Entry", latest_receiving_entry, "creation")
+
+    entries = []
+    total = 0
+    for h in journey:
+        rows = frappe.get_all("Stock Entry Detail", filters={"parent": h["name"]}, fields=["item_code", "qty"])
+        for r in rows:
+            qty = int(r.get("qty") or 0)
+            total = total + qty
+            entries.append({
+                "name": h.get("name"),
+                "variety": r.get("item_code") or "Unspecified",
+                "stem_length": h.get("custom_stem_length") or "Unspecified",
+                "greenhouse": h.get("custom_greenhouse") or "Unspecified",
+                "qty": qty,
+                "time": str(h.get("creation")),
+            })
+
+    frappe.response["data"] = {
+        "bucket_id": bucket_id,
+        "received": bool(latest_receiving_entry),
+        "received_at": str(received_at) if received_at else None,
+        "entries": entries,
+        "total_stems": total,
+    }
+
+
+@frappe.whitelist()
+def amendHarvestEntry():
+    """Corrects a still-pending Harvesting entry's variety and/or stem
+    length -- from the mobile Bucket Status screen's per-row Edit button.
+
+    A Harvesting Stock Entry is already submitted (docstatus=1) by the time
+    it shows up on Bucket Status, so a mis-scanned variety or stem length
+    can't just be field-edited -- this goes through Frappe's proper
+    cancel+amend flow instead (cancel, then a fresh amended doc carrying
+    amended_from), which is what keeps the audit trail honest.
+
+    Spray Roses create BOTH a Harvesting entry and a Grading entry from the
+    same scan (see createGradingStockEntry) -- correcting only the
+    Harvesting side would leave the Grading entry (the one actually carrying
+    the graded/processed stock movement) silently wrong. custom_grading_entry
+    is the real, persisted link between the two (see
+    add_harvest_grading_link_fields), so when it's set this cascades the
+    exact same variety/stem_length change to that Grading entry too, via its
+    own cancel+amend.
+
+    Deliberately refuses once the entry has been received (custom_
+    receiving_entry set): at that point its stems are already aggregated
+    into a Receiving entry's quantities, and correcting those too is a
+    separate, bigger change this does not attempt. Bucket Status itself
+    only shows the Edit button while received=false, but this is enforced
+    here too in case the bucket gets received in the gap between loading
+    the screen and saving the edit.
+    """
+    data = frappe.request.get_json() or {}
+    stock_entry_name = (data.get("stock_entry_name") or "").strip()
+    new_variety = (data.get("variety") or "").strip() or None
+    new_stem_length = (data.get("stem_length") or "").strip() or None
+
+    if not stock_entry_name:
+        frappe.response["data"] = {"error": "stock_entry_name is required."}
+        return
+    if not new_variety and not new_stem_length:
+        frappe.response["data"] = {"error": "Nothing to change -- provide a variety and/or stem_length."}
+        return
+    if not frappe.db.exists("Stock Entry", stock_entry_name):
+        frappe.response["data"] = {"error": "Stock Entry " + stock_entry_name + " does not exist."}
+        return
+
+    original = frappe.get_doc("Stock Entry", stock_entry_name)
+
+    if original.stock_entry_type != "Harvesting":
+        frappe.response["data"] = {"error": "Only Harvesting entries can be edited here."}
+        return
+    if original.docstatus != 1:
+        frappe.response["data"] = {"error": "This entry isn't submitted -- nothing to amend."}
+        return
+    if original.custom_receiving_entry:
+        frappe.response["data"] = {
+            "error": "This entry has already been received and can no longer be edited."
+        }
+        return
+
+    current_variety = original.items[0].item_code if original.items else None
+    current_stem_length = original.custom_stem_length
+    final_variety = new_variety or current_variety
+    final_stem_length = new_stem_length or current_stem_length
+
+    if final_variety == current_variety and final_stem_length == current_stem_length:
+        # Nothing actually changed -- skip the cancel+amend churn entirely.
+        frappe.response["data"] = {
+            "stock_entry": original.name,
+            "variety": current_variety,
+            "stem_length": current_stem_length,
+            "amended": False,
+        }
+        return
+
+    if final_variety != current_variety:
+        not_planted_error = validate_variety_planted_in_greenhouse(final_variety, original.custom_greenhouse)
+        if not_planted_error:
+            frappe.response["data"] = {"error": not_planted_error}
+            return
+
+    bucket_id = original.custom_bucket_id
+    was_last_entry = bool(
+        bucket_id
+        and frappe.db.get_value("Bucket QR Code", bucket_id, "last_stock_entry") == original.name
+    )
+    linked_grading_name = original.custom_grading_entry
+
+    # A submitted Grading entry still pointing at this Harvesting entry via
+    # custom_harvest_entry blocks Frappe's own check_no_back_links_exist --
+    # cancel() refuses to proceed while another submitted doc still links
+    # here. Break that reciprocal link first; it's re-established (pointing
+    # at the new amended docs) once both sides are done below.
+    if linked_grading_name and frappe.db.exists("Stock Entry", linked_grading_name):
+        frappe.db.set_value(
+            "Stock Entry", linked_grading_name, "custom_harvest_entry", None, update_modified=False
+        )
+
+    original.cancel()
+
+    amended = frappe.copy_doc(original)
+    amended.amended_from = original.name
+    if amended.items:
+        amended.items[0].item_code = final_variety
+    amended.custom_stem_length = final_stem_length
+    amended.insert(ignore_permissions=True)
+    amended.submit()
+
+    if was_last_entry:
+        frappe.db.set_value(
+            "Bucket QR Code", bucket_id, "last_stock_entry", amended.name, update_modified=False
+        )
+
+    amended_grading_name = None
+    if linked_grading_name and frappe.db.exists("Stock Entry", linked_grading_name):
+        grading_original = frappe.get_doc("Stock Entry", linked_grading_name)
+        if grading_original.docstatus == 1:
+            # Same problem, the other direction: `amended` (just created,
+            # submitted) still carries the OLD grading name in
+            # custom_grading_entry -- copy_doc copied it forward from
+            # `original` -- which would block cancelling the grading side.
+            frappe.db.set_value(
+                "Stock Entry", amended.name, "custom_grading_entry", None, update_modified=False
+            )
+
+            grading_original.cancel()
+
+            grading_amended = frappe.copy_doc(grading_original)
+            grading_amended.amended_from = grading_original.name
+            if grading_amended.items:
+                grading_amended.items[0].item_code = final_variety
+            grading_amended.custom_stem_length = final_stem_length
+            grading_amended.custom_harvest_entry = amended.name
+            grading_amended.insert(ignore_permissions=True)
+            grading_amended.submit()
+            amended_grading_name = grading_amended.name
+
+            # amended (harvest side) still points at the OLD grading entry --
+            # copy_doc carried that stale value forward from `original`.
+            frappe.db.set_value(
+                "Stock Entry", amended.name, "custom_grading_entry", amended_grading_name,
+                update_modified=False,
+            )
+        else:
+            # Orphaned link (grading side already cancelled some other way) --
+            # don't block the harvest-side fix over it, just surface that the
+            # grading entry wasn't touched.
+            frappe.log_error(
+                "amendHarvestEntry: linked Grading entry not in a submitted state",
+                f"harvest={amended.name} grading={linked_grading_name} docstatus={grading_original.docstatus}",
+            )
+
+    frappe.db.commit()
+
+    frappe.response["data"] = {
+        "stock_entry": amended.name,
+        "grading_entry": amended_grading_name,
+        "variety": final_variety,
+        "stem_length": final_stem_length,
+        "amended": True,
+    }
 
 
 @frappe.whitelist()
@@ -1067,53 +1389,75 @@ def productionHarvestReport():
     else:
         try:
             # Aggregate a given stock entry type (Harvesting / Receiving) for the
-            # date into farm -> variety -> stem_length totals. Both flows carry the
-            # same harvest-detail fields (custom_farm, custom_stem_length), so one
-            # helper serves both sections of the report.
-            def aggregate(entry_type):
-                se_filters = {"stock_entry_type": entry_type, "docstatus": 1, "posting_date": date}
-                if farm_filter:
-                    se_filters["custom_farm"] = farm_filter
-                entries = frappe.get_all("Stock Entry", filters=se_filters,
-                    fields=["name", "custom_farm", "custom_stem_length"])
-                meta = {}
-                for e in entries:
-                    meta[e.get("name")] = {
-                        "farm": e.get("custom_farm") or "Unspecified",
-                        "stem_length": e.get("custom_stem_length") or "Unspecified",
-                    }
-                rows = []
-                if meta:
-                    rows = frappe.get_all("Stock Entry Detail",
-                        filters={"parent": ["in", list(meta.keys())]},
-                        fields=["parent", "item_code", "qty"])
-                agg = {}
-                total = 0
-                for r in rows:
-                    info = meta.get(r.get("parent")) or {}
-                    farm = info.get("farm") or "Unspecified"
-                    variety = r.get("item_code") or "Unspecified"
-                    sl = info.get("stem_length") or "Unspecified"
-                    qty = int(r.get("qty") or 0)
-                    total = total + qty
-                    fbucket = agg.setdefault(farm, {})
-                    vbucket = fbucket.setdefault(variety, {})
-                    vbucket[sl] = vbucket.get(sl, 0) + qty
-                farms_out = []
-                for farm in sorted(agg.keys()):
+            # date into group -> variety -> stem_length totals, once each for
+            # farm and greenhouse grouping. Both flows carry the same
+            # harvest-detail fields (farm, custom_greenhouse, custom_stem_length),
+            # so one helper serves both sections of the report.
+            def build_groups(agg, group_key):
+                out = []
+                for group in sorted(agg.keys()):
                     varieties_out = []
-                    farm_stems = 0
-                    for variety in sorted(agg[farm].keys()):
-                        sl_map = agg[farm][variety]
+                    group_stems = 0
+                    for variety in sorted(agg[group].keys()):
+                        sl_map = agg[group][variety]
                         sl_out = []
                         variety_stems = 0
                         for sl in sorted(sl_map.keys()):
                             sl_out.append({"stem_length": sl, "stems": sl_map[sl]})
                             variety_stems = variety_stems + sl_map[sl]
                         varieties_out.append({"variety": variety, "stems": variety_stems, "stem_lengths": sl_out})
-                        farm_stems = farm_stems + variety_stems
-                    farms_out.append({"farm": farm, "stems": farm_stems, "varieties": varieties_out})
-                return {"total": total, "farms": farms_out}
+                        group_stems = group_stems + variety_stems
+                    out.append({group_key: group, "stems": group_stems, "varieties": varieties_out})
+                return out
+
+            def aggregate(entry_type):
+                se_filters = {"stock_entry_type": entry_type, "docstatus": 1, "posting_date": date}
+                if farm_filter:
+                    se_filters["farm"] = farm_filter
+                entries = frappe.get_all("Stock Entry", filters=se_filters,
+                    fields=["name", "farm", "custom_greenhouse", "custom_stem_length"])
+                meta = {}
+                for e in entries:
+                    meta[e.get("name")] = {
+                        # "farm" is the real accounting-dimension field the
+                        # harvest/grading/receiving flows actually set.
+                        # custom_farm is a legacy mirror that nothing in the
+                        # current mobile API populates -- filtering or
+                        # grouping on it silently finds nothing.
+                        "farm": e.get("farm") or "Unspecified",
+                        "greenhouse": e.get("custom_greenhouse") or "Unspecified",
+                        "stem_length": e.get("custom_stem_length") or "Unspecified",
+                    }
+                rows = []
+                if meta:
+                    rows = frappe.get_all("Stock Entry Detail",
+                        filters={"parent": ["in", list(meta.keys())]},
+                        fields=["parent", "item_code", "qty", "custom_stem_length"])
+                agg_farm = {}
+                agg_greenhouse = {}
+                total = 0
+                for r in rows:
+                    info = meta.get(r.get("parent")) or {}
+                    farm = info.get("farm") or "Unspecified"
+                    greenhouse = info.get("greenhouse") or "Unspecified"
+                    variety = r.get("item_code") or "Unspecified"
+                    # Prefer the child row's own length: Receiving entries
+                    # covering several lengths in one bucket-cycle carry the
+                    # real per-item length there (see createReceivingStockEntry),
+                    # with only the FIRST length on the parent as a legacy
+                    # summary. Harvesting entries never set it at child level,
+                    # so they fall back to the parent's.
+                    sl = r.get("custom_stem_length") or info.get("stem_length") or "Unspecified"
+                    qty = int(r.get("qty") or 0)
+                    total = total + qty
+                    for agg, group in ((agg_farm, farm), (agg_greenhouse, greenhouse)):
+                        vbucket = agg.setdefault(group, {}).setdefault(variety, {})
+                        vbucket[sl] = vbucket.get(sl, 0) + qty
+                return {
+                    "total": total,
+                    "farms": build_groups(agg_farm, "farm"),
+                    "greenhouses": build_groups(agg_greenhouse, "greenhouse"),
+                }
 
             harvested = aggregate("Harvesting")
             received = aggregate("Receiving")
@@ -1121,8 +1465,10 @@ def productionHarvestReport():
                 "date": date,
                 "total_stems": harvested["total"],
                 "farms": harvested["farms"],
+                "greenhouses": harvested["greenhouses"],
                 "received_total_stems": received["total"],
                 "received_farms": received["farms"],
+                "received_greenhouses": received["greenhouses"],
             }
         except Exception as e:
             frappe.log_error("productionHarvestReport error: " + str(e))
