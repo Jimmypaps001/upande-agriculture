@@ -18,31 +18,8 @@ DERIVED_FIELDS = (
 )
 
 
-def ensure_fiscal_year(year) -> None:
-    """A forecast can be opened for any year; not every year has a Fiscal
-    Year record waiting for it yet, so create the missing one rather than
-    block planning on unrelated Accounts setup.
-
-    Frappe checks Link integrity before a new document's own validate() runs,
-    so this has to be called explicitly, before insert() -- every place that
-    builds a Production Forecast programmatically does that. A doc created
-    from the desk UI doesn't need it: Frappe's own Link field already offers
-    "Create a New Fiscal Year" inline when one doesn't exist yet.
-    """
-    if not year:
-        return
-    year = str(year)
-    if frappe.db.exists("Fiscal Year", year):
-        return
-    frappe.get_doc({
-        "doctype": "Fiscal Year", "year": year,
-        "year_start_date": f"{year}-01-01", "year_end_date": f"{year}-12-31",
-    }).insert(ignore_permissions=True)
-
-
 class ProductionForecast(Document):
     def validate(self):
-        ensure_fiscal_year(self.forecast_year)
         self.check_window()
         self.sync_weeks()
         self.pull_actuals()

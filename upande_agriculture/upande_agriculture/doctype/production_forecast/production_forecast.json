@@ -62,9 +62,8 @@
   },
   {
    "fieldname": "forecast_year",
-   "fieldtype": "Link",
-   "label": "Fiscal Year",
-   "options": "Fiscal Year",
+   "fieldtype": "Int",
+   "label": "Forecast Year",
    "reqd": 1,
    "in_list_view": 1
   },
