@@ -254,13 +254,8 @@ def revise_forecast(greenhouse: str, variety: str, year: int,
     Nothing is overwritten: the previous revision flips to Superseded and stays
     readable, so forecast accuracy can be scored by horizon later.
     """
-    from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
-        ensure_fiscal_year,
-    )
-
     year, start_week = int(year), int(start_week)
     window_weeks = int(window_weeks or 6)
-    ensure_fiscal_year(year)
 
     current = frappe.db.get_value("Production Forecast", {
         "greenhouse": greenhouse, "variety": variety,

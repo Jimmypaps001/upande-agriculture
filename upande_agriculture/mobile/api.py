@@ -1226,10 +1226,6 @@ def getProductionProjection():
         window = lastweek - startweek + 1
         if window < 1:
             window = 1
-        from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
-            ensure_fiscal_year,
-        )
-        ensure_fiscal_year(year)
         fdoc = frappe.new_doc("Production Forecast")
         fdoc.greenhouse = greenhouse
         fdoc.variety = variety

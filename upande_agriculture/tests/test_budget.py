@@ -114,10 +114,6 @@ class TestForecastRevisions(FrappeTestCase):
     VARIETY = "TEST-BUDGET-VARIETY"
 
     def setUp(self):
-        from upande_agriculture.upande_agriculture.doctype.production_forecast.production_forecast import (
-            ensure_fiscal_year,
-        )
-
         self.house = make_warehouse(self.HOUSE)
         if not frappe.db.exists("Item", self.VARIETY):
             frappe.get_doc({
@@ -126,7 +122,6 @@ class TestForecastRevisions(FrappeTestCase):
                 "stock_uom": default_uom(),
             }).insert(ignore_permissions=True, ignore_mandatory=True)
         frappe.db.delete("Production Forecast", {"greenhouse": self.house})
-        ensure_fiscal_year(2028)
 
     def _budget(self):
         """A real budget so forecast rows have something to pull."""
@@ -290,6 +285,25 @@ class TestForecastRevisions(FrappeTestCase):
                 "variety": self.VARIETY, "forecast_year": 2028,
                 "start_week": 10, "window_weeks": 60, "status": "Active",
             }).insert(ignore_permissions=True)
+
+    def test_saves_for_a_year_with_no_fiscal_year_record(self):
+        """Regression: forecast_year used to be a Link to Fiscal Year, so
+        Frappe's link-integrity check (which runs before any controller
+        hook fires -- before_insert included) rejected every forecast for a
+        year nobody had created a Fiscal Year record for yet. Forecasting is
+        inherently forward-looking, so this broke on exactly the years the
+        tool exists for. forecast_year is a plain Int now; a year with no
+        matching Fiscal Year must save cleanly and never create one as a
+        side effect."""
+        year = 2099
+        self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": year,
+            "start_week": 1, "window_weeks": 4, "status": "Active",
+        }).insert(ignore_permissions=True)
+        self.assertEqual(doc.forecast_year, year)
+        self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
 
     def test_first_revision_starts_at_one(self):
         r = budget.revise_forecast(self.house, self.VARIETY, 2028, start_week=10)
