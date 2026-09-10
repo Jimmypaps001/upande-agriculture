@@ -1728,6 +1728,100 @@ def productionHarvestReport():
 
 
 @frappe.whitelist()
+def productionGreenhouseVarietyBreakdown():
+    # Per-variety harvested/received for one greenhouse on one date, plus
+    # bucket-level "missing" detail (harvested but not yet received) for the
+    # mobile dashboard's expand-to-drill-down + hold-to-find-missing-buckets
+    # feature. Mirrors the variety/bucket logic already used for the
+    # dashboard's unreceived-buckets rollup, scoped down to a single
+    # greenhouse instead of aggregated across the whole farm.
+    data = frappe.request.get_json() or {}
+    greenhouse = (data.get("greenhouse") or "").strip()
+    date = (data.get("date") or "").strip() or frappe.utils.today()
+    if not greenhouse:
+        frappe.response["data"] = {"error": "greenhouse is required."}
+        return
+    try:
+        entries = frappe.get_all("Stock Entry",
+            filters={
+                "custom_greenhouse": greenhouse,
+                "posting_date": date,
+                "docstatus": 1,
+                "stock_entry_type": ["in", ["Harvesting", "Receiving"]],
+            },
+            fields=["name", "stock_entry_type", "custom_bucket_id", "creation"])
+
+        if not entries:
+            frappe.response["data"] = {"date": date, "greenhouse": greenhouse, "varieties": []}
+            return
+
+        meta = {e.name: e for e in entries}
+        rows = frappe.get_all("Stock Entry Detail",
+            filters={"parent": ["in", list(meta.keys())]},
+            fields=["parent", "item_code", "qty"])
+
+        variety_totals = {}
+        bucket_totals = {}
+        for r in rows:
+            info = meta.get(r.parent)
+            if not info:
+                continue
+            variety = r.item_code or "Unspecified"
+            qty = int(r.qty or 0)
+            is_harvest = info.stock_entry_type == "Harvesting"
+
+            v = variety_totals.setdefault(variety, {"variety": variety, "harvested": 0, "received": 0})
+            v["harvested" if is_harvest else "received"] += qty
+
+            bucket = (info.custom_bucket_id or "").strip().upper()
+            if bucket:
+                bkey = (variety, bucket)
+                b = bucket_totals.setdefault(bkey, {
+                    "variety": variety, "bucket_id": bucket,
+                    "harvested_qty": 0, "received_qty": 0, "last_harvest_creation": None,
+                })
+                if is_harvest:
+                    b["harvested_qty"] += qty
+                    if not b["last_harvest_creation"] or info.creation > b["last_harvest_creation"]:
+                        b["last_harvest_creation"] = info.creation
+                else:
+                    b["received_qty"] += qty
+
+        now = frappe.utils.now_datetime()
+        missing_by_variety = {}
+        for (variety, bucket), b in bucket_totals.items():
+            variance = b["harvested_qty"] - b["received_qty"]
+            if variance <= 0:
+                continue
+            aging_minutes = 0
+            if b["last_harvest_creation"]:
+                aging_minutes = int((now - frappe.utils.get_datetime(b["last_harvest_creation"])).total_seconds() / 60)
+            missing_by_variety.setdefault(variety, []).append({
+                "bucket_id": bucket,
+                "harvested_qty": b["harvested_qty"],
+                "received_qty": b["received_qty"],
+                "variance": variance,
+                "aging_minutes": aging_minutes,
+            })
+
+        varieties_out = []
+        for v in sorted(variety_totals.values(), key=lambda x: x["harvested"], reverse=True):
+            missing = sorted(missing_by_variety.get(v["variety"], []), key=lambda b: b["aging_minutes"], reverse=True)
+            varieties_out.append({
+                "variety": v["variety"],
+                "harvested": v["harvested"],
+                "received": v["received"],
+                "variance": v["harvested"] - v["received"],
+                "missing_buckets": missing,
+            })
+
+        frappe.response["data"] = {"date": date, "greenhouse": greenhouse, "varieties": varieties_out}
+    except Exception as e:
+        frappe.log_error("productionGreenhouseVarietyBreakdown error: " + str(e))
+        frappe.response["data"] = {"error": str(e)}
+
+
+@frappe.whitelist()
 def productionListCropCycles():
     data = frappe.request.get_json() or {}
     greenhouse = (data.get('greenhouse') or '').strip()
