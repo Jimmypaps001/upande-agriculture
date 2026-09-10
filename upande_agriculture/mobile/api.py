@@ -773,11 +773,11 @@ def getBucketStatus():
     "Latest journey" = every Harvesting entry sharing the same fate:
       - if the most recent Harvesting entry is still unclaimed, the journey
         is every unclaimed entry from Bucket QR Code.current_journey_start
-        onward (mirrors createReceivingStockEntry's own scoping -- exactly
-        what a receive would pick up right now). An EARLIER, abandoned
-        journey's leftover unclaimed entries must never be included -- those
-        stems were simply never received, and the bucket has since moved on
-        to a new journey, so they are not sitting in it any more;
+        onward, when that marker exists (mirrors createReceivingStockEntry's
+        own scoping -- exactly what a receive would pick up right now).
+        When it doesn't exist, this is just the single latest entry -- never
+        a guessed aggregate of whatever else happens to share this
+        bucket_id, since bucket ids are not farm-scoped and can collide;
       - if it's already been received, the journey is every Harvesting
         entry that was linked to that SAME Receiving entry, and the
         response says so explicitly (received=True, plus when).
@@ -805,7 +805,7 @@ def getBucketStatus():
         "Stock Entry",
         filters={"custom_bucket_id": bucket_id, "stock_entry_type": "Harvesting", "docstatus": 1},
         fields=[
-            "name", "custom_greenhouse", "custom_stem_length", "creation", "custom_receiving_entry",
+            "name", "farm", "custom_greenhouse", "custom_stem_length", "creation", "custom_receiving_entry",
             "custom_cut_stage", "custom_harvester",
         ],
         order_by="creation desc",
@@ -821,13 +821,22 @@ def getBucketStatus():
     if latest_receiving_entry:
         journey = [h for h in harvests if h.get("custom_receiving_entry") == latest_receiving_entry]
     else:
-        # Unclaimed -- scope to the CURRENT journey only, via the marker
-        # current_journey_start (set on every harvest that starts a fresh
-        # journey; see createHarvestStockEntry / createGradingStockEntry).
-        # Falls back to "every unclaimed entry" only when no marker was ever
-        # recorded (a bucket whose current journey started before this field
-        # existed) -- not a deliberate design choice, just the honest state
-        # of pre-existing data.
+        # Latest only -- never guess a journey boundary by aggregating
+        # historical "unclaimed" entries. That invented aggregation (not
+        # something asked for) is what actually caused a real 2026-09-09
+        # incident: bucket "e36be6" had unclaimed Harvesting entries at FOUR
+        # different farms spanning six weeks (a bucket_id collision seeded
+        # by a migration/backfill run), and aggregating "every unclaimed
+        # entry" merged all of it into one Receiving entry.
+        #
+        # Scope to the CURRENT journey via the marker current_journey_start
+        # (set on every harvest that starts a fresh journey; see
+        # createHarvestStockEntry / createGradingStockEntry) when it's
+        # there -- several spray grading scans can legitimately share one
+        # real session. When it's not there (a bucket whose journey started
+        # before this field existed, or any other gap), don't fall back to
+        # scanning history at all: show just the single latest Harvesting
+        # entry, same as createReceivingStockEntry now does.
         journey_start = frappe.db.get_value("Bucket QR Code", bucket_id, "current_journey_start")
         start_creation = frappe.db.get_value("Stock Entry", journey_start, "creation") if journey_start else None
         if start_creation:
@@ -836,7 +845,7 @@ def getBucketStatus():
                 if not h.get("custom_receiving_entry") and h.get("creation") >= start_creation
             ]
         else:
-            journey = [h for h in harvests if not h.get("custom_receiving_entry")]
+            journey = [harvests[0]]
 
     received_at = None
     if latest_receiving_entry:
