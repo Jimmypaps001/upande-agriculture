@@ -146,6 +146,14 @@ body.sb-collapsed{--sbw:64px}
   padding:11px 20px;border-radius:6px;cursor:pointer;box-shadow:0 4px 14px rgba(10,10,10,.2);white-space:nowrap}
 .btn--ghost{background:var(--surface-2);color:var(--ink);box-shadow:var(--shadow-card)}
 
+/* The Dashboard view used to have zero controls of its own -- Source could
+   only be switched from the Forecast toolbar, so Dashboard silently showed
+   whatever was last picked there with no way to tell or change it here. */
+.dfilters{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.dfilters__lbl{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--ink-mute)}
+.dfilters__seg{display:flex;gap:1px;background:var(--surface-2);border-radius:6px;
+  box-shadow:var(--shadow-card);padding:3px}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;
   margin-bottom:14px}
 /* The accent survives on the trend dot; the tiles themselves stay plain. */
@@ -1245,6 +1253,13 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
   </div>
 
   <div class="view" id="v-dashboard">
+    <div class="dfilters">
+      <span class="dfilters__lbl">Source</span>
+      <div class="dfilters__seg">
+        <button class="tbtn on" data-src="manual" data-tip="Manual — Production Budget, typed by hand on Production Forecast"><b>M</b></button>
+        <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+      </div>
+    </div>
     <div class="kpi-grid" id="kpis"></div>
     <div class="card" id="dash-detail"></div>
   </div>
