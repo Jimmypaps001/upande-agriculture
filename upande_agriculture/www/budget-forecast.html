@@ -1726,18 +1726,24 @@ function drawDash() {
   </div>`;
 
   // ── variety mix ───────────────────────────────────────────────────
+  // A variety with no budget entered yet isn't "0% of the mix" -- it isn't
+  // in the mix. Listing it alongside real numbers as a dead 0% row was the
+  // actual complaint: most of the card was noise, not information. Split
+  // into what's actually budgeted (the card) and what isn't (one footnote).
   const byVar = {};
   blocks.forEach(b => {
     const v = byVar[b.variety] || (byVar[b.variety] = { stems: 0, area: 0, houses: new Set() });
     v.stems += b.budget_total || 0; v.area += b.area || 0; v.houses.add(b.greenhouse);
   });
-  const vars = Object.entries(byVar).sort((a, b) => b[1].stems - a[1].stems);
+  const allVars = Object.entries(byVar).sort((a, b) => b[1].stems - a[1].stems);
+  const vars = allVars.filter(([, v]) => v.stems > 0);
+  const noVars = allVars.filter(([, v]) => v.stems <= 0);
   const vTotal = vars.reduce((t, [, v]) => t + v.stems, 0) || 1;
 
   const mix = `<div class="dcard">
     <div class="dcard__h"><h4>Variety mix</h4><span class="grow"></span>
-      <span class="dcard__n">${vars.length} varieties</span></div>
-    <div class="dbar">${vars.map(([name, v]) =>
+      <span class="dcard__n">${vars.length} of ${allVars.length} varieties budgeted</span></div>
+    ${vars.length ? `<div class="dbar">${vars.map(([name, v]) =>
       `<i style="flex:${v.stems};background:${vgrad(name)}" title="${esc(name)} · ${
         fmtMU(v.stems)}"></i>`).join("")}</div>
     <div class="dlist">${vars.map(([name, v]) => `<div class="drow">
@@ -1746,30 +1752,38 @@ function drawDash() {
       <span>${v.houses.size} house${v.houses.size === 1 ? "" : "s"} · ${
         fmt(Math.round(v.area))} m²</span>
       <u>${Math.round(v.stems / vTotal * 100)}%</u>
-      <em>${fmtMU(v.stems)}</em></div>`).join("")}</div>
+      <em>${fmtMU(v.stems)}</em></div>`).join("")}</div>`
+      : `<div class="hnone">No variety has a crop-year budget yet.</div>`}
+    ${noVars.length ? `<div class="rankfoot">Not yet budgeted: ${
+      noVars.map(([name]) => esc(name)).join(", ")}</div>` : ""}
   </div>`;
 
   // ── greenhouses, stacked by what is planted in them ───────────────
   const byHouse = {};
   blocks.forEach(b => (byHouse[b.greenhouse] || (byHouse[b.greenhouse] = [])).push(b));
-  const houses = Object.entries(byHouse)
+  const allHouses = Object.entries(byHouse)
     .map(([h, bs]) => ({ h, bs, total: bs.reduce((t, b) => t + (b.budget_total || 0), 0) }))
     .sort((a, b) => b.total - a.total);
+  const houses = allHouses.filter(h => h.total > 0);
+  const noHouses = allHouses.filter(h => h.total <= 0);
   const hMax = Math.max(1, ...houses.map(h => h.total));
 
   const ghs = `<div class="dcard dcard--wide">
     <div class="dcard__h"><h4>Greenhouses</h4><span class="grow"></span>
-      <span class="dcard__n">annual budget, split by variety</span></div>
-    <div class="dhouses">${houses.map(g => `<div class="dh">
+      <span class="dcard__n">${houses.length} of ${allHouses.length} budgeted, split by variety</span></div>
+    ${houses.length ? `<div class="dhouses">${houses.map(g => `<div class="dh">
       <span class="dh__n">${esc(house(g.h))}</span>
       <span class="dh__t" style="width:${(g.total / hMax * 100).toFixed(1)}%">
-        ${g.bs.sort((a, b) => b.budget_total - a.budget_total).map(b =>
-          `<i style="flex:${b.budget_total || 1};background:${vgrad(b.variety)}"
+        ${g.bs.filter(b => b.budget_total > 0).sort((a, b) => b.budget_total - a.budget_total).map(b =>
+          `<i style="flex:${b.budget_total};background:${vgrad(b.variety)}"
              title="${esc(b.variety)} · ${fmtMU(b.budget_total)}"></i>`).join("")}
       </span>
       <span class="dh__v">${fmtMU(g.total)}</span>
       <span class="dh__m">${g.bs.length} block${g.bs.length === 1 ? "" : "s"}</span>
-    </div>`).join("")}</div>
+    </div>`).join("")}</div>`
+      : `<div class="hnone">No greenhouse has a crop-year budget yet.</div>`}
+    ${noHouses.length ? `<div class="rankfoot">Not yet budgeted: ${
+      noHouses.map(g => esc(house(g.h))).join(", ")}</div>` : ""}
   </div>`;
 
   // ── where the stems land by length ────────────────────────────────
