@@ -127,7 +127,11 @@ body.sb-collapsed{--sbw:64px}
 .pagehead__eyebrow{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:2px;
   color:var(--ink-mute);margin-bottom:5px;display:inline-flex;align-items:center;gap:10px}
 .pagehead__eyebrow::before{content:"";width:18px;height:1px;background:var(--ink-3)}
-.pagehead__title{font:600 27px/1.05 var(--sans);color:var(--ink);letter-spacing:-.9px;margin:0}
+/* Fraunces is already loaded (see the font <link> above) for exactly this --
+   the page title never actually used it, so nothing on the page carried the
+   editorial/serif character that makes the avocado page's headline read as
+   considered rather than just another sans-serif SaaS label. */
+.pagehead__title{font:600 27px/1.05 var(--display);color:var(--ink);letter-spacing:-.6px;margin:0}
 .pagehead__tools{display:flex;gap:10px;align-items:center;flex:none}
 .pillgroup{display:inline-flex;background:rgba(10,10,10,0.05);border-radius:6px;padding:4px;gap:2px}
 .pillgroup button{border:0;background:transparent;font:500 12px var(--sans);color:var(--ink-4);
@@ -149,6 +153,14 @@ body.sb-collapsed{--sbw:64px}
 /* The Dashboard view used to have zero controls of its own -- Source could
    only be switched from the Forecast toolbar, so Dashboard silently showed
    whatever was last picked there with no way to tell or change it here. */
+/* The grid view is deliberately "Excel-shaped" -- full-bleed, no max-width,
+   because it's a spreadsheet that wants every pixel for cells. Dashboard is
+   a report, not a spreadsheet, but was inheriting that same edge-to-edge
+   shape from .page, so KPI tiles and charts stretched the full width of a
+   wide monitor instead of reading like avocado's centered report layout.
+   Constrain just this view's content instead of changing .page itself,
+   which the grid still needs full-bleed. */
+.dwrap{max-width:1120px;margin:0 auto}
 .dfilters{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .dfilters__lbl{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.2px;
   color:var(--ink-mute)}
@@ -1253,15 +1265,17 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
   </div>
 
   <div class="view" id="v-dashboard">
-    <div class="dfilters">
-      <span class="dfilters__lbl">Source</span>
-      <div class="dfilters__seg">
-        <button class="tbtn on" data-src="manual" data-tip="Manual — Production Budget, typed by hand on Production Forecast"><b>M</b></button>
-        <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+    <div class="dwrap">
+      <div class="dfilters">
+        <span class="dfilters__lbl">Source</span>
+        <div class="dfilters__seg">
+          <button class="tbtn on" data-src="manual" data-tip="Manual — Production Budget, typed by hand on Production Forecast"><b>M</b></button>
+          <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+        </div>
       </div>
+      <div class="kpi-grid" id="kpis"></div>
+      <div class="card" id="dash-detail"></div>
     </div>
-    <div class="kpi-grid" id="kpis"></div>
-    <div class="card" id="dash-detail"></div>
   </div>
 
   <div class="view on" id="v-grid">
