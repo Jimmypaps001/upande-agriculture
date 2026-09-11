@@ -238,7 +238,7 @@ body.sb-collapsed{--sbw:64px}
 .rank .rk-v{font:500 11px var(--grid);fill:var(--ink);text-anchor:end;
   font-variant-numeric:tabular-nums}
 .rank .rk-t{fill:var(--bg)}
-.rank .rk-b{fill:var(--signal)}
+.rank .rk-b{fill:url(#rkg)}
 .rankfoot{font:400 10px var(--meta);color:var(--ink-faint);margin-top:8px}
 @media (max-width:1180px){.dgrid{grid-template-columns:1fr}}
 /* Corrected back to the Upande dashboard spec (see ufd-modern-*.html): large
@@ -1499,6 +1499,16 @@ function vcol(v) {
 function seedColours(blocks) {
   [...new Set(blocks.map(b => b.variety))].sort().forEach(vcol);
 }
+// A flat #hex reads flat. Dashboard bars (variety mix, greenhouse split)
+// get a two-stop gradient toward a lighter tint of the same colour instead --
+// matching the gradient fills used everywhere in the reference designs,
+// without inventing a second palette.
+function vgrad(v) {
+  const c = vcol(v), n = parseInt(c.slice(1), 16);
+  const mix = (c8, amt) => Math.round(c8 + (255 - c8) * amt);
+  const t = `rgb(${mix(n >> 16 & 255, .4)},${mix(n >> 8 & 255, .4)},${mix(n & 255, .4)})`;
+  return `linear-gradient(90deg,${c},${t})`;
+}
 
 function drawKpis() {
   const s = STATE;
@@ -1550,7 +1560,7 @@ function drawKpis() {
       (26 - v / hi * 22).toFixed(1)}`).join(" ");
     return `<svg class="kspark" viewBox="0 0 100 28" preserveAspectRatio="none">
       <polyline points="${pts}" fill="none" stroke="${colour}" stroke-width="1.6"
-        stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
   };
 
   const K = [
@@ -1624,6 +1634,9 @@ function rankBars(items) {
   const W = 720, H = 21, LAB = 260, VAL = 120, track = W - LAB - VAL;
   const max = Math.max(1, ...items.map(i => i.value));
   return `<svg class="rank" viewBox="0 0 ${W} ${items.length * H}" role="img">` +
+    `<defs><linearGradient id="rkg" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="var(--rose-600)"/>
+      <stop offset="100%" stop-color="var(--rose-300)"/></linearGradient></defs>` +
     items.map((it, i) => {
       const y = i * H, w = it.value > 0 ? Math.max(it.value / max * track, 2) : 0;
       const lab = it.label.length > 36 ? it.label.slice(0, 35) + "…" : it.label;
@@ -1725,7 +1738,7 @@ function drawDash() {
     <div class="dcard__h"><h4>Variety mix</h4><span class="grow"></span>
       <span class="dcard__n">${vars.length} varieties</span></div>
     <div class="dbar">${vars.map(([name, v]) =>
-      `<i style="flex:${v.stems};background:${vcol(name)}" title="${esc(name)} · ${
+      `<i style="flex:${v.stems};background:${vgrad(name)}" title="${esc(name)} · ${
         fmtMU(v.stems)}"></i>`).join("")}</div>
     <div class="dlist">${vars.map(([name, v]) => `<div class="drow">
       <i style="background:${vcol(name)}"></i>
@@ -1751,7 +1764,7 @@ function drawDash() {
       <span class="dh__n">${esc(house(g.h))}</span>
       <span class="dh__t" style="width:${(g.total / hMax * 100).toFixed(1)}%">
         ${g.bs.sort((a, b) => b.budget_total - a.budget_total).map(b =>
-          `<i style="flex:${b.budget_total || 1};background:${vcol(b.variety)}"
+          `<i style="flex:${b.budget_total || 1};background:${vgrad(b.variety)}"
              title="${esc(b.variety)} · ${fmtMU(b.budget_total)}"></i>`).join("")}
       </span>
       <span class="dh__v">${fmtMU(g.total)}</span>
