@@ -162,12 +162,13 @@ body.sb-collapsed{--sbw:64px}
    which the grid still needs full-bleed. */
 .dwrap{max-width:1120px;margin:0 auto}
 .dfilters{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-.dfilters__lbl{font:500 11px var(--sans);color:var(--ink-4)}
-.dfilters__seg{display:flex;gap:1px;background:var(--surface-2);border-radius:6px;
+.dfilters__lbl{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.4px;
+  color:var(--ink-mute)}
+.dfilters__seg{display:flex;gap:1px;background:var(--surface-2);border-radius:999px;
   box-shadow:var(--shadow-card);padding:3px}
+.dfilters__seg .tbtn{border-radius:999px}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;
   margin-bottom:14px}
-/* The accent survives on the trend dot; the tiles themselves stay plain. */
 .kpi{position:relative;overflow:hidden}
 .kpi__trend i{background:var(--acc)!important}
 .kspark{position:absolute;right:0;bottom:0;width:56%;height:30px;opacity:.5;
@@ -175,8 +176,8 @@ body.sb-collapsed{--sbw:64px}
 
 /* ── Dashboard ──────────────────────────────────────────────────── */
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.dcard{background:var(--surface-2);border-radius:6px;box-shadow:var(--shadow-card);
-  padding:15px 17px 16px;min-width:0}
+.dcard{background:var(--surface-2);border-radius:18px;box-shadow:var(--shadow-card);
+  padding:20px 22px 20px;min-width:0}
 .dcard--wide{grid-column:1 / -1}
 .dcard__h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .dcard__h h4{margin:0;font:600 12.5px var(--sans);color:var(--ink);letter-spacing:-.1px}
@@ -235,20 +236,23 @@ body.sb-collapsed{--sbw:64px}
 .rank .rk-b{fill:var(--signal)}
 .rankfoot{font:400 10px var(--meta);color:var(--ink-faint);margin-top:8px}
 @media (max-width:1180px){.dgrid{grid-template-columns:1fr}}
-/* Dashboard KPIs are page-level headline numbers, not another rounded tile
-   in a stack of identical rounded tiles -- so they don't get the .dcard
-   treatment (surface + radius + shadow). A single hairline underline carries
-   the accent instead; the numbers themselves do the work. Scoped to
-   .kpi-grid -- ".kpi" alone is also the class on the map view's header
-   stat pills (#v-map .kpi), which must keep their own plain look. */
-.kpi-grid .kpi{position:relative;padding:4px 0 14px;border-bottom:2px solid var(--acc);cursor:pointer}
-.kpi-grid .kpi:hover .kpi__value{color:var(--acc)}
-.kpi__label{font:500 12px var(--sans);color:var(--ink-4);margin-bottom:10px}
-.kpi__value{font:600 40px/1 var(--display);color:var(--ink);letter-spacing:-1px;
-  font-feature-settings:"tnum";transition:color .15s}
+/* Corrected back to the Upande dashboard spec (see ufd-modern-*.html): large
+   radius, generous padding, uppercase tracked label, shadow-card + hover
+   lift. An earlier pass here flattened these as a "generic SaaS card" tell,
+   but this exact chrome is this suite's own established KPI component --
+   the same on Mona, Coffee, Avocado and Livestock. Scoped to .kpi-grid
+   because ".kpi" is also the class on the map view's plain header stat
+   pills (#v-map .kpi), which keep their own look. */
+.kpi-grid .kpi{background:var(--surface-2);border-radius:20px;padding:28px 30px;
+  box-shadow:var(--shadow-card);transition:all .25s;position:relative;overflow:hidden;cursor:pointer}
+.kpi-grid .kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+.kpi__label{font:500 11px var(--sans);text-transform:uppercase;letter-spacing:1.8px;
+  color:var(--ink-mute);margin-bottom:14px}
+.kpi__value{font:600 40px/1 var(--display);color:var(--ink);letter-spacing:-1.3px;
+  font-feature-settings:"tnum"}
 .kpi__value i{font:400 13px var(--sans);color:var(--ink-mute);font-style:normal;margin-left:6px}
-.kpi__trend{margin-top:12px;display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--sans);
-  color:var(--ink-4)}
+.kpi__trend{margin-top:14px;display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--sans);
+  padding:5px 12px;border-radius:999px;background:rgba(10,10,10,0.035);color:var(--ink-4)}
 .kpi__trend i{width:6px;height:6px;border-radius:99px;flex:none}
 
 .card{background:var(--surface-2);border-radius:6px;box-shadow:var(--shadow-card);
