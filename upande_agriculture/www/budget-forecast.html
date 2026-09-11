@@ -1392,7 +1392,14 @@ function toast(msg) {
 function load() {
   // Come back to the window you were last looking at, with the data to match —
   // relabelling the columns client-side used to leave the old values in place.
-  const r = PREFS.range;
+  let r = PREFS.range;
+  // Self-heal a range saved before the span cap existed (or however else a
+  // stray 200+ week span got in) instead of loading it forever on every
+  // visit until someone notices and manually reopens the picker.
+  if (r && r.sw && r.ew) {
+    const spanWeeks = (r.ey - r.sy) * 53 + (r.ew - r.sw) + 1;
+    if (spanWeeks > 106) { r = PREFS.range = null; savePrefs(); }
+  }
   const args = r && r.sw && r.ew
     ? { start_year: r.sy, start_week: r.sw, end_year: r.ey, end_week: r.ew } : {};
   args.mode = PREFS.src || "manual";
@@ -2749,6 +2756,16 @@ function openRangePicker() {
     if ([r2.sy, r2.sw, r2.ey, r2.ew].some(isNaN)) return;
     if (r2.ey < r2.sy || (r2.ey === r2.sy && r2.ew < r2.sw)) {
       toast("End week is before the start week");
+      return;
+    }
+    // The year pickers span 9 years with nothing else stopping a stray
+    // click from producing a 200+ week range — every column becomes a grid
+    // column, so an unbounded span doesn't just look odd, it makes the
+    // whole page heavy and next to unreadable. 2 years is generous for a
+    // deliberate multi-year overview and still nowhere near this.
+    const spanWeeks = (r2.ey - r2.sy) * 53 + (r2.ew - r2.sw) + 1;
+    if (spanWeeks > 106) {
+      toast(`That's ${spanWeeks} weeks — pick a span of 2 years (106 weeks) or less`);
       return;
     }
     closePop();
