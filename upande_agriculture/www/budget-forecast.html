@@ -1569,12 +1569,15 @@ function drawFoot() {
 // Ranked bars, biggest first, drawn against the biggest. Inline SVG so it
 // needs no library; the viewBox is 720 wide and CSS scales it to the card.
 function rankBars(items) {
-  const W = 720, H = 21, LAB = 168, VAL = 150, track = W - LAB - VAL;
+  // LAB/trunc widened from avocado's original (168px / 24 chars) -- that fit
+  // avocado's plain block names, but "Greenhouse · Variety" labels here run
+  // longer and were getting cut off mid-word ("Chepsito GH 08 · Firewo…").
+  const W = 720, H = 21, LAB = 260, VAL = 120, track = W - LAB - VAL;
   const max = Math.max(1, ...items.map(i => i.value));
   return `<svg class="rank" viewBox="0 0 ${W} ${items.length * H}" role="img">` +
     items.map((it, i) => {
       const y = i * H, w = it.value > 0 ? Math.max(it.value / max * track, 2) : 0;
-      const lab = it.label.length > 24 ? it.label.slice(0, 23) + "…" : it.label;
+      const lab = it.label.length > 36 ? it.label.slice(0, 35) + "…" : it.label;
       return `<text class="rk-l" x="0" y="${y + 14}"><title>${esc(it.label)}</title>${esc(lab)}</text>` +
         `<rect class="rk-t" x="${LAB}" y="${y + 5}" width="${track}" height="9" rx="4.5"/>` +
         (w ? `<rect class="rk-b" x="${LAB}" y="${y + 5}" width="${w.toFixed(1)}" height="9" rx="4.5"/>` : "") +
