@@ -206,6 +206,15 @@ body.sb-collapsed{--sbw:64px}
 .dg__b i{display:block;height:100%;border-radius:5px;
   background:linear-gradient(90deg,#3a6ea8,#2f8f8a)}
 .dg__p{width:34px;text-align:right;flex:none;font:600 10.5px var(--grid);color:var(--ink-3)}
+/* Ranked bars — biggest block first, one glance says which blocks carry the
+   budget. Inline SVG, no chart library, scales with the card. */
+.rank{display:block;width:100%;height:auto;max-width:100%}
+.rank .rk-l{font:500 11px var(--sans);fill:var(--ink-2)}
+.rank .rk-v{font:500 11px var(--grid);fill:var(--ink);text-anchor:end;
+  font-variant-numeric:tabular-nums}
+.rank .rk-t{fill:var(--bg)}
+.rank .rk-b{fill:var(--signal)}
+.rankfoot{font:400 10px var(--meta);color:var(--ink-faint);margin-top:8px}
 @media (max-width:1180px){.dgrid{grid-template-columns:1fr}}
 .kpi{background:var(--surface-2);border-radius:6px;padding:24px 26px;box-shadow:var(--shadow-card);
   transition:all .25s;cursor:pointer}
@@ -845,7 +854,12 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
   padding:0 3px;border-radius:3px;background:var(--neg);color:#fff;margin-left:3px;
   text-shadow:none;vertical-align:middle}
 #v-map #legend{left:14px;bottom:14px;padding:9px 12px;display:flex;
-  flex-wrap:wrap;gap:5px 14px;max-width:420px;transition:left .18s ease}
+  flex-wrap:wrap;align-content:flex-start;gap:5px 14px;max-width:420px;
+  /* A farm with 20+ varieties used to push this open-ended, upward from the
+     bottom anchor, until it covered half the map. Cap it and let the
+     overflow scroll instead of growing past a reasonable share of the view. */
+  max-height:min(280px,40vh);overflow-y:auto;overscroll-behavior:contain;
+  transition:left .18s ease}
 
 #v-map #detail.on ~ #legend,
 #v-map #detail.on ~ #mapcap{display:none}
@@ -1552,6 +1566,22 @@ function drawFoot() {
 }
 
 // Dashboard view — the cards live here now, not over the grid.
+// Ranked bars, biggest first, drawn against the biggest. Inline SVG so it
+// needs no library; the viewBox is 720 wide and CSS scales it to the card.
+function rankBars(items) {
+  const W = 720, H = 21, LAB = 168, VAL = 150, track = W - LAB - VAL;
+  const max = Math.max(1, ...items.map(i => i.value));
+  return `<svg class="rank" viewBox="0 0 ${W} ${items.length * H}" role="img">` +
+    items.map((it, i) => {
+      const y = i * H, w = it.value > 0 ? Math.max(it.value / max * track, 2) : 0;
+      const lab = it.label.length > 24 ? it.label.slice(0, 23) + "…" : it.label;
+      return `<text class="rk-l" x="0" y="${y + 14}"><title>${esc(it.label)}</title>${esc(lab)}</text>` +
+        `<rect class="rk-t" x="${LAB}" y="${y + 5}" width="${track}" height="9" rx="4.5"/>` +
+        (w ? `<rect class="rk-b" x="${LAB}" y="${y + 5}" width="${w.toFixed(1)}" height="9" rx="4.5"/>` : "") +
+        `<text class="rk-v" x="${W}" y="${y + 14}">${esc(it.note)}</text>`;
+    }).join("") + "</svg>";
+}
+
 function drawDash() {
   if (!DASH) return;
   const s = STATE, { blocks, M, bud, act, hasAct, nowIdx, actCmp } = DASH;
@@ -1683,7 +1713,23 @@ function drawDash() {
     </div>`).join("") || `<div class="hnone">No grade mix on these protocols.</div>`}</div>
   </div>`;
 
-  $("#dash-detail").innerHTML = `<div class="dgrid">${curve}${mix}${ghs}${grade}</div>`;
+  // ── top blocks by crop-year budget, biggest first ─────────────────
+  const ranked = blocks.filter(b => (b.budget_total || 0) > 0)
+    .sort((a, b) => b.budget_total - a.budget_total);
+  const topN = ranked.slice(0, 12);
+  const topBlocks = `<div class="dcard dcard--wide">
+    <div class="dcard__h"><h4>Top blocks</h4><span class="grow"></span>
+      <span class="dcard__n">by crop-year budget</span></div>
+    ${topN.length ? rankBars(topN.map(b => ({
+        label: `${house(b.greenhouse)} · ${b.variety}`,
+        value: b.budget_total,
+        note: `${fmtMU(b.budget_total)} · ${Math.round(b.area || 0)} m²`,
+      }))) + (ranked.length > 12
+        ? `<div class="rankfoot">Top 12 of ${ranked.length} budgeted blocks</div>` : "")
+      : `<div class="hnone">No block carries a crop-year budget yet.</div>`}
+  </div>`;
+
+  $("#dash-detail").innerHTML = `<div class="dgrid">${curve}${mix}${topBlocks}${ghs}${grade}</div>`;
 }
 
 // ── Weekly Plan ───────────────────────────────────────────────────
