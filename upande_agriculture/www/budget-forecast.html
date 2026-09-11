@@ -189,6 +189,11 @@ body.sb-collapsed{--sbw:64px}
 .dchart{position:relative;padding-left:46px}
 .dchart svg{width:100%;height:132px;display:block}
 .dgl{stroke:#efede8;stroke-width:1;vector-effect:non-scaling-stroke}
+.dchart__plot{position:relative}
+.ddot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
+  box-shadow:0 0 0 2px var(--surface-2);pointer-events:none}
+.ddot--peak{background:var(--warn)}
+.ddot--act{background:var(--s-actual)}
 .dchart__y{position:absolute;left:0;top:0;width:42px;height:132px}
 .dchart__y span{position:absolute;right:0;transform:translateY(-50%);
   font:400 9px var(--grid);color:#bfbcb3;font-variant-numeric:tabular-nums}
@@ -248,7 +253,7 @@ body.sb-collapsed{--sbw:64px}
 .kpi-grid .kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
 .kpi__label{font:500 11px var(--sans);text-transform:uppercase;letter-spacing:1.8px;
   color:var(--ink-mute);margin-bottom:14px}
-.kpi__value{font:600 40px/1 var(--display);color:var(--ink);letter-spacing:-1.3px;
+.kpi__value{font:600 40px/1 var(--sans);color:var(--ink);letter-spacing:-1.3px;
   font-feature-settings:"tnum"}
 .kpi__value i{font:400 13px var(--sans);color:var(--ink-mute);font-style:normal;margin-left:6px}
 .kpi__trend{margin-top:14px;display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--sans);
@@ -1669,24 +1674,39 @@ function drawDash() {
       <span class="dcard__n">peak ${esc(M[peak])} &middot; ${fmtMU(bud[peak])}</span></div>
     <div class="dchart">
       <div class="dchart__y">${axis}</div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#8a8780" stop-opacity=".26"/>
-          <stop offset="100%" stop-color="#8a8780" stop-opacity=".02"/></linearGradient></defs>
-        ${nowIdx >= 0 ? `<rect x="${x(nowIdx)}" y="0" width="${(W - x(nowIdx)).toFixed(2)}"
-          height="${H}" fill="rgba(10,10,10,.03)"/>` : ""}
-        ${rules}
-        <path d="${budLine}L${W} ${H}L0 ${H}Z" fill="url(#dg)"/>
-        <path d="${budLine}" fill="none" stroke="var(--s-budget)" stroke-width=".7"
-          stroke-linejoin="round"/>
-        ${cmpLine ? `<path d="${cmpLine}" fill="none" stroke="var(--s-budget)"
-          stroke-width=".7" stroke-dasharray="1.5 1.5" opacity=".85"/>` : ""}
-        ${actLine ? `<path d="${actLine}" fill="none" stroke="var(--s-actual)"
-          stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>` : ""}
-        <circle cx="${x(peak)}" cy="${y(bud[peak])}" r=".9" fill="var(--warn)"/>
-        ${nowIdx >= 0 ? `<line x1="${x(nowIdx)}" y1="0" x2="${x(nowIdx)}" y2="${H}"
-          stroke="var(--signal)" stroke-width=".45" opacity=".6"/>` : ""}
-      </svg>
+      <div class="dchart__plot">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#8a8780" stop-opacity=".22"/>
+              <stop offset="100%" stop-color="#8a8780" stop-opacity="0"/></linearGradient>
+            <linearGradient id="dgAct" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--s-actual)" stop-opacity=".28"/>
+              <stop offset="100%" stop-color="var(--s-actual)" stop-opacity="0"/></linearGradient>
+          </defs>
+          ${nowIdx >= 0 ? `<rect x="${x(nowIdx)}" y="0" width="${(W - x(nowIdx)).toFixed(2)}"
+            height="${H}" fill="rgba(10,10,10,.03)"/>` : ""}
+          ${rules}
+          <path d="${budLine}L${W} ${H}L0 ${H}Z" fill="url(#dg)"/>
+          <path d="${budLine}" fill="none" stroke="var(--s-budget)" stroke-width="2"
+            stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          ${cmpLine ? `<path d="${cmpLine}" fill="none" stroke="var(--s-budget)"
+            stroke-width="2" stroke-dasharray="4 4" opacity=".85" vector-effect="non-scaling-stroke"/>` : ""}
+          ${actLine ? `<path d="${actLine}L${x(actPts[actPts.length - 1][0])} ${H}L${x(actPts[0][0])} ${H}Z"
+            fill="url(#dgAct)"/>` : ""}
+          ${actLine ? `<path d="${actLine}" fill="none" stroke="var(--s-actual)"
+            stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+            vector-effect="non-scaling-stroke"/>` : ""}
+          ${nowIdx >= 0 ? `<line x1="${x(nowIdx)}" y1="0" x2="${x(nowIdx)}" y2="${H}"
+            stroke="var(--signal)" stroke-width="1.5" opacity=".6" vector-effect="non-scaling-stroke"/>` : ""}
+        </svg>
+        <!-- Plain circles distort into ellipses here -- the viewBox is scaled
+             non-uniformly (preserveAspectRatio="none") so x and y units don't
+             render at the same pixel size. Fixed-size CSS dots positioned by
+             the same %, instead, so they read as actual circles. -->
+        <i class="ddot ddot--peak" style="left:${(x(peak) / W * 100).toFixed(2)}%;top:${(y(bud[peak]) / H * 100).toFixed(2)}%"></i>
+        ${actLine ? `<i class="ddot ddot--act" style="left:${(x(actPts[actPts.length - 1][0]) / W * 100).toFixed(2)}%;top:${(y(actPts[actPts.length - 1][1]) / H * 100).toFixed(2)}%"></i>` : ""}
+      </div>
       <div class="dchart__x">${M.map((m, i) => `<span class="${
         i === nowIdx ? "on" : ""}${i === peak ? " pk" : ""}">${m}</span>`).join("")}</div>
     </div>
