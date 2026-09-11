@@ -2214,8 +2214,13 @@ function savePrefs() {
   }, 250);
 }
 function syncTitle() {
+  // Grain (week/month/life) only ever applies to the grid family — Dashboard,
+  // Map and Plan set their own title in applyView() and must keep it; this
+  // used to only guard Dashboard, so reloading into Map or Plan had applyView()
+  // set the right title and this immediately stomp it back to a grain name.
+  if (PREFS.view === "dashboard" || PREFS.view === "map" || PREFS.view === "plan") return;
   const name = { month: "Budget", week: "Forecast", life: "Lifetime" }[GRAIN] || "Forecast";
-  const t = $("#pagetitle"); if (t && !document.body.classList.contains("dashon")) t.textContent = name;
+  const t = $("#pagetitle"); if (t) t.textContent = name;
   document.querySelectorAll(".snav[data-view]").forEach(b =>
     b.classList.toggle("on", b.dataset.view === PREFS.view));
 }
@@ -2239,15 +2244,34 @@ function applyPrefs() {
   const f = $("#t-focus"); if (f) f.classList.toggle("on", !!PREFS.focus);
   const st = $("#t-sort");
   if (st) st.dataset.tip = "Sort: " + { greenhouse: "Greenhouse", variety: "Variety", size: "Largest" }[SORT];
-  document.querySelectorAll(".snav[data-view]").forEach(b =>
-    b.classList.toggle("on", b.dataset.view === PREFS.view));
-  const dash = PREFS.view === "dashboard";
-  $("#v-dashboard").classList.toggle("on", dash);
-  $("#v-grid").classList.toggle("on", !dash);
-  const tools = document.querySelector(".pagehead__tools");
-  if (tools) tools.style.visibility = dash ? "hidden" : "";
+  applyView(PREFS.view || "forecast");
   applyWidths();
   syncTitle();
+}
+// Shared by applyPrefs() (page load / restoring a saved view) and the nav
+// click handler below — used to be duplicated between the two, and the
+// load-time copy only ever knew about "dashboard" vs. everything else, so
+// reloading on Map or Plan left the nav button highlighted correctly while
+// the Forecast grid stayed the visible panel underneath it. Map and Plan
+// fetch their own data independently of the grid's STATE (see mapLoad() /
+// loadPlan()), so it's safe to trigger them here, before load() resolves.
+function applyView(v) {
+  document.querySelectorAll(".snav[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  const dash = v === "dashboard", isMap = v === "map", isPlan = v === "plan";
+  $("#v-dashboard").classList.toggle("on", dash);
+  $("#v-map").classList.toggle("on", isMap);
+  $("#v-plan").classList.toggle("on", isPlan);
+  $("#v-grid").classList.toggle("on", !dash && !isMap && !isPlan);
+  const tools = document.querySelector(".pagehead__tools");
+  if (tools) tools.style.visibility = dash || isMap || isPlan ? "hidden" : "";
+  document.body.classList.toggle("dashon", dash);
+  $("#pagetitle").textContent = { dashboard: "Dashboard", budget: "Budget",
+    forecast: "Forecast", lifetime: "Lifetime", plan: "Weekly Plan",
+    map: "Farm Map", calibrate: "Calibration" }[v] || "Forecast";
+  // Leaflet cannot measure a hidden pane, so the map builds on first reveal —
+  // safe to call again later too, showMap() no-ops once MAP_READY is set.
+  if (isMap) showMap();
+  if (isPlan) loadPlan();
 }
 // Column widths survive because a planner who widened W30 meant it.
 // The frozen columns drive sticky offsets through these vars, so resizing one
@@ -3235,24 +3259,9 @@ function setGrain(g) {
   drawGrid(); drawFoot();
 }
 document.querySelectorAll(".snav[data-view]").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".snav[data-view]").forEach(x => x.classList.remove("on"));
-  b.classList.add("on");
   const v = PREFS.view = b.dataset.view; savePrefs();
-  const dash = v === "dashboard", isMap = v === "map", isPlan = v === "plan";
-  $("#v-dashboard").classList.toggle("on", dash);
-  $("#v-map").classList.toggle("on", isMap);
-  $("#v-plan").classList.toggle("on", isPlan);
-  $("#v-grid").classList.toggle("on", !dash && !isMap && !isPlan);
-  document.querySelector(".pagehead__tools").style.visibility =
-    dash || isMap || isPlan ? "hidden" : "";
-  if (isPlan) loadPlan();
-  document.body.classList.toggle("dashon", dash);
-  $("#pagetitle").textContent = { dashboard: "Dashboard", budget: "Budget",
-    forecast: "Forecast", lifetime: "Lifetime", plan: "Weekly Plan",
-    map: "Farm Map", calibrate: "Calibration" }[v] || "Forecast";
-  // Leaflet cannot measure a hidden pane, so the map builds on first reveal.
-  if (isMap) showMap();
-  const grainFor = (isMap || isPlan) ? null
+  applyView(v);
+  const grainFor = (v === "map" || v === "plan") ? null
     : { budget: "month", forecast: "week", lifetime: "life" }[v];
   setGrain(grainFor);
 }));
