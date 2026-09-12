@@ -2250,9 +2250,24 @@ def productionListVarieties():
     limit = int(data.get("limit") or 200)
     if limit > 500: limit = 500
     try:
-        groups = frappe.get_all("Harvest Item Group Config",
+        root_groups = frappe.get_all("Harvest Item Group Config",
             filters={"parent": "Production Settings", "parenttype": "Production Settings"},
             pluck="item_group")
+        # Same mistake item_group_is_under() exists to avoid: real items never
+        # sit directly in a bare parent group like "Standard Roses" or "Spray
+        # Roses" -- they're in leaf groups underneath it ("Standard Roses -
+        # Intermediate", etc). A flat item_group IN (root_groups) filter here
+        # matched almost nothing, so the crop-cycle "New" screen's variety
+        # picker showed next to no varieties. Resolve each root to its actual
+        # descendant groups (nested-set lft/rgt) before filtering Items.
+        groups = []
+        for root in root_groups:
+            bounds = frappe.db.get_value("Item Group", root, ["lft", "rgt"], as_dict=True)
+            if not bounds:
+                continue
+            descendants = frappe.get_all("Item Group",
+                filters={"lft": [">=", bounds.lft], "rgt": ["<=", bounds.rgt]}, pluck="name")
+            groups.extend(descendants)
         filters = {"disabled": 0}
         if groups:
             filters["item_group"] = ["in", groups]
