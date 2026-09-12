@@ -106,7 +106,11 @@ def validate_bucket_stem_limit(item_code, bucket_id, new_stems, exclude_stock_en
         )
         existing_stems = sum((row.qty or 0) for row in detail_rows)
 
-    total = existing_stems + float(new_stems or 0)
+    try:
+        new_stems = float(new_stems or 0)
+    except (TypeError, ValueError):
+        return f"'{new_stems}' isn't a number of stems."
+    total = existing_stems + new_stems
     if total > float(max_limit):
         return f"Maximum {int(max_limit)} {matched_group} stems per bucket."
     return None
@@ -502,6 +506,17 @@ def createHarvestStockEntry():
             resolved_harvester = frappe.db.get_value("Employee", {"employee_name": harvester}, "name")
             if resolved_harvester:
                 harvester = resolved_harvester
+
+        # quantity must be a whole number of stems -- the app now strips
+        # non-digits as it's typed, but a direct API caller (or an older app
+        # build) could still send something like "100,200". Left as-is, that
+        # reaches validate_bucket_stem_limit's float(new_stems or 0) below and
+        # raises there instead of ever being compared against the limit, so
+        # reject it explicitly and by name before it gets that far.
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            frappe.throw(_(f"Quantity must be a whole number of stems, got '{quantity}'."))
 
         # Handle both string and JSON dict formats for bucket_id
         if isinstance(bucket_data, dict):
