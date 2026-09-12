@@ -264,6 +264,16 @@ def createHarvestStockEntry():
             if resolved_harvester:
                 harvester = resolved_harvester
 
+        # quantity must be a whole number of stems. The app now strips
+        # non-digits as it's typed, but a direct API caller (or an older app
+        # build) could still send something like "100,200" -- float() raising
+        # on that isn't the same as the limit check below catching an
+        # over-limit value, so reject it explicitly and by name.
+        try:
+            quantity = int(quantity)
+        except (TypeError, ValueError):
+            frappe.throw(_(f"Quantity must be a whole number of stems, got '{quantity}'."))
+
         # Enforce the configurable per-bucket standards limit (Production Settings); 0/unset means no cap.
         limit_item_group = frappe.db.get_value("Item", item_code, "item_group") if item_code else None
         max_standard_limit = 0
@@ -273,7 +283,7 @@ def createHarvestStockEntry():
                 {"parent": "Production Settings", "parenttype": "Production Settings", "item_group": limit_item_group},
                 "max_stems_per_bucket",
             ) or 0
-        if max_standard_limit and float(quantity or 0) > float(max_standard_limit):
+        if max_standard_limit and quantity > max_standard_limit:
             frappe.log_error("Bucket Rate Error", data)
             frappe.throw(_(f"The maximum stems per bucket for {limit_item_group} is {int(max_standard_limit)}"))
 
