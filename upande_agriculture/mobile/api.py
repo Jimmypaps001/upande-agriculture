@@ -573,7 +573,13 @@ def getGreenhouseData():
                 filters={
                     "name": ["in", employee_ids]
                 },
-                fields=["employee_name"]
+                # `name` (the actual Employee id, e.g. "500505" here -- naming
+                # is by employee number, not employee_name) is required: the
+                # app was submitting employee_name as if it were the id into
+                # custom_harvester/graded_by, both Link(Employee) fields, so
+                # every harvest/grading entry naming a harvester failed Link
+                # validation ("Could not find Employee: <full name>").
+                fields=["name", "employee_name"]
             )
 
         # Cut stages come from the Cut Stage master (named by the cutstage value).
