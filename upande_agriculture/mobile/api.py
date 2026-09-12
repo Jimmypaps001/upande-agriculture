@@ -246,7 +246,13 @@ def createGradingStockEntry():
         farm = bunch_qr_doc.farm
         stock_entry_type = data.get("stock_entry_type")
         graded_by = data.get("graded_by")
-        stem_length = bunch_qr_doc.stem_length
+        # The mobile app now sends an explicit stem_length, picked from a
+        # dropdown at grading time rather than trusting whatever was baked
+        # into the Bunch QR Code record when the bunch tag was printed --
+        # that field doesn't reliably reflect what's actually in the bucket.
+        # bunch_qr_doc.stem_length is only a fallback for older app builds
+        # that don't send it yet.
+        stem_length = data.get("stem_length") or bunch_qr_doc.stem_length
         bunch_id = data.get("bunch_id")
         variety = bunch_qr_doc.item_code
         qty = data.get("qty")
