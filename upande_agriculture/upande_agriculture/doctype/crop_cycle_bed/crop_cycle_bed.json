@@ -16,6 +16,7 @@
   "bed_area",
   "fraction_planted",
   "plants",
+  "plants_remaining",
   "status"
  ],
  "fields": [
@@ -66,17 +67,26 @@
    "fieldname": "plants",
    "fieldtype": "Int",
    "label": "Plants",
-   "description": "Auto-filled from bed area x density; type a real count for a partial bed instead."
+   "description": "Auto-filled from bed area x density; type a real count for a partial bed instead. This is the original planting and never shrinks -- that stays the investment for costing."
+  },
+  {
+   "fieldname": "plants_remaining",
+   "fieldtype": "Int",
+   "label": "Plants Remaining",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "description": "Plants (a share of the row's Uproot Log entries, split across beds by how much each still had standing) after every logged uproot on this bed. Recomputed every save."
   },
   {
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Standing\nUprooted",
+   "options": "Standing\nPartially Uprooted\nUprooted",
    "default": "Standing",
    "in_list_view": 1,
    "read_only": 1,
-   "description": "Recomputed from Uproot Log every save. This bed still counts toward Plants Planted/cost either way -- that stays the original investment."
+   "description": "Recomputed from Uproot Log every save."
   }
  ],
  "permissions": [],

@@ -284,7 +284,8 @@ def revise_forecast(greenhouse: str, variety: str, year: int,
         for row in doc.weeks:
             old = prior.get(int(row.week_number))
             if old:
-                row.forecasted_stems = old.forecasted_stems
+                row.manual_budget_stems = old.manual_budget_stems
+                row.revised_forecast_stems = old.revised_forecast_stems
                 row.reason = old.reason
                 row.note = old.note
 
@@ -449,8 +450,18 @@ def week_span(sy: int, sw: int, ey: int, ew: int) -> list:
 
 @frappe.whitelist()
 def grid_payload(year: int | None = None, start_year=None, start_week=None,
-                 end_year=None, end_week=None) -> dict:
-    """Everything the Production Budget page draws in one round trip."""
+                 end_year=None, end_week=None, mode: str | None = None) -> dict:
+    """Everything the Production Budget page draws in one round trip.
+
+    mode picks what the "budget" line actually shows: "manual" (default) is
+    ONLY the Production Forecast's own figure for each week -- typed by hand,
+    or its system snapshot where a week exists but nobody's typed over it --
+    and blank for a week (or a whole greenhouse) with no Production Forecast
+    at all, never the live model. "automated" is the Production Projection
+    model, computed live from the crop cycles, untouched by anything on
+    Production Forecast.
+    """
+    mode = "automated" if (mode or "").lower() == "automated" else "manual"
     today = getdate(frappe.utils.nowdate())
     year = int(year or today.year)
     # The axis is a calendar axis, so it follows whatever rule is configured now.
@@ -488,9 +499,13 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
     # THE fix: the grid used to hardcode revised=[None]*n, so every number a
     # planner typed was saved and then never read back.
     _pairs = [(c["greenhouse"], c["variety"], year) for c in cycles]
-    fc = active_forecasts(_pairs)
+    # Revised Forecast lives on Production Forecast, same as the Production
+    # Budget mb reads below -- Automated must show the live model untouched
+    # by anything a human typed there, not just its budget line.
+    fc = active_forecasts(_pairs) if mode == "manual" else {}
     mo = manual_month_overrides(_pairs)
     revs = active_revisions(_pairs)
+    mb = manual_budget_map(_pairs) if mode == "manual" else {}
 
     blocks, budget_total, forecast_total = [], 0, 0
     for c in cycles:
@@ -503,9 +518,19 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
         by_year = ({y: build_budget_year([(c, proto)], y, sf) for y in span_years}
                    if proto else {})
         wk = by_year.get(year) or (build_budget_year([(c, proto)], year, sf) if proto else {})
+        manual_wk = mb.get((c["greenhouse"], c["variety"]), {})
+        if mode == "manual":
+            # Manual shows ONLY what's on Production Forecast -- a greenhouse
+            # nobody has opened one for yet reads blank, not the automated
+            # model. Falling back would make "manual" quietly lie about
+            # having a plan when there isn't one.
+            wk = {w: v for (y2, w), v in manual_wk.items() if y2 == year}
         annual = sum(wk.values())
         budget_total += annual
-        per_week = [by_year.get(y, {}).get(w) for y, w in pairs]
+        per_week = [
+            (manual_wk.get((y, w)) if mode == "manual" else by_year.get(y, {}).get(w))
+            for y, w in pairs
+        ]
         forecast_total += sum(v for v in per_week if v)
 
         rev = fc.get((c["greenhouse"], c["variety"]), {})
@@ -616,6 +641,7 @@ def grid_payload(year: int | None = None, start_year=None, start_week=None,
         ],
         "crop_year": crop_year_of(today),
         "year": year,
+        "mode": mode,
         "weeks": weeks,
         "week_years": week_years,
         # Parallel to `weeks`. Nobody knows W35 means 24-30 Aug, so send both a
@@ -762,7 +788,7 @@ def set_forecast_cell(block: str, grade: str, week: int, value: int,
         if (int(row.week_number) == week
                 and int(row.iso_year or year) == year
                 and normalise_grade(row.grade) == grade):
-            row.forecasted_stems = value
+            row.revised_forecast_stems = value
             if reason is not None:
                 row.reason = reason
             if note is not None:
@@ -771,7 +797,7 @@ def set_forecast_cell(block: str, grade: str, week: int, value: int,
     else:
         doc.append("weeks", {
             "week_number": week, "iso_year": year, "grade": grade,
-            "forecasted_stems": value, "reason": reason, "note": note,
+            "revised_forecast_stems": value, "reason": reason, "note": note,
         })
     doc.save(ignore_permissions=True)
     return {"forecast": doc.name, "revision": doc.revision,
@@ -836,26 +862,35 @@ def cell_history(block: str, week: int, grade: str = "all",
         row = frappe.db.get_value(
             "Production Forecast Week",
             {"parent": d["name"], "week_number": week, "grade": grade},
-            ["name", "forecasted_stems", "budget_stems", "reason", "note"], as_dict=True)
+            ["name", "revised_forecast_stems", "manual_budget_stems", "budget_stems",
+             "reason", "note"], as_dict=True)
         if not row and grade == "all":
             # rows written before the grade column existed
             row = frappe.db.get_value(
                 "Production Forecast Week",
                 {"parent": d["name"], "week_number": week, "grade": ("in", ["", None])},
-                ["name", "forecasted_stems", "budget_stems", "reason", "note"], as_dict=True)
+                ["name", "revised_forecast_stems", "manual_budget_stems", "budget_stems",
+                 "reason", "note"], as_dict=True)
         if not row:
             continue
         row_names[row["name"]] = d["revision"]
         if budget is None:
             budget = int(row["budget_stems"] or 0)
+        # Int columns can't hold NULL, so a revision and an untouched row
+        # both default to 0 -- a reason or note typed alongside it is what
+        # tells a deliberate revision-to-zero apart from nothing having
+        # happened yet (same convention active_forecasts() uses).
+        rev = int(row["revised_forecast_stems"] or 0)
+        changed = bool(rev or row["reason"] or row["note"])
+        base = int(row["manual_budget_stems"] or row["budget_stems"] or 0)
         revisions.append({
             "revision": d["revision"], "status": d["status"], "forecast": d["name"],
-            "value": int(row["forecasted_stems"] or 0),
+            "value": rev if changed else base,
             "budget": int(row["budget_stems"] or 0),
             "reason": row["reason"], "note": row["note"],
             "by": d["owner"], "at": str(d["modified"]), "opened": str(d["creation"]),
             "window": f"W{d['start_week']}+{d['window_weeks']}",
-            "changed": int(row["forecasted_stems"] or 0) != int(row["budget_stems"] or 0),
+            "changed": changed,
         })
 
     actual = _actual_weekly(cycle.variety, cycle.greenhouse).get((year, week))
@@ -895,7 +930,7 @@ def _cell_edits(row_names: list, doc_names: list) -> list:
             if len(ch) < 4 or ch[0] != "weeks" or ch[2] not in wanted:
                 continue
             for field, old, new in ch[3]:
-                if field != "forecasted_stems":
+                if field != "revised_forecast_stems":
                     continue
                 out.append({"at": str(v["creation"]), "by": v["owner"],
                             "from": old, "to": new})
@@ -969,8 +1004,8 @@ def active_forecasts(pairs: list) -> dict:
     rows = frappe.db.sql(
         """
         SELECT pf.greenhouse, pf.variety, pf.forecast_year,
-               fw.week_number, fw.iso_year, fw.grade, fw.forecasted_stems,
-               fw.budget_stems, fw.reason, fw.note
+               fw.week_number, fw.iso_year, fw.grade, fw.revised_forecast_stems,
+               fw.reason, fw.note
         FROM `tabProduction Forecast` pf
         JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
         WHERE pf.status = 'Active'
@@ -981,14 +1016,47 @@ def active_forecasts(pairs: list) -> dict:
     )
     out: dict = {}
     for r in rows:
-        # Opening a window seeds every week with the budget. Those rows are
-        # scaffolding, not judgement — only surface a week somebody changed.
-        fc = int(r["forecasted_stems"] or 0)
-        if fc == int(r["budget_stems"] or 0) and not r["reason"] and not r["note"]:
+        # Int columns can't hold NULL, so an untouched row and one revised
+        # down to a deliberate zero both read back as 0 -- a reason or note
+        # typed alongside it is what tells them apart.
+        rev = int(r["revised_forecast_stems"] or 0)
+        if not rev and not r["reason"] and not r["note"]:
             continue
         key = (r["greenhouse"], r["variety"])
         y = int(r["iso_year"] or r["forecast_year"])
-        out.setdefault(key, {})[(y, int(r["week_number"]), normalise_grade(r["grade"]))] = fc
+        out.setdefault(key, {})[(y, int(r["week_number"]), normalise_grade(r["grade"]))] = rev
+    return out
+
+
+def manual_budget_map(pairs: list) -> dict:
+    """{(greenhouse, variety): {(iso_year, week): stems}} — the Production
+    Forecast's own budget line: what was typed by hand, falling back to its
+    System Budget snapshot for any week nobody has typed over yet."""
+    if not pairs:
+        return {}
+    years = sorted({y for _, _, y in pairs})
+    houses = sorted({h for h, _, _ in pairs})
+    rows = frappe.db.sql(
+        """
+        SELECT pf.greenhouse, pf.variety, pf.forecast_year,
+               fw.week_number, fw.iso_year, fw.manual_budget_stems, fw.budget_stems
+        FROM `tabProduction Forecast` pf
+        JOIN `tabProduction Forecast Week` fw ON fw.parent = pf.name
+        WHERE pf.status = 'Active'
+          AND (fw.grade IS NULL OR fw.grade IN ('', 'all'))
+          AND pf.greenhouse IN %(houses)s
+          AND pf.forecast_year IN %(years)s
+        """,
+        {"houses": houses, "years": years}, as_dict=True,
+    )
+    out: dict = {}
+    for r in rows:
+        y = int(r["iso_year"] or r["forecast_year"])
+        # Int columns can't hold NULL, so an untyped manual budget reads back
+        # as 0 same as a deliberate one -- same convention _set_variances()
+        # already uses for "Act - Manual". Fall back to the system snapshot.
+        stems = r["manual_budget_stems"] or r["budget_stems"]
+        out.setdefault((r["greenhouse"], r["variety"]), {})[(y, int(r["week_number"]))] = int(stems or 0)
     return out
 
 

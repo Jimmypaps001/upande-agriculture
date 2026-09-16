@@ -156,7 +156,6 @@ class TestForecastRevisions(FrappeTestCase):
         self.assertEqual([w.week_number for w in doc.weeks], [10, 11, 12, 13, 14, 15])
         # 2028 is a mature year: every week budgets 2,300.
         self.assertTrue(all(w.budget_stems == 2300 for w in doc.weeks))
-        self.assertTrue(all(w.forecasted_stems == 2300 for w in doc.weeks))
 
     def test_widening_the_window_adds_weeks_and_keeps_edits(self):
         self._budget()
@@ -165,14 +164,14 @@ class TestForecastRevisions(FrappeTestCase):
             "variety": self.VARIETY, "forecast_year": 2028,
             "start_week": 10, "window_weeks": 4, "status": "Active",
         }).insert(ignore_permissions=True)
-        doc.weeks[0].forecasted_stems = 1500
+        doc.weeks[0].revised_forecast_stems = 1500
         doc.weeks[0].reason = "Weather"
         doc.save(ignore_permissions=True)
 
         doc.window_weeks = 8
         doc.save(ignore_permissions=True)
         self.assertEqual(len(doc.weeks), 8)
-        self.assertEqual(doc.weeks[0].forecasted_stems, 1500)
+        self.assertEqual(doc.weeks[0].revised_forecast_stems, 1500)
         self.assertEqual(doc.weeks[0].reason, "Weather")
 
     def test_narrowing_the_window_drops_weeks(self):
@@ -186,20 +185,20 @@ class TestForecastRevisions(FrappeTestCase):
         doc.save(ignore_permissions=True)
         self.assertEqual([w.week_number for w in doc.weeks], [10, 11, 12])
 
-    def test_a_deliberate_zero_forecast_is_not_reset(self):
-        """Forecasting nothing is a judgement, not a blank."""
+    def test_a_deliberate_zero_revision_is_not_reset(self):
+        """Revising a week down to nothing is a judgement, not a blank."""
         self._budget()
         doc = frappe.get_doc({
             "doctype": "Production Forecast", "greenhouse": self.house,
             "variety": self.VARIETY, "forecast_year": 2028,
             "start_week": 10, "window_weeks": 4, "status": "Active",
         }).insert(ignore_permissions=True)
-        doc.weeks[0].forecasted_stems = 0
+        doc.weeks[0].revised_forecast_stems = 0
         doc.weeks[0].reason = "Disease"
         doc.save(ignore_permissions=True)
         doc.window_weeks = 6
         doc.save(ignore_permissions=True)
-        self.assertEqual(doc.weeks[0].forecasted_stems, 0)
+        self.assertEqual(doc.weeks[0].revised_forecast_stems, 0)
 
     def test_budget_figures_refresh_when_the_budget_changes(self):
         self._budget()
@@ -222,13 +221,89 @@ class TestForecastRevisions(FrappeTestCase):
         doc.save(ignore_permissions=True)
         self.assertEqual(doc.weeks[0].budget_stems, 999)
 
+    def test_grid_payload_mode_picks_manual_vs_automated_budget(self):
+        """The web page's Source toggle: Manual reads the typed Production
+        Forecast figure, Automated reads the live Production Projection model
+        untouched."""
+        self._budget()
+
+        def block_of(payload):
+            return next(b for b in payload["blocks"]
+                        if b["greenhouse"] == self.house and b["variety"] == self.VARIETY)
+
+        def week10(mode):
+            return block_of(budget.grid_payload(
+                year=2028, start_year=2028, start_week=10,
+                end_year=2028, end_week=10, mode=mode))["weekly"]["budget"][0]
+
+        baseline = week10("automated")
+        self.assertTrue(baseline, "the automated model should have a real number to contrast against")
+        # No Production Forecast exists yet -- manual must read blank, not
+        # quietly fall back to the automated figure.
+        self.assertIsNone(week10("manual"))
+
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": 2028,
+            "start_week": 10, "window_weeks": 4, "status": "Active",
+        }).insert(ignore_permissions=True)
+        doc.weeks[0].manual_budget_stems = 9999
+        doc.save(ignore_permissions=True)
+
+        manual_payload = budget.grid_payload(year=2028, start_year=2028, start_week=10,
+                                              end_year=2028, end_week=10, mode="manual")
+        self.assertEqual(manual_payload["mode"], "manual")
+        self.assertEqual(block_of(manual_payload)["weekly"]["budget"][0], 9999)
+
+        # Typing a manual figure must never leak back into the automated model.
+        self.assertEqual(week10("automated"), baseline)
+
+        # Week 11 was never typed by hand — manual mode falls back to the
+        # forecast's own System Budget snapshot rather than showing a false zero.
+        week11_row = next(w for w in doc.weeks if w.week_number == 11)
+        self.assertTrue(week11_row.budget_stems)
+        manual11 = block_of(budget.grid_payload(
+            year=2028, start_year=2028, start_week=11,
+            end_year=2028, end_week=11, mode="manual"))["weekly"]["budget"][0]
+        self.assertEqual(manual11, week11_row.budget_stems)
+
+    def test_window_can_now_span_the_full_year(self):
+        # Production Forecast carries the full-season manual budget too, so a
+        # window that used to be refused past 26 weeks is fine up to the
+        # calendar year itself.
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": 2028,
+            "start_week": 1, "window_weeks": 40, "status": "Active",
+        }).insert(ignore_permissions=True)
+        self.assertEqual(len(doc.weeks), 40)
+
     def test_absurd_window_is_refused(self):
         with self.assertRaises(frappe.ValidationError):
             frappe.get_doc({
                 "doctype": "Production Forecast", "greenhouse": self.house,
                 "variety": self.VARIETY, "forecast_year": 2028,
-                "start_week": 10, "window_weeks": 40, "status": "Active",
+                "start_week": 10, "window_weeks": 60, "status": "Active",
             }).insert(ignore_permissions=True)
+
+    def test_saves_for_a_year_with_no_fiscal_year_record(self):
+        """Regression: forecast_year used to be a Link to Fiscal Year, so
+        Frappe's link-integrity check (which runs before any controller
+        hook fires -- before_insert included) rejected every forecast for a
+        year nobody had created a Fiscal Year record for yet. Forecasting is
+        inherently forward-looking, so this broke on exactly the years the
+        tool exists for. forecast_year is a plain Int now; a year with no
+        matching Fiscal Year must save cleanly and never create one as a
+        side effect."""
+        year = 2099
+        self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
+        doc = frappe.get_doc({
+            "doctype": "Production Forecast", "greenhouse": self.house,
+            "variety": self.VARIETY, "forecast_year": year,
+            "start_week": 1, "window_weeks": 4, "status": "Active",
+        }).insert(ignore_permissions=True)
+        self.assertEqual(doc.forecast_year, year)
+        self.assertFalse(frappe.db.exists("Fiscal Year", str(year)))
 
     def test_first_revision_starts_at_one(self):
         r = budget.revise_forecast(self.house, self.VARIETY, 2028, start_week=10)
@@ -296,6 +371,47 @@ class TestWeekSpan(FrappeTestCase):
 
 
 class TestFarmMapGeometry(FrappeTestCase):
+    def test_bed_geometry_reads_upande_cores_zone_field_name(self):
+        """upande_core's Zone calls the geometry field `geojson`; upande_scp's
+        older one calls it `raw_geojson`. bed_geometry() must work with
+        whichever one this site actually has."""
+        from upande_agriculture import farm_map
+
+        if not frappe.db.table_exists("Zone"):
+            self.skipTest("Zone doctype not installed on this site")
+        field = "geojson" if frappe.get_meta("Zone").has_field("geojson") else "raw_geojson"
+
+        house = make_warehouse("TEST GH ZONEMAP")
+        bed_name = f"{house} - Bed 99"
+        if frappe.db.exists("Bed", bed_name):
+            frappe.delete_doc("Bed", bed_name, force=True, ignore_permissions=True)
+        frappe.get_doc({
+            "doctype": "Bed", "greenhouse": house, "unit_type": "Bed", "bed": 99,
+            "bed_length": 30, "bed_width": 1,
+        }).insert(ignore_permissions=True)
+
+        import json as _json
+        geojson = _json.dumps({
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {"fid": 1, "line_id": 504, "segment_id": 1, "zone_id": 1},
+                "geometry": {"type": "LineString", "coordinates": [[35.757, 0.0554], [35.7571, 0.0553]]},
+            }],
+        })
+        zone_name = f"{bed_name} - Zone 1"
+        if frappe.db.exists("Zone", zone_name):
+            frappe.delete_doc("Zone", zone_name, force=True, ignore_permissions=True)
+        frappe.get_doc({
+            "doctype": "Zone", "bed": bed_name, "zone": 1, **{field: geojson},
+        }).insert(ignore_permissions=True)
+
+        r = farm_map.bed_geometry(house)
+        self.assertEqual(r["source"], "zones")
+        self.assertEqual(len(r["rows"]), 1)
+        self.assertEqual(r["rows"][0]["bed"], 504)
+        self.assertEqual(len(r["rows"][0]["coords"]), 2)
+
     def test_house_strips_prefix_and_company(self):
         from upande_agriculture import farm_map
         for raw, want in [("Main GH 02 - TFC", "GH 02"), ("Main GH 21 - MFL", "GH 21"),

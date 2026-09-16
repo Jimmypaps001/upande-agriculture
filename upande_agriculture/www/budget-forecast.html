@@ -127,7 +127,11 @@ body.sb-collapsed{--sbw:64px}
 .pagehead__eyebrow{font:500 9.5px var(--sans);text-transform:uppercase;letter-spacing:2px;
   color:var(--ink-mute);margin-bottom:5px;display:inline-flex;align-items:center;gap:10px}
 .pagehead__eyebrow::before{content:"";width:18px;height:1px;background:var(--ink-3)}
-.pagehead__title{font:600 27px/1.05 var(--sans);color:var(--ink);letter-spacing:-.9px;margin:0}
+/* Fraunces is already loaded (see the font <link> above) for exactly this --
+   the page title never actually used it, so nothing on the page carried the
+   editorial/serif character that makes the avocado page's headline read as
+   considered rather than just another sans-serif SaaS label. */
+.pagehead__title{font:600 27px/1.05 var(--display);color:var(--ink);letter-spacing:-.6px;margin:0}
 .pagehead__tools{display:flex;gap:10px;align-items:center;flex:none}
 .pillgroup{display:inline-flex;background:rgba(10,10,10,0.05);border-radius:6px;padding:4px;gap:2px}
 .pillgroup button{border:0;background:transparent;font:500 12px var(--sans);color:var(--ink-4);
@@ -146,9 +150,35 @@ body.sb-collapsed{--sbw:64px}
   padding:11px 20px;border-radius:6px;cursor:pointer;box-shadow:0 4px 14px rgba(10,10,10,.2);white-space:nowrap}
 .btn--ghost{background:var(--surface-2);color:var(--ink);box-shadow:var(--shadow-card)}
 
+/* The Dashboard view used to have zero controls of its own -- Source could
+   only be switched from the Forecast toolbar, so Dashboard silently showed
+   whatever was last picked there with no way to tell or change it here. */
+/* The grid view is deliberately "Excel-shaped" -- full-bleed, no max-width,
+   because it's a spreadsheet that wants every pixel for cells. Dashboard is
+   a report, not a spreadsheet, but was inheriting that same edge-to-edge
+   shape from .page, so KPI tiles and charts stretched the full width of a
+   wide monitor instead of reading like avocado's centered report layout.
+   Constrain just this view's content instead of changing .page itself,
+   which the grid still needs full-bleed. */
+.dwrap{max-width:1120px;margin:0 auto}
+/* Budget vs Production Overview inside the Dashboard view -- these are two
+   sub-tabs of one view, not a second sidebar destination. */
+.dtabs{display:inline-flex;gap:4px;margin-bottom:18px;background:rgba(10,10,10,.04);
+  padding:4px;border-radius:999px}
+.dtab{border:0;background:transparent;font:500 13px var(--sans);color:var(--ink-4);
+  padding:9px 16px;border-radius:999px;cursor:pointer;transition:all .2s}
+.dtab:hover{color:var(--ink)}
+.dtab.on{background:var(--grad-ink);color:#fafaf6;box-shadow:0 4px 14px rgba(10,10,10,.2)}
+.dtabpane{display:none}
+.dtabpane.on{display:block}
+.dfilters{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.dfilters__lbl{font:500 10px var(--sans);text-transform:uppercase;letter-spacing:1.4px;
+  color:var(--ink-mute)}
+.dfilters__seg{display:flex;gap:1px;background:var(--surface-2);border-radius:999px;
+  box-shadow:var(--shadow-card);padding:3px}
+.dfilters__seg .tbtn{border-radius:999px}
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;
   margin-bottom:14px}
-/* The accent survives on the trend dot; the tiles themselves stay plain. */
 .kpi{position:relative;overflow:hidden}
 .kpi__trend i{background:var(--acc)!important}
 .kspark{position:absolute;right:0;bottom:0;width:56%;height:30px;opacity:.5;
@@ -156,8 +186,8 @@ body.sb-collapsed{--sbw:64px}
 
 /* ── Dashboard ──────────────────────────────────────────────────── */
 .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.dcard{background:var(--surface-2);border-radius:6px;box-shadow:var(--shadow-card);
-  padding:15px 17px 16px;min-width:0}
+.dcard{background:var(--surface-2);border-radius:18px;box-shadow:var(--shadow-card);
+  padding:20px 22px 20px;min-width:0}
 .dcard--wide{grid-column:1 / -1}
 .dcard__h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .dcard__h h4{margin:0;font:600 12.5px var(--sans);color:var(--ink);letter-spacing:-.1px}
@@ -169,6 +199,11 @@ body.sb-collapsed{--sbw:64px}
 .dchart{position:relative;padding-left:46px}
 .dchart svg{width:100%;height:132px;display:block}
 .dgl{stroke:#efede8;stroke-width:1;vector-effect:non-scaling-stroke}
+.dchart__plot{position:relative}
+.ddot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
+  box-shadow:0 0 0 2px var(--surface-2);pointer-events:none}
+.ddot--peak{background:var(--warn)}
+.ddot--act{background:var(--s-actual)}
 .dchart__y{position:absolute;left:0;top:0;width:42px;height:132px}
 .dchart__y span{position:absolute;right:0;transform:translateY(-50%);
   font:400 9px var(--grid);color:#bfbcb3;font-variant-numeric:tabular-nums}
@@ -206,17 +241,83 @@ body.sb-collapsed{--sbw:64px}
 .dg__b i{display:block;height:100%;border-radius:5px;
   background:linear-gradient(90deg,#3a6ea8,#2f8f8a)}
 .dg__p{width:34px;text-align:right;flex:none;font:600 10.5px var(--grid);color:var(--ink-3)}
+/* Ranked bars — biggest block first, one glance says which blocks carry the
+   budget. Inline SVG, no chart library, scales with the card. */
+.rank{display:block;width:100%;height:auto;max-width:100%}
+.rank .rk-l{font:500 11px var(--sans);fill:var(--ink-2)}
+.rank .rk-v{font:500 11px var(--grid);fill:var(--ink);text-anchor:end;
+  font-variant-numeric:tabular-nums}
+.rank .rk-t{fill:var(--bg)}
+.rankfoot{font:400 10px var(--meta);color:var(--ink-faint);margin-top:8px}
 @media (max-width:1180px){.dgrid{grid-template-columns:1fr}}
-.kpi{background:var(--surface-2);border-radius:6px;padding:24px 26px;box-shadow:var(--shadow-card);
-  transition:all .25s;cursor:pointer}
-.kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+/* Corrected back to the Upande dashboard spec (see ufd-modern-*.html): large
+   radius, generous padding, uppercase tracked label, shadow-card + hover
+   lift. An earlier pass here flattened these as a "generic SaaS card" tell,
+   but this exact chrome is this suite's own established KPI component --
+   the same on Mona, Coffee, Avocado and Livestock. Scoped to .kpi-grid
+   because ".kpi" is also the class on the map view's plain header stat
+   pills (#v-map .kpi), which keep their own look. */
+.kpi-grid .kpi{background:var(--surface-2);border-radius:20px;padding:28px 30px;
+  box-shadow:var(--shadow-card);transition:all .25s;position:relative;overflow:hidden;cursor:pointer}
+.kpi-grid .kpi:hover{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
 .kpi__label{font:500 11px var(--sans);text-transform:uppercase;letter-spacing:1.8px;
-  color:var(--ink-mute);margin-bottom:12px}
-.kpi__value{font:600 38px/1 var(--sans);color:var(--ink);letter-spacing:-1.3px;font-feature-settings:"tnum"}
-.kpi__value i{font:400 13px var(--sans);color:var(--ink-mute);font-style:normal;margin-left:5px}
+  color:var(--ink-mute);margin-bottom:14px}
+.kpi__value{font:600 40px/1 var(--sans);color:var(--ink);letter-spacing:-1.3px;
+  font-feature-settings:"tnum"}
+.kpi__value i{font:400 13px var(--sans);color:var(--ink-mute);font-style:normal;margin-left:6px}
 .kpi__trend{margin-top:14px;display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--sans);
-  padding:5px 12px;border-radius:6px;background:rgba(10,10,10,0.035);color:var(--ink-4)}
+  padding:5px 12px;border-radius:999px;background:rgba(10,10,10,0.035);color:var(--ink-4)}
 .kpi__trend i{width:6px;height:6px;border-radius:99px;flex:none}
+
+/* ── Production overview ────────────────────────────────────────── */
+.ovhead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.ovhead h3{margin:0;font:600 22px/1.1 var(--display);color:var(--ink);letter-spacing:-.4px}
+.ovhead p{margin:5px 0 0;font:400 12.5px var(--sans);color:var(--ink-4)}
+.ovbtn{display:inline-flex;align-items:center;gap:7px;border:0;background:var(--ink);color:#fafaf6;
+  font:500 12px var(--sans);padding:9px 15px;border-radius:999px;cursor:pointer;transition:all .2s}
+.ovbtn:hover{transform:translateY(-1px);box-shadow:var(--shadow-hover)}
+.ovbtn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2}
+.ovbtn--ghost{background:transparent;color:var(--ink-4);box-shadow:0 0 0 1px var(--hairline) inset}
+.ovbtn--ghost:hover{color:var(--ink);transform:none;box-shadow:0 0 0 1px var(--ink-faint) inset}
+.ovfilters{display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-bottom:18px}
+.ovfilters label{display:flex;flex-direction:column;gap:5px;font:500 10px var(--sans);
+  text-transform:uppercase;letter-spacing:1.2px;color:var(--ink-mute)}
+.ovfilters select,.ovfilters input{font:500 12.5px var(--sans);color:var(--ink);background:var(--surface-2);
+  border:0;box-shadow:var(--shadow-card);border-radius:10px;padding:9px 12px;min-width:130px}
+.ovfilters input{min-width:200px}
+.ovfilters__search{flex:1;min-width:180px}
+.ovfilters__search input{width:100%;min-width:0}
+
+.qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:18px}
+.qa{background:var(--surface-2);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow-card);
+  border-left:3px solid var(--warn)}
+.qa--ok{border-left-color:var(--pos);opacity:.6}
+.qa__t{display:flex;align-items:baseline;gap:8px;font:600 12.5px var(--sans);color:var(--ink)}
+.qa__t b{font:600 20px var(--sans);color:var(--warn);font-variant-numeric:tabular-nums}
+.qa--ok .qa__t b{color:var(--pos)}
+.qa__d{margin-top:6px;font:400 11.5px var(--meta);color:var(--ink-4);line-height:1.5}
+.qa__link{margin-top:8px;background:none;border:0;padding:0;font:500 11px var(--sans);
+  color:var(--s-forecast);cursor:pointer}
+.qa__link:hover{text-decoration:underline}
+.qa__drill{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--hairline);
+  max-height:160px;overflow-y:auto;font:400 11px var(--meta);color:var(--ink-4);line-height:1.7}
+.qa__drill.on{display:block}
+
+.ovstack{width:100%;height:220px;display:block}
+.ovstack .os-gl{stroke:rgba(10,10,10,.05);stroke-width:1;vector-effect:non-scaling-stroke}
+.ovstack .os-x{font:500 10px var(--grid);fill:var(--ink-faint)}
+.ovstack .os-v{font:600 10px var(--grid);fill:var(--ink-3)}
+.ovlegend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px}
+.ovlegend span{display:inline-flex;align-items:center;gap:6px;font:500 10.5px var(--sans);color:var(--ink-4)}
+.ovlegend i{width:9px;height:9px;border-radius:3px;flex:none}
+
+.lifegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+  background:var(--hairline);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-card)}
+.life{background:var(--surface-2);padding:14px 16px}
+.life__l{font:500 10px var(--sans);color:var(--ink-mute)}
+.life__v{margin-top:6px;font:600 22px var(--sans);color:var(--ink);letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums}
+.life__n{margin-top:3px;font:400 10.5px var(--meta);color:var(--ink-faint)}
 
 .card{background:var(--surface-2);border-radius:6px;box-shadow:var(--shadow-card);
   margin-bottom:18px;overflow:hidden}
@@ -845,7 +946,12 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
   padding:0 3px;border-radius:3px;background:var(--neg);color:#fff;margin-left:3px;
   text-shadow:none;vertical-align:middle}
 #v-map #legend{left:14px;bottom:14px;padding:9px 12px;display:flex;
-  flex-wrap:wrap;gap:5px 14px;max-width:420px;transition:left .18s ease}
+  flex-wrap:wrap;align-content:flex-start;gap:5px 14px;max-width:420px;
+  /* A farm with 20+ varieties used to push this open-ended, upward from the
+     bottom anchor, until it covered half the map. Cap it and let the
+     overflow scroll instead of growing past a reasonable share of the view. */
+  max-height:min(280px,40vh);overflow-y:auto;overscroll-behavior:contain;
+  transition:left .18s ease}
 
 #v-map #detail.on ~ #legend,
 #v-map #detail.on ~ #mapcap{display:none}
@@ -1231,8 +1337,43 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
   </div>
 
   <div class="view" id="v-dashboard">
-    <div class="kpi-grid" id="kpis"></div>
-    <div class="card" id="dash-detail"></div>
+    <div class="dwrap">
+      <div class="dtabs">
+        <button class="dtab on" data-dtab="budget">Budget</button>
+        <button class="dtab" data-dtab="overview">Production Overview</button>
+      </div>
+
+      <div class="dtabpane on" id="dtab-budget">
+        <div class="dfilters">
+          <span class="dfilters__lbl">Source</span>
+          <div class="dfilters__seg">
+            <button class="tbtn on" data-src="manual" data-tip="Manual — Production Budget, typed by hand on Production Forecast"><b>M</b></button>
+            <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+          </div>
+        </div>
+        <div class="kpi-grid" id="kpis"></div>
+        <div class="card" id="dash-detail"></div>
+      </div>
+
+      <div class="dtabpane" id="dtab-overview">
+        <div class="ovhead">
+          <div>
+            <h3>Production overview</h3>
+            <p>Area, plants and plantings across every farm</p>
+          </div>
+          <button class="ovbtn" id="ov-refresh"><svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Refresh</button>
+        </div>
+        <div class="ovfilters">
+          <label>Farm<select id="ov-f-farm"><option value="">All farms</option></select></label>
+          <label>Greenhouse<select id="ov-f-gh"><option value="">All greenhouses</option></select></label>
+          <label>Variety<select id="ov-f-variety"><option value="">All varieties</option></select></label>
+          <label>Planting year<select id="ov-f-year"><option value="">All years</option></select></label>
+          <label class="ovfilters__search">Search<input id="ov-f-q" placeholder="greenhouse, variety, cycle…"></label>
+          <button class="ovbtn ovbtn--ghost" id="ov-clear">Clear</button>
+        </div>
+        <div id="ov-body"><div class="hnone">Loading…</div></div>
+      </div>
+    </div>
   </div>
 
   <div class="view on" id="v-grid">
@@ -1286,6 +1427,13 @@ viewBox='0 0 24 24' fill='none' stroke='%236b6862' stroke-width='2.4' stroke-lin
           <button class="tbtn on" data-dens="normal" data-tip="Normal rows"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
         </div>
         <div class="tgrp__lbl">Density</div>
+      </div>
+      <div class="tgrp">
+        <div class="tgrp__row">
+          <button class="tbtn on" data-src="manual" data-tip="Manual — Production Budget, typed by hand on Production Forecast"><b>M</b></button>
+          <button class="tbtn" data-src="automated" data-tip="Automated — budget computed live from the Production Projection model"><b>A</b></button>
+        </div>
+        <div class="tgrp__lbl">Source</div>
       </div>
       <div class="tgrp">
         <div class="tgrp__row">
@@ -1371,9 +1519,17 @@ function toast(msg) {
 function load() {
   // Come back to the window you were last looking at, with the data to match —
   // relabelling the columns client-side used to leave the old values in place.
-  const r = PREFS.range;
+  let r = PREFS.range;
+  // Self-heal a range saved before the span cap existed (or however else a
+  // stray 200+ week span got in) instead of loading it forever on every
+  // visit until someone notices and manually reopens the picker.
+  if (r && r.sw && r.ew) {
+    const spanWeeks = (r.ey - r.sy) * 53 + (r.ew - r.sw) + 1;
+    if (spanWeeks > 106) { r = PREFS.range = null; savePrefs(); }
+  }
   const args = r && r.sw && r.ew
     ? { start_year: r.sy, start_week: r.sw, end_year: r.ey, end_week: r.ew } : {};
+  args.mode = PREFS.src || "manual";
   api("budget.grid_payload", args).then(s => {
     STATE = s;
     draw(); restoreScroll();
@@ -1428,6 +1584,16 @@ function vcol(v) {
 function seedColours(blocks) {
   [...new Set(blocks.map(b => b.variety))].sort().forEach(vcol);
 }
+// A flat #hex reads flat. Dashboard bars (variety mix, greenhouse split)
+// get a two-stop gradient toward a lighter tint of the same colour instead --
+// matching the gradient fills used everywhere in the reference designs,
+// without inventing a second palette.
+function vgrad(v) {
+  const c = vcol(v), n = parseInt(c.slice(1), 16);
+  const mix = (c8, amt) => Math.round(c8 + (255 - c8) * amt);
+  const t = `rgb(${mix(n >> 16 & 255, .4)},${mix(n >> 8 & 255, .4)},${mix(n & 255, .4)})`;
+  return `linear-gradient(90deg,${c},${t})`;
+}
 
 function drawKpis() {
   const s = STATE;
@@ -1479,7 +1645,7 @@ function drawKpis() {
       (26 - v / hi * 22).toFixed(1)}`).join(" ");
     return `<svg class="kspark" viewBox="0 0 100 28" preserveAspectRatio="none">
       <polyline points="${pts}" fill="none" stroke="${colour}" stroke-width="1.6"
-        stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
   };
 
   const K = [
@@ -1544,6 +1710,33 @@ function drawFoot() {
 }
 
 // Dashboard view — the cards live here now, not over the grid.
+// Ranked bars, biggest first, drawn against the biggest. Inline SVG so it
+// needs no library; the viewBox is 720 wide and CSS scales it to the card.
+let RANKID = 0;
+function rankBars(items) {
+  // LAB/trunc widened from avocado's original (168px / 24 chars) -- that fit
+  // avocado's plain block names, but "Greenhouse · Variety" labels here run
+  // longer and were getting cut off mid-word ("Chepsito GH 08 · Firewo…").
+  const W = 720, H = 21, LAB = 260, VAL = 120, track = W - LAB - VAL;
+  const max = Math.max(1, ...items.map(i => i.value));
+  // Overview has up to three of these on screen at once (two farm cards plus
+  // the varieties card) -- a fixed gradient id here previously collided
+  // across all of them, so only the first ever actually painted.
+  const gid = "rkg" + (++RANKID);
+  return `<svg class="rank" viewBox="0 0 ${W} ${items.length * H}" role="img">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="var(--rose-600)"/>
+      <stop offset="100%" stop-color="var(--rose-300)"/></linearGradient></defs>` +
+    items.map((it, i) => {
+      const y = i * H, w = it.value > 0 ? Math.max(it.value / max * track, 2) : 0;
+      const lab = it.label.length > 36 ? it.label.slice(0, 35) + "…" : it.label;
+      return `<text class="rk-l" x="0" y="${y + 14}"><title>${esc(it.label)}</title>${esc(lab)}</text>` +
+        `<rect class="rk-t" x="${LAB}" y="${y + 5}" width="${track}" height="9" rx="4.5"/>` +
+        (w ? `<rect class="rk-b" x="${LAB}" y="${y + 5}" width="${w.toFixed(1)}" height="9" rx="4.5" fill="url(#${gid})"/>` : "") +
+        `<text class="rk-v" x="${W}" y="${y + 14}">${esc(it.note)}</text>`;
+    }).join("") + "</svg>";
+}
+
 function drawDash() {
   if (!DASH) return;
   const s = STATE, { blocks, M, bud, act, hasAct, nowIdx, actCmp } = DASH;
@@ -1584,43 +1777,64 @@ function drawDash() {
       <span class="dcard__n">peak ${esc(M[peak])} &middot; ${fmtMU(bud[peak])}</span></div>
     <div class="dchart">
       <div class="dchart__y">${axis}</div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <defs><linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#8a8780" stop-opacity=".26"/>
-          <stop offset="100%" stop-color="#8a8780" stop-opacity=".02"/></linearGradient></defs>
-        ${nowIdx >= 0 ? `<rect x="${x(nowIdx)}" y="0" width="${(W - x(nowIdx)).toFixed(2)}"
-          height="${H}" fill="rgba(10,10,10,.03)"/>` : ""}
-        ${rules}
-        <path d="${budLine}L${W} ${H}L0 ${H}Z" fill="url(#dg)"/>
-        <path d="${budLine}" fill="none" stroke="var(--s-budget)" stroke-width=".7"
-          stroke-linejoin="round"/>
-        ${cmpLine ? `<path d="${cmpLine}" fill="none" stroke="var(--s-budget)"
-          stroke-width=".7" stroke-dasharray="1.5 1.5" opacity=".85"/>` : ""}
-        ${actLine ? `<path d="${actLine}" fill="none" stroke="var(--s-actual)"
-          stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>` : ""}
-        <circle cx="${x(peak)}" cy="${y(bud[peak])}" r=".9" fill="var(--warn)"/>
-        ${nowIdx >= 0 ? `<line x1="${x(nowIdx)}" y1="0" x2="${x(nowIdx)}" y2="${H}"
-          stroke="var(--signal)" stroke-width=".45" opacity=".6"/>` : ""}
-      </svg>
+      <div class="dchart__plot">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="dg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#8a8780" stop-opacity=".22"/>
+              <stop offset="100%" stop-color="#8a8780" stop-opacity="0"/></linearGradient>
+            <linearGradient id="dgAct" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--s-actual)" stop-opacity=".28"/>
+              <stop offset="100%" stop-color="var(--s-actual)" stop-opacity="0"/></linearGradient>
+          </defs>
+          ${nowIdx >= 0 ? `<rect x="${x(nowIdx)}" y="0" width="${(W - x(nowIdx)).toFixed(2)}"
+            height="${H}" fill="rgba(10,10,10,.03)"/>` : ""}
+          ${rules}
+          <path d="${budLine}L${W} ${H}L0 ${H}Z" fill="url(#dg)"/>
+          <path d="${budLine}" fill="none" stroke="var(--s-budget)" stroke-width="2"
+            stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          ${cmpLine ? `<path d="${cmpLine}" fill="none" stroke="var(--s-budget)"
+            stroke-width="2" stroke-dasharray="4 4" opacity=".85" vector-effect="non-scaling-stroke"/>` : ""}
+          ${actLine ? `<path d="${actLine}L${x(actPts[actPts.length - 1][0])} ${H}L${x(actPts[0][0])} ${H}Z"
+            fill="url(#dgAct)"/>` : ""}
+          ${actLine ? `<path d="${actLine}" fill="none" stroke="var(--s-actual)"
+            stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+            vector-effect="non-scaling-stroke"/>` : ""}
+          ${nowIdx >= 0 ? `<line x1="${x(nowIdx)}" y1="0" x2="${x(nowIdx)}" y2="${H}"
+            stroke="var(--signal)" stroke-width="1.5" opacity=".6" vector-effect="non-scaling-stroke"/>` : ""}
+        </svg>
+        <!-- Plain circles distort into ellipses here -- the viewBox is scaled
+             non-uniformly (preserveAspectRatio="none") so x and y units don't
+             render at the same pixel size. Fixed-size CSS dots positioned by
+             the same %, instead, so they read as actual circles. -->
+        <i class="ddot ddot--peak" style="left:${(x(peak) / W * 100).toFixed(2)}%;top:${(y(bud[peak]) / H * 100).toFixed(2)}%"></i>
+        ${actLine ? `<i class="ddot ddot--act" style="left:${(x(actPts[actPts.length - 1][0]) / W * 100).toFixed(2)}%;top:${(y(actPts[actPts.length - 1][1]) / H * 100).toFixed(2)}%"></i>` : ""}
+      </div>
       <div class="dchart__x">${M.map((m, i) => `<span class="${
         i === nowIdx ? "on" : ""}${i === peak ? " pk" : ""}">${m}</span>`).join("")}</div>
     </div>
   </div>`;
 
   // ── variety mix ───────────────────────────────────────────────────
+  // A variety with no budget entered yet isn't "0% of the mix" -- it isn't
+  // in the mix. Listing it alongside real numbers as a dead 0% row was the
+  // actual complaint: most of the card was noise, not information. Split
+  // into what's actually budgeted (the card) and what isn't (one footnote).
   const byVar = {};
   blocks.forEach(b => {
     const v = byVar[b.variety] || (byVar[b.variety] = { stems: 0, area: 0, houses: new Set() });
     v.stems += b.budget_total || 0; v.area += b.area || 0; v.houses.add(b.greenhouse);
   });
-  const vars = Object.entries(byVar).sort((a, b) => b[1].stems - a[1].stems);
+  const allVars = Object.entries(byVar).sort((a, b) => b[1].stems - a[1].stems);
+  const vars = allVars.filter(([, v]) => v.stems > 0);
+  const noVars = allVars.filter(([, v]) => v.stems <= 0);
   const vTotal = vars.reduce((t, [, v]) => t + v.stems, 0) || 1;
 
   const mix = `<div class="dcard">
     <div class="dcard__h"><h4>Variety mix</h4><span class="grow"></span>
-      <span class="dcard__n">${vars.length} varieties</span></div>
-    <div class="dbar">${vars.map(([name, v]) =>
-      `<i style="flex:${v.stems};background:${vcol(name)}" title="${esc(name)} · ${
+      <span class="dcard__n">${vars.length} of ${allVars.length} varieties budgeted</span></div>
+    ${vars.length ? `<div class="dbar">${vars.map(([name, v]) =>
+      `<i style="flex:${v.stems};background:${vgrad(name)}" title="${esc(name)} · ${
         fmtMU(v.stems)}"></i>`).join("")}</div>
     <div class="dlist">${vars.map(([name, v]) => `<div class="drow">
       <i style="background:${vcol(name)}"></i>
@@ -1628,30 +1842,38 @@ function drawDash() {
       <span>${v.houses.size} house${v.houses.size === 1 ? "" : "s"} · ${
         fmt(Math.round(v.area))} m²</span>
       <u>${Math.round(v.stems / vTotal * 100)}%</u>
-      <em>${fmtMU(v.stems)}</em></div>`).join("")}</div>
+      <em>${fmtMU(v.stems)}</em></div>`).join("")}</div>`
+      : `<div class="hnone">No variety has a crop-year budget yet.</div>`}
+    ${noVars.length ? `<div class="rankfoot">Not yet budgeted: ${
+      noVars.map(([name]) => esc(name)).join(", ")}</div>` : ""}
   </div>`;
 
   // ── greenhouses, stacked by what is planted in them ───────────────
   const byHouse = {};
   blocks.forEach(b => (byHouse[b.greenhouse] || (byHouse[b.greenhouse] = [])).push(b));
-  const houses = Object.entries(byHouse)
+  const allHouses = Object.entries(byHouse)
     .map(([h, bs]) => ({ h, bs, total: bs.reduce((t, b) => t + (b.budget_total || 0), 0) }))
     .sort((a, b) => b.total - a.total);
+  const houses = allHouses.filter(h => h.total > 0);
+  const noHouses = allHouses.filter(h => h.total <= 0);
   const hMax = Math.max(1, ...houses.map(h => h.total));
 
   const ghs = `<div class="dcard dcard--wide">
     <div class="dcard__h"><h4>Greenhouses</h4><span class="grow"></span>
-      <span class="dcard__n">annual budget, split by variety</span></div>
-    <div class="dhouses">${houses.map(g => `<div class="dh">
+      <span class="dcard__n">${houses.length} of ${allHouses.length} budgeted, split by variety</span></div>
+    ${houses.length ? `<div class="dhouses">${houses.map(g => `<div class="dh">
       <span class="dh__n">${esc(house(g.h))}</span>
       <span class="dh__t" style="width:${(g.total / hMax * 100).toFixed(1)}%">
-        ${g.bs.sort((a, b) => b.budget_total - a.budget_total).map(b =>
-          `<i style="flex:${b.budget_total || 1};background:${vcol(b.variety)}"
+        ${g.bs.filter(b => b.budget_total > 0).sort((a, b) => b.budget_total - a.budget_total).map(b =>
+          `<i style="flex:${b.budget_total};background:${vgrad(b.variety)}"
              title="${esc(b.variety)} · ${fmtMU(b.budget_total)}"></i>`).join("")}
       </span>
       <span class="dh__v">${fmtMU(g.total)}</span>
       <span class="dh__m">${g.bs.length} block${g.bs.length === 1 ? "" : "s"}</span>
-    </div>`).join("")}</div>
+    </div>`).join("")}</div>`
+      : `<div class="hnone">No greenhouse has a crop-year budget yet.</div>`}
+    ${noHouses.length ? `<div class="rankfoot">Not yet budgeted: ${
+      noHouses.map(g => esc(house(g.h))).join(", ")}</div>` : ""}
   </div>`;
 
   // ── where the stems land by length ────────────────────────────────
@@ -1675,8 +1897,304 @@ function drawDash() {
     </div>`).join("") || `<div class="hnone">No grade mix on these protocols.</div>`}</div>
   </div>`;
 
-  $("#dash-detail").innerHTML = `<div class="dgrid">${curve}${mix}${ghs}${grade}</div>`;
+  // ── top blocks by crop-year budget, biggest first ─────────────────
+  const ranked = blocks.filter(b => (b.budget_total || 0) > 0)
+    .sort((a, b) => b.budget_total - a.budget_total);
+  const topN = ranked.slice(0, 12);
+  const topBlocks = `<div class="dcard dcard--wide">
+    <div class="dcard__h"><h4>Top blocks</h4><span class="grow"></span>
+      <span class="dcard__n">by crop-year budget</span></div>
+    ${topN.length ? rankBars(topN.map(b => ({
+        label: `${house(b.greenhouse)} · ${b.variety}`,
+        value: b.budget_total,
+        note: `${fmtMU(b.budget_total)} · ${Math.round(b.area || 0)} m²`,
+      }))) + (ranked.length > 12
+        ? `<div class="rankfoot">Top 12 of ${ranked.length} budgeted blocks</div>` : "")
+      : `<div class="hnone">No block carries a crop-year budget yet.</div>`}
+  </div>`;
+
+  $("#dash-detail").innerHTML = `<div class="dgrid">${curve}${mix}${topBlocks}${ghs}${grade}</div>`;
 }
+
+// ── Production overview ──────────────────────────────────────────
+// Live from Greenhouse + Crop Cycle (+ their child tables), the same
+// client-side aggregation the "Crop Cycle Dashboard" workspace block at
+// /app/roses-production already does against these doctypes -- extended
+// here with the data-quality checks and lifecycle stats that block
+// doesn't have. Fetched once per session and re-filtered in the browser;
+// "Refresh" re-fetches.
+let OV = null;
+let FCOL = {};
+function fcol(f) {
+  if (!FCOL[f]) FCOL[f] = DPAL[Object.keys(FCOL).length % DPAL.length];
+  return FCOL[f];
+}
+// This page never loads the Desk JS bundle (no `frappe` global) -- only the
+// plain fetch()-based `api()` helper above, which is hardcoded to this app's
+// own methods. frappe.client.get_list/get_count are core whitelisted
+// methods at the same /api/method/ endpoint, just without that prefix.
+function ovCall(method, args) {
+  return fetch("/api/method/" + method, {
+    method: "POST", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "Accept": "application/json", "X-Frappe-CSRF-Token": CSRF },
+    body: JSON.stringify(args || {}),
+  }).then(r => r.json()).then(j => {
+    if (j.exc) throw new Error(String(j.exc).split("\n").filter(Boolean).pop());
+    return j.message ?? null;
+  });
+}
+function ovAge(dateStr) {
+  if (!dateStr) return null;
+  return (Date.now() - new Date(dateStr).getTime()) / (365.25 * 24 * 3600 * 1000);
+}
+
+function loadOverview(force) {
+  if (OV && !force) { renderOverview(); return; }
+  $("#ov-body").innerHTML = `<div class="hnone">Loading…</div>`;
+  Promise.all([
+    ovCall("frappe.client.get_list", { doctype: "Greenhouse", limit_page_length: 0,
+      fields: ["name", "farm", "number_of_beds", "number_of_plants", "area_planted",
+        "gross_area", "last_replanting_date"] }),
+    ovCall("frappe.client.get_list", { doctype: "Crop Cycle", limit_page_length: 0,
+      fields: ["name", "greenhouse", "farm", "variety", "status", "qty_planted",
+        "plants_standing", "plants_per_sqm", "planted_area", "crop_protocol",
+        "planting_date", "replaces"] }),
+    ovCall("frappe.client.get_list", { doctype: "Crop Cycle Bed", limit_page_length: 0,
+      fields: ["parent", "bed", "bed_length", "bed_width"] }),
+    ovCall("frappe.client.get_list", { doctype: "Crop Cycle Uproot", limit_page_length: 0,
+      fields: ["parent", "uproot_date", "plants"] }),
+    ovCall("frappe.client.get_count", { doctype: "Bed" }),
+  ]).then(([ghs, ccs, beds, uproots, bedTotal]) => {
+    OV = { ghs: ghs || [], ccs: ccs || [], beds: beds || [], uproots: uproots || [],
+           bedTotal: bedTotal || 0 };
+    fillOverviewFilters();
+    renderOverview();
+  }).catch(e => {
+    $("#ov-body").innerHTML = `<div class="hnone">Could not load Crop Cycle / Greenhouse data — ${
+      esc((e && e.message) || "see console")}.</div>`;
+    console.error(e);
+  });
+}
+
+function fillOverviewFilters() {
+  const farms = [...new Set(OV.ghs.map(g => g.farm).filter(Boolean))].sort();
+  const ghNames = [...new Set(OV.ccs.map(c => c.greenhouse).filter(Boolean))].sort();
+  const vars = [...new Set(OV.ccs.map(c => c.variety).filter(Boolean))].sort();
+  const years = [...new Set(OV.ccs.map(c => c.planting_date && c.planting_date.slice(0, 4))
+    .filter(Boolean))].sort().reverse();
+  const fill = (sel, vals) => {
+    const el = $(sel), cur = el.value;
+    el.innerHTML = el.querySelector("option").outerHTML +
+      vals.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if (vals.includes(cur)) el.value = cur;
+  };
+  fill("#ov-f-farm", farms); fill("#ov-f-gh", ghNames);
+  fill("#ov-f-variety", vars); fill("#ov-f-year", years);
+}
+
+function ovFilters() {
+  return {
+    farm: $("#ov-f-farm").value, gh: $("#ov-f-gh").value,
+    variety: $("#ov-f-variety").value, year: $("#ov-f-year").value,
+    q: ($("#ov-f-q").value || "").trim().toLowerCase(),
+  };
+}
+
+function ovStack(byYearFarm, years, farms) {
+  const W = 900, H = 210, padL = 34, padB = 22, innerH = H - padB - 16;
+  const gap = (W - padL) / Math.max(1, years.length);
+  const barW = Math.min(46, gap * 0.55);
+  const totals = years.map(y => farms.reduce((t, f) => t + ((byYearFarm[y] || {})[f] || 0), 0));
+  const max = Math.max(1, ...totals);
+  const step = niceStep(max / 4);
+  const top = Math.max(step, Math.ceil(max / step) * step);
+  const yPix = v => padB + innerH - (v / top) * innerH;
+  let gl = "", ax = "", bars = "";
+  for (let v = step; v <= top + 0.5; v += step) {
+    const py = yPix(v).toFixed(1);
+    gl += `<line class="os-gl" x1="${padL}" y1="${py}" x2="${W}" y2="${py}"/>`;
+    ax += `<text class="os-v" x="${padL - 6}" y="${(+py + 3).toFixed(1)}" text-anchor="end">${fmtMU(v)}</text>`;
+  }
+  years.forEach((y, i) => {
+    const x = padL + i * gap + (gap - barW) / 2;
+    let cy = padB + innerH;
+    farms.forEach(f => {
+      const v = (byYearFarm[y] || {})[f] || 0;
+      if (!v) return;
+      const h = v / top * innerH;
+      cy -= h;
+      bars += `<rect x="${x.toFixed(1)}" y="${cy.toFixed(1)}" width="${barW.toFixed(1)}" height="${
+        h.toFixed(1)}" rx="2" fill="${fcol(f)}"><title>${esc(f)} · ${y}: ${v}</title></rect>`;
+    });
+    ax += `<text class="os-x" x="${(x + barW / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle">${y}</text>`;
+    if (totals[i]) ax += `<text class="os-v" x="${(x + barW / 2).toFixed(1)}" y="${
+      (cy - 5).toFixed(1)}" text-anchor="middle">${totals[i]}</text>`;
+  });
+  return `<svg class="ovstack" viewBox="0 0 ${W} ${H}">${gl}${bars}${ax}</svg>`;
+}
+
+function ovQa(key, n, ok, title, detail, rows) {
+  return `<div class="qa${ok ? " qa--ok" : ""}" data-qa="${key}">
+    <div class="qa__t"><b>${n}</b>${esc(title)}</div>
+    <div class="qa__d">${esc(detail)}</div>
+    ${rows.length ? `<button class="qa__link" data-qa-toggle="${key}">Show what is contributing →</button>
+    <div class="qa__drill" id="qa-drill-${key}">${rows.map(esc).join("<br>")}</div>` : ""}
+  </div>`;
+}
+
+function renderOverview() {
+  if (!OV) return;
+  const f = ovFilters();
+  const ghsF = OV.ghs.filter(g => (!f.farm || g.farm === f.farm) && (!f.gh || g.name === f.gh));
+  const ghNameSet = new Set(ghsF.map(g => g.name));
+  const ccs = OV.ccs.filter(c =>
+    (!f.farm || c.farm === f.farm) &&
+    (!f.gh || c.greenhouse === f.gh) &&
+    (!f.variety || c.variety === f.variety) &&
+    (!f.year || (c.planting_date || "").slice(0, 4) === f.year) &&
+    (!f.q || [c.greenhouse, c.variety, c.name].some(x => (x || "").toLowerCase().includes(f.q))));
+  if (!ccs.length) {
+    $("#ov-body").innerHTML = `<div class="hnone">No crop cycles match this filter.</div>`;
+    return;
+  }
+  const ccNames = new Set(ccs.map(c => c.name));
+  const beds = OV.beds.filter(b => ccNames.has(b.parent));
+  const uproots = OV.uproots.filter(u => ccNames.has(u.parent));
+
+  // ── KPIs ──
+  const plantedArea = ccs.reduce((t, c) => t + (c.planted_area || 0), 0);
+  const plantsStanding = ccs.reduce((t, c) => t + (c.plants_standing || 0), 0);
+  const noCount = ccs.filter(c => !c.plants_standing && !c.plants_per_sqm).length;
+  const bedsPlanted = new Set(beds.map(b => b.bed).filter(Boolean)).size;
+  const density = plantedArea ? plantsStanding / plantedArea : 0;
+  const varietyCount = new Set(ccs.map(c => c.variety).filter(Boolean)).size;
+  const ghCount = new Set(ccs.map(c => c.greenhouse).filter(Boolean)).size;
+
+  const K = [
+    { l: "Crop cycles", v: fmt(ccs.length), n: `${ccs.length} of ${OV.ccs.length} on the system`, col: "var(--s-budget)" },
+    { l: "Planted area", v: fmtMU(Math.round(plantedArea)), n: `${ghCount} greenhouse${ghCount === 1 ? "" : "s"}`, col: "var(--s-forecast)" },
+    { l: "Plants standing", v: fmt(plantsStanding), n: noCount ? `${noCount} cycle${noCount === 1 ? "" : "s"} have no count` : "every cycle counted", col: "var(--pos)" },
+    { l: "Beds planted", v: fmt(bedsPlanted), n: `of ${fmt(OV.bedTotal)} beds on the system`, col: "var(--warn)" },
+    { l: "Average density", v: density.toFixed(1), unit: "plants/m²", n: "derived from area and plants", col: "var(--s-actual)" },
+    { l: "Varieties", v: fmt(varietyCount), n: "in the current selection", col: "var(--acc, var(--s-budget))" },
+  ];
+  const kpis = `<div class="kpi-grid">${K.map(k => `<div class="kpi" style="--acc:${k.col}">
+    <div class="kpi__label">${esc(k.l)}</div>
+    <div class="kpi__value">${k.v}${k.unit ? `<i>${esc(k.unit)}</i>` : ""}</div>
+    <div class="kpi__trend"><i></i>${esc(k.n)}</div></div>`).join("")}</div>`;
+
+  // ── data quality ──
+  const qNoCount = ccs.filter(c => !c.plants_standing && !c.plants_per_sqm);
+  const qNoArea = ccs.filter(c => !c.planted_area);
+  const qNoSize = ghsF.filter(g => !g.gross_area);
+  const qNoProtocol = ccs.filter(c => !c.crop_protocol);
+  const label = c => `${c.greenhouse || "?"} · ${c.variety || "?"}`;
+  const qa = `<div class="qgrid">
+    ${ovQa("plants", qNoCount.length, !qNoCount.length, "No plant count",
+      qNoCount.length ? `${qNoCount.length} crop cycles have no plants recorded, because no plants-per-m² was supplied for them.` : "Every crop cycle has a plant count.",
+      qNoCount.map(label))}
+    ${ovQa("area", qNoArea.length, !qNoArea.length, "No planted area",
+      qNoArea.length ? `${qNoArea.length} crop cycles show zero area — their beds have no length or width recorded.` : "Every crop cycle has a planted area.",
+      qNoArea.map(label))}
+    ${ovQa("size", qNoSize.length, !qNoSize.length, "Greenhouse size not set",
+      qNoSize.length ? `${qNoSize.length} greenhouses have no total area, so utilisation cannot be shown.` : "Every greenhouse has a total area.",
+      qNoSize.map(g => g.name))}
+    ${ovQa("protocol", qNoProtocol.length, !qNoProtocol.length, "No growth protocol",
+      qNoProtocol.length ? `${qNoProtocol.length} crop cycles have no crop protocol linked, so no forecast can be built from them.` : "Every crop cycle has a crop protocol.",
+      qNoProtocol.map(label))}
+  </div>`;
+
+  // ── by farm ──
+  const byFarmArea = {}, byFarmPlants = {};
+  ccs.forEach(c => {
+    const fm = c.farm || "(no farm)";
+    byFarmArea[fm] = (byFarmArea[fm] || 0) + (c.planted_area || 0);
+    byFarmPlants[fm] = (byFarmPlants[fm] || 0) + (c.plants_standing || 0);
+  });
+  const farmRows = (obj, unit) => Object.entries(obj).sort((a, b) => b[1] - a[1])
+    .map(([name, v]) => ({ label: name, value: v, note: unit === "m²" ? fmtMU(Math.round(v)) + " m²" : fmtMU(v) }));
+  const byFarm = `<div class="dgrid">
+    <div class="dcard"><div class="dcard__h"><h4>Planted area by farm</h4><span class="grow"></span>
+      <span class="dcard__n">m² under crop</span></div>${rankBars(farmRows(byFarmArea, "m²"))}</div>
+    <div class="dcard"><div class="dcard__h"><h4>Plants by farm</h4><span class="grow"></span>
+      <span class="dcard__n">plants standing</span></div>${rankBars(farmRows(byFarmPlants, "n"))}</div>
+  </div>`;
+
+  // ── plantings by year, stacked by farm ──
+  const byYearFarm = {};
+  const farmsSeen = new Set();
+  ccs.forEach(c => {
+    if (!c.planting_date) return;
+    const y = c.planting_date.slice(0, 4), fm = c.farm || "(no farm)";
+    farmsSeen.add(fm);
+    (byYearFarm[y] || (byYearFarm[y] = {}))[fm] = (byYearFarm[y][fm] || 0) + 1;
+  });
+  const years = Object.keys(byYearFarm).sort();
+  const farmsList = [...farmsSeen].sort();
+  const plantings = years.length ? `<div class="dcard dcard--wide">
+    <div class="dcard__h"><h4>Plantings by year</h4><span class="grow"></span>
+      <span class="dcard__n">crop cycles started, by farm</span></div>
+    ${ovStack(byYearFarm, years, farmsList)}
+    <div class="ovlegend">${farmsList.map(fm => `<span><i style="background:${fcol(fm)}"></i>${esc(fm)}</span>`).join("")}</div>
+  </div>` : "";
+
+  // ── largest varieties by area ──
+  const byVarArea = {};
+  ccs.forEach(c => { if (c.variety) byVarArea[c.variety] = (byVarArea[c.variety] || 0) + (c.planted_area || 0); });
+  const varRows = Object.entries(byVarArea).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 12)
+    .map(([name, v]) => ({ label: name, value: v, note: fmtMU(Math.round(v)) + " m²" }));
+  const largest = `<div class="dcard dcard--wide">
+    <div class="dcard__h"><h4>Largest varieties by area</h4><span class="grow"></span>
+      <span class="dcard__n">top ${varRows.length} by planted area</span></div>
+    ${varRows.length ? rankBars(varRows) : `<div class="hnone">No variety has an area recorded yet.</div>`}
+  </div>`;
+
+  // ── lifecycle ──
+  const replants = ccs.filter(c => c.replaces).length;
+  const uprootParents = new Set(uproots.map(u => u.parent)).size;
+  const plantsRemoved = uproots.reduce((t, u) => t + (u.plants || 0), 0);
+  const old6 = ccs.filter(c => (ovAge(c.planting_date) || 0) >= 6).length;
+  const replantDateSet = ghsF.filter(g => g.last_replanting_date).length;
+  const life = `<div class="lifegrid">
+    ${[
+      ["Replants logged", replants, "crop cycles that replace another"],
+      ["Uproot log entries", uproots.length, "rows across these crop cycles"],
+      ["Cycles with an uproot", uprootParents, `of ${ccs.length} crop cycles`],
+      ["Plants removed", fmt(plantsRemoved), "logged in uproots"],
+      ["Planted 6+ years ago", old6, "crop cycles due for review"],
+      ["Greenhouses with a replant date", replantDateSet, `of ${ghsF.length} greenhouses`],
+    ].map(([l, v, n]) => `<div class="life"><div class="life__l">${esc(l)}</div>
+      <div class="life__v">${v}</div><div class="life__n">${esc(n)}</div></div>`).join("")}
+  </div>`;
+
+  $("#ov-body").innerHTML = kpis + qa + byFarm + plantings + largest + life;
+}
+
+// Filters/search re-render from the cached fetch; only Refresh re-fetches.
+["#ov-f-farm", "#ov-f-gh", "#ov-f-variety", "#ov-f-year"].forEach(sel =>
+  document.addEventListener("change", e => { if (e.target.matches(sel)) renderOverview(); }));
+document.addEventListener("input", e => { if (e.target.matches("#ov-f-q")) renderOverview(); });
+document.addEventListener("click", e => {
+  if (e.target.closest("#ov-refresh")) loadOverview(true);
+  if (e.target.closest("#ov-clear")) {
+    ["#ov-f-farm", "#ov-f-gh", "#ov-f-variety", "#ov-f-year"].forEach(sel => $(sel).value = "");
+    $("#ov-f-q").value = "";
+    renderOverview();
+  }
+  const tgl = e.target.closest("[data-qa-toggle]");
+  if (tgl) $("#qa-drill-" + tgl.dataset.qaToggle).classList.toggle("on");
+
+  // Dashboard's own sub-tabs (Budget / Production Overview) -- separate
+  // from the sidebar's .snav[data-view], one level down inside #v-dashboard.
+  const dt = e.target.closest(".dtab[data-dtab]");
+  if (dt) {
+    const which = dt.dataset.dtab;
+    document.querySelectorAll(".dtab[data-dtab]").forEach(b => b.classList.toggle("on", b === dt));
+    $("#dtab-budget").classList.toggle("on", which === "budget");
+    $("#dtab-overview").classList.toggle("on", which === "overview");
+    if (which === "overview") loadOverview();
+  }
+});
 
 // ── Weekly Plan ───────────────────────────────────────────────────
 // One icon per operation, drawn rather than fetched so it renders offline and
@@ -2192,7 +2710,7 @@ let PREFS = {
   collapsed: false, focus: false, grain: "week", dens: "normal",
   show: { grades: false, daily: false, budget: false, actual: false },
   sort: "greenhouse", view: "forecast", closed: {}, unticked: [],
-  widths: {}, range: null, scroll: 0, query: "",
+  widths: {}, range: null, scroll: 0, query: "", src: "manual",
 };
 function loadPrefs() {
   try { Object.assign(PREFS, JSON.parse(localStorage.getItem(PKEY) || "{}")); }
@@ -2206,8 +2724,13 @@ function savePrefs() {
   }, 250);
 }
 function syncTitle() {
+  // Grain (week/month/life) only ever applies to the grid family — Dashboard,
+  // Map and Plan set their own title in applyView() and must keep it; this
+  // used to only guard Dashboard, so reloading into Map or Plan had applyView()
+  // set the right title and this immediately stomp it back to a grain name.
+  if (PREFS.view === "dashboard" || PREFS.view === "map" || PREFS.view === "plan") return;
   const name = { month: "Budget", week: "Forecast", life: "Lifetime" }[GRAIN] || "Forecast";
-  const t = $("#pagetitle"); if (t && !document.body.classList.contains("dashon")) t.textContent = name;
+  const t = $("#pagetitle"); if (t) t.textContent = name;
   document.querySelectorAll(".snav[data-view]").forEach(b =>
     b.classList.toggle("on", b.dataset.view === PREFS.view));
 }
@@ -2226,18 +2749,39 @@ function applyPrefs() {
     b.classList.toggle("on", b.dataset.dens === DENS));
   document.querySelectorAll("[data-show]").forEach(b =>
     b.classList.toggle("on", !!SHOW[b.dataset.show]));
+  document.querySelectorAll("[data-src]").forEach(b =>
+    b.classList.toggle("on", b.dataset.src === (PREFS.src || "manual")));
   const f = $("#t-focus"); if (f) f.classList.toggle("on", !!PREFS.focus);
   const st = $("#t-sort");
   if (st) st.dataset.tip = "Sort: " + { greenhouse: "Greenhouse", variety: "Variety", size: "Largest" }[SORT];
-  document.querySelectorAll(".snav[data-view]").forEach(b =>
-    b.classList.toggle("on", b.dataset.view === PREFS.view));
-  const dash = PREFS.view === "dashboard";
-  $("#v-dashboard").classList.toggle("on", dash);
-  $("#v-grid").classList.toggle("on", !dash);
-  const tools = document.querySelector(".pagehead__tools");
-  if (tools) tools.style.visibility = dash ? "hidden" : "";
+  applyView(PREFS.view || "forecast");
   applyWidths();
   syncTitle();
+}
+// Shared by applyPrefs() (page load / restoring a saved view) and the nav
+// click handler below — used to be duplicated between the two, and the
+// load-time copy only ever knew about "dashboard" vs. everything else, so
+// reloading on Map or Plan left the nav button highlighted correctly while
+// the Forecast grid stayed the visible panel underneath it. Map and Plan
+// fetch their own data independently of the grid's STATE (see mapLoad() /
+// loadPlan()), so it's safe to trigger them here, before load() resolves.
+function applyView(v) {
+  document.querySelectorAll(".snav[data-view]").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  const dash = v === "dashboard", isMap = v === "map", isPlan = v === "plan";
+  $("#v-dashboard").classList.toggle("on", dash);
+  $("#v-map").classList.toggle("on", isMap);
+  $("#v-plan").classList.toggle("on", isPlan);
+  $("#v-grid").classList.toggle("on", !dash && !isMap && !isPlan);
+  const tools = document.querySelector(".pagehead__tools");
+  if (tools) tools.style.visibility = dash || isMap || isPlan ? "hidden" : "";
+  document.body.classList.toggle("dashon", dash);
+  $("#pagetitle").textContent = { dashboard: "Dashboard", budget: "Budget",
+    forecast: "Forecast", lifetime: "Lifetime", plan: "Weekly Plan",
+    map: "Farm Map", calibrate: "Calibration" }[v] || "Forecast";
+  // Leaflet cannot measure a hidden pane, so the map builds on first reveal —
+  // safe to call again later too, showMap() no-ops once MAP_READY is set.
+  if (isMap) showMap();
+  if (isPlan) loadPlan();
 }
 // Column widths survive because a planner who widened W30 meant it.
 // The frozen columns drive sticky offsets through these vars, so resizing one
@@ -2474,6 +3018,15 @@ function bindToolbar() {
     const t = document.querySelector(".grid");
     if (t) t.className = "grid d-" + DENS;
   }));
+  // Source picks what the server sends as "budget" — Manual (Production
+  // Forecast) or Automated (the live Production Projection model) — so it
+  // has to reload, not just re-render.
+  document.querySelectorAll("[data-src]").forEach(b => b.addEventListener("click", () => {
+    if (b.classList.contains("on")) return;
+    document.querySelectorAll("[data-src]").forEach(x => x.classList.remove("on"));
+    b.classList.add("on"); PREFS.src = b.dataset.src; savePrefs();
+    keepScroll(); load();
+  }));
   document.querySelectorAll("[data-show]").forEach(b => b.addEventListener("click", () => {
     const k = b.dataset.show;
     SHOW[k] = !SHOW[k];
@@ -2657,6 +3210,16 @@ function openRangePicker() {
     if ([r2.sy, r2.sw, r2.ey, r2.ew].some(isNaN)) return;
     if (r2.ey < r2.sy || (r2.ey === r2.sy && r2.ew < r2.sw)) {
       toast("End week is before the start week");
+      return;
+    }
+    // The year pickers span 9 years with nothing else stopping a stray
+    // click from producing a 200+ week range — every column becomes a grid
+    // column, so an unbounded span doesn't just look odd, it makes the
+    // whole page heavy and next to unreadable. 2 years is generous for a
+    // deliberate multi-year overview and still nowhere near this.
+    const spanWeeks = (r2.ey - r2.sy) * 53 + (r2.ew - r2.sw) + 1;
+    if (spanWeeks > 106) {
+      toast(`That's ${spanWeeks} weeks — pick a span of 2 years (106 weeks) or less`);
       return;
     }
     closePop();
@@ -3216,24 +3779,9 @@ function setGrain(g) {
   drawGrid(); drawFoot();
 }
 document.querySelectorAll(".snav[data-view]").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll(".snav[data-view]").forEach(x => x.classList.remove("on"));
-  b.classList.add("on");
   const v = PREFS.view = b.dataset.view; savePrefs();
-  const dash = v === "dashboard", isMap = v === "map", isPlan = v === "plan";
-  $("#v-dashboard").classList.toggle("on", dash);
-  $("#v-map").classList.toggle("on", isMap);
-  $("#v-plan").classList.toggle("on", isPlan);
-  $("#v-grid").classList.toggle("on", !dash && !isMap && !isPlan);
-  document.querySelector(".pagehead__tools").style.visibility =
-    dash || isMap || isPlan ? "hidden" : "";
-  if (isPlan) loadPlan();
-  document.body.classList.toggle("dashon", dash);
-  $("#pagetitle").textContent = { dashboard: "Dashboard", budget: "Budget",
-    forecast: "Forecast", lifetime: "Lifetime", plan: "Weekly Plan",
-    map: "Farm Map", calibrate: "Calibration" }[v] || "Forecast";
-  // Leaflet cannot measure a hidden pane, so the map builds on first reveal.
-  if (isMap) showMap();
-  const grainFor = (isMap || isPlan) ? null
+  applyView(v);
+  const grainFor = (v === "map" || v === "plan") ? null
     : { budget: "month", forecast: "week", lifetime: "life" }[v];
   setGrain(grainFor);
 }));

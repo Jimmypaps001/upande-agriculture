@@ -2,11 +2,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "istable": 1,
+ "editable_grid": 1,
  "module": "Upande Agriculture",
  "name": "Production Forecast Week",
  "owner": "Administrator",
  "creation": "2026-06-20 08:00:00",
- "modified": "2026-08-20 12:00:00",
+ "modified": "2026-09-02 09:00:00",
  "modified_by": "Administrator",
  "field_order": [
   "week_number",
@@ -14,10 +15,8 @@
   "grade",
   "budget_stems",
   "manual_budget_stems",
-  "forecasted_stems",
   "revised_forecast_stems",
   "actual_stems",
-  "var_forecast_vs_budget",
   "var_actual_vs_budget",
   "var_actual_vs_manual",
   "var_actual_vs_revised",
@@ -60,19 +59,11 @@
   {
    "fieldname": "manual_budget_stems",
    "fieldtype": "Int",
-   "label": "Manual Budget",
+   "label": "Production Budget",
    "allow_on_submit": 1,
    "in_list_view": 1,
    "columns": 1,
    "description": "Budget uploaded or typed by hand, when it differs from the system one"
-  },
-  {
-   "fieldname": "forecasted_stems",
-   "fieldtype": "Int",
-   "label": "Forecasted Stems",
-   "reqd": 1,
-   "in_list_view": 1,
-   "columns": 1
   },
   {
    "fieldname": "revised_forecast_stems",
@@ -81,7 +72,7 @@
    "allow_on_submit": 1,
    "in_list_view": 1,
    "columns": 1,
-   "description": "Editable after submit — the latest call for this week. Blank means the original forecast stands."
+   "description": "Editable after submit — the latest call for this week. Blank means the Production Budget stands."
   },
   {
    "fieldname": "actual_stems",
@@ -94,13 +85,6 @@
    "description": "Summed from harvest records for this greenhouse and variety; blank until the week starts"
   },
   {
-   "fieldname": "var_forecast_vs_budget",
-   "fieldtype": "Int",
-   "label": "Fcst - Budget",
-   "read_only": 1,
-   "allow_on_submit": 1
-  },
-  {
    "fieldname": "var_actual_vs_budget",
    "fieldtype": "Int",
    "label": "Act - Budget",
@@ -110,7 +94,7 @@
   {
    "fieldname": "var_actual_vs_manual",
    "fieldtype": "Int",
-   "label": "Act - Manual",
+   "label": "Act - Production",
    "read_only": 1,
    "allow_on_submit": 1
   },
@@ -122,7 +106,7 @@
    "allow_on_submit": 1,
    "in_list_view": 1,
    "columns": 1,
-   "description": "The headline variance: what was actually cut against the latest call (revised forecast, or the original where no revision was made)"
+   "description": "The headline variance: what was actually cut against the latest call (revised forecast, or the Production Budget where no revision was made)"
   },
   {
    "fieldname": "reason",

@@ -7,6 +7,8 @@ frappe.ui.form.on("Crop Cycle", {
         frm.set_query("purchase_invoice", () => ({ filters: { docstatus: 1 } }));
         // A crop cycle only ever lives in a greenhouse, never any other warehouse type.
         frm.set_query("greenhouse", () => ({ filters: { warehouse_type: "Greenhouse" } }));
+        // A protocol for a different variety would silently mis-model this planting.
+        frm.set_query("crop_protocol", () => ({ filters: { variety_item: frm.doc.variety } }));
     },
 
     refresh(frm) {

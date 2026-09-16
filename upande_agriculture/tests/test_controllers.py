@@ -191,6 +191,7 @@ class TestCropCycle(FrappeTestCase):
             self._bed(house, i, 20, 0.85)
         old = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
                           qty_planted=round(5 * 17 * 7),
+                          planting_date=datetime.date(2025, 1, 1),
                           cycle_end_date=datetime.date(2026, 1, 1))
         # old is Ended -- its beds no longer block a fresh cycle over the same ground.
         new = self._cycle(house, bed_range="1-5", plants_per_sqm=7,
@@ -294,6 +295,55 @@ class TestCropCycle(FrappeTestCase):
         })
         with self.assertRaises(frappe.ValidationError):
             c.save(ignore_permissions=True)
+
+    def test_uproot_log_refuses_a_bed_already_uprooted(self):
+        house = make_warehouse("TEST GH DOUBLEUPROOT")
+        for i in (1, 2):
+            self._bed(house, i, 20, 0.85)
+        c = self._cycle(house, bed_range="1-2", plants_per_sqm=7,
+                        qty_planted=round(2 * 20 * 0.85 * 7))
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 119,
+        })
+        c.save(ignore_permissions=True)
+
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 8), "bed_range": "1-2", "plants": 119,
+        })
+        with self.assertRaises(frappe.ValidationError):
+            c.save(ignore_permissions=True)
+
+    def test_partial_uproot_leaves_the_remainder_standing(self):
+        """Uprooting 100 of a bed's 314 stems leaves 214 -- on the row, and
+        mirrored onto the Bed master -- and reads as partial, not gone."""
+        house = make_warehouse("TEST GH PARTIALUPROOT")
+        bed = self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, beds=[{"bed": bed, "plants": 314}], qty_planted=314)
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 100,
+        })
+        c.save(ignore_permissions=True)
+
+        self.assertEqual(c.beds[0].plants, 314, "the original planting never shrinks")
+        self.assertEqual(c.beds[0].plants_remaining, 214)
+        self.assertEqual(c.beds[0].status, "Partially Uprooted")
+
+        bed_row = frappe.db.get_value("Bed", bed, ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed_row.status, "Partially Uprooted")
+        self.assertEqual(bed_row.variety, c.variety)
+        self.assertEqual(bed_row.plant_count, 214)
+
+        # Finishing the job empties the bed out on both sides.
+        c.append("uproot_log", {
+            "uproot_date": datetime.date(2026, 6, 8), "bed_range": "1", "plants": 214,
+        })
+        c.save(ignore_permissions=True)
+        self.assertEqual(c.beds[0].plants_remaining, 0)
+        self.assertEqual(c.beds[0].status, "Uprooted")
+        bed_row = frappe.db.get_value("Bed", bed, ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed_row.status, "Uprooted")
+        self.assertFalse(bed_row.variety)
+        self.assertEqual(bed_row.plant_count, 0)
 
     def test_uprooted_beds_show_status_on_the_table_itself(self):
         house = make_warehouse("TEST GH BEDSTATUS")
@@ -422,6 +472,40 @@ class TestGreenhouse(TestCropCycle):
         self.assertEqual([b.bed_number for b in gh.individual_beds], [1, 2, 3])
         self.assertEqual(gh.individual_beds[0].area_m2, 8)
         self.assertEqual(gh.bed_range[0].total_beds_area, 24)
+
+    def test_bed_master_mirrors_status_variety_and_plant_count(self):
+        house = make_warehouse("TEST GH BEDMASTER")
+        variety = self._item()
+        for i in (1, 2):
+            self._bed(house, i, 20, 0.85)
+        gh = self._greenhouse(house, bed_range=[{
+            "from_bed": 1, "to_bed": 2, "variety": variety,
+            "bed_length": 20, "bed_width": 0.85,
+            "planting_date": datetime.date(2026, 1, 1),
+        }])
+        for b in gh.individual_beds:
+            b.plant_count = 119
+        gh.save(ignore_permissions=True)
+
+        bed1 = frappe.db.get_value(
+            "Bed", {"greenhouse": house, "bed": 1},
+            ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed1.status, "Planted")
+        self.assertEqual(bed1.variety, variety)
+        self.assertEqual(bed1.plant_count, 119)
+
+        # Uprooting clears the ledger's OCCUPIED status -- variety and plant
+        # count should clear on the Bed master right along with it.
+        gh.individual_beds[0].status = "Uprooted"
+        gh.individual_beds[0].plant_count = 0
+        gh.save(ignore_permissions=True)
+
+        bed1 = frappe.db.get_value(
+            "Bed", {"greenhouse": house, "bed": 1},
+            ["status", "variety", "plant_count"], as_dict=True)
+        self.assertEqual(bed1.status, "Uprooted")
+        self.assertFalse(bed1.variety)
+        self.assertEqual(bed1.plant_count, 0)
 
     def test_replanting_a_bed_does_not_touch_its_neighbour(self):
         house = make_warehouse("TEST GH REPLANTLEDGER")
@@ -582,6 +666,7 @@ class TestGreenhouse(TestCropCycle):
         self._bed(house, 1, 20, 0.85)
         self._cycle(house, bed_range="1", plants_per_sqm=7,
                     qty_planted=round(20 * 0.85 * 7),
+                    planting_date=datetime.date(2025, 1, 1),
                     cycle_end_date=datetime.date(2025, 6, 1))
         self.assertEqual(bed_ranges_from_crop_cycles(house), [])
 

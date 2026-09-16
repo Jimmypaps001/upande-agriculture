@@ -10,12 +10,10 @@ from frappe.utils import getdate, nowdate
 
 from upande_agriculture.projection_calc import iso_weeks_in_year
 
-MAX_WINDOW = 26
-
 # Child-row fields this module derives; everything else on a week row is a
 # human judgement and is never written back programmatically.
 DERIVED_FIELDS = (
-    "actual_stems", "var_forecast_vs_budget", "var_actual_vs_budget",
+    "actual_stems", "var_actual_vs_budget",
     "var_actual_vs_manual", "var_actual_vs_revised",
 )
 
@@ -68,16 +66,15 @@ class ProductionForecast(Document):
                 )
 
     def check_window(self):
-        last = iso_weeks_in_year(self.forecast_year) if self.forecast_year else 53
+        last = iso_weeks_in_year(int(self.forecast_year)) if self.forecast_year else 53
         if not self.start_week or not (1 <= int(self.start_week) <= last):
             frappe.throw(_("Start Week must be between 1 and {0}.").format(last))
         if not self.window_weeks:
             self.window_weeks = 6
-        if not (1 <= int(self.window_weeks) <= MAX_WINDOW):
-            frappe.throw(
-                _("Window must be 1 to {0} weeks. A forecast reaching further "
-                  "than that is a budget, not a forecast.").format(MAX_WINDOW)
-            )
+        # Production Forecast now carries the full-season manual budget too, so
+        # the window may run the whole year -- only the calendar itself bounds it.
+        if not (1 <= int(self.window_weeks) <= last):
+            frappe.throw(_("Window must be 1 to {0} weeks.").format(last))
 
     def sync_weeks(self):
         """Reshape the weeks table to match the window, keeping what's typed.
@@ -88,7 +85,7 @@ class ProductionForecast(Document):
         already exists, so widening the window cannot overwrite a judgement
         already made — including a deliberate zero.
         """
-        last = iso_weeks_in_year(self.forecast_year)
+        last = iso_weeks_in_year(int(self.forecast_year))
         wanted = [
             wk for wk in range(int(self.start_week),
                                int(self.start_week) + int(self.window_weeks))
@@ -119,7 +116,6 @@ class ProductionForecast(Document):
                     "iso_year": int(self.forecast_year),
                     "grade": "all",
                     "budget_stems": budgeted,
-                    "forecasted_stems": budgeted,
                 }))
             # Grade revisions for a week that is staying ride along with it.
             for (yr, w, g), row in list(existing.items()):
@@ -142,15 +138,15 @@ def _week_start(iso_year: int, week: int) -> datetime.date:
 
 
 def _set_variances(w, started: bool) -> None:
-    """Forecast vs budget always; anything vs actuals only once the week has
-    started (before that everything against actuals reads a neutral 0).
+    """Anything vs actuals only once the week has started (before that
+    everything against actuals reads a neutral 0).
 
-    'Actual - Revised' falls back to the original forecast when no revision
-    was typed: an unrevised week's latest call IS the original forecast, so
-    the headline variance never goes blank just because nobody revised.
-    'Actual - Manual' stays 0 until a manual budget is actually entered.
+    'Actual - Revised' falls back to the Production Budget (manual, else
+    system) when no revision was typed: an unrevised week's latest call IS
+    that budget, so the headline variance never goes blank just because
+    nobody revised. 'Actual - Production' stays 0 until a Production Budget
+    is actually entered.
     """
-    w.var_forecast_vs_budget = int(w.forecasted_stems or 0) - int(w.budget_stems or 0)
     if not started:
         w.var_actual_vs_budget = 0
         w.var_actual_vs_manual = 0
@@ -159,10 +155,10 @@ def _set_variances(w, started: bool) -> None:
     actual = int(w.actual_stems or 0)
     w.var_actual_vs_budget = actual - int(w.budget_stems or 0)
     w.var_actual_vs_manual = actual - int(w.manual_budget_stems) if w.manual_budget_stems else 0
-    latest_call = (
-        w.revised_forecast_stems if w.revised_forecast_stems is not None
-        else w.forecasted_stems
-    )
+    # Int columns can't hold NULL, so a revision and an untouched row both
+    # default to 0 -- treat 0 as "not revised" and fall through, same
+    # convention as Actual - Production above.
+    latest_call = w.revised_forecast_stems or w.manual_budget_stems or w.budget_stems
     w.var_actual_vs_revised = actual - int(latest_call or 0)
 
 
@@ -214,6 +210,29 @@ def refresh_actuals(forecast: str) -> dict:
     filled = [w for w in (doc.weeks or []) if w.actual_stems is not None]
     return {"weeks_filled": len(filled),
             "total_actual": sum(int(w.actual_stems) for w in filled)}
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def variety_query(doctype, txt, searchfield, start, page_len, filters):
+    """Link query for Variety on this form: only varieties this greenhouse
+    has actually grown, via its Crop Cycles -- a full Item list is useless
+    when the whole point is "what's in this house"."""
+    greenhouse = (filters or {}).get("greenhouse")
+    if not greenhouse:
+        return []
+    return frappe.db.sql(
+        """
+        SELECT DISTINCT i.name, i.item_name
+        FROM `tabCrop Cycle` cc
+        JOIN `tabItem` i ON i.name = cc.variety
+        WHERE cc.greenhouse = %(greenhouse)s
+          AND i.name LIKE %(txt)s
+        ORDER BY i.name
+        LIMIT %(page_len)s OFFSET %(start)s
+        """,
+        {"greenhouse": greenhouse, "txt": f"%{txt}%", "start": start, "page_len": page_len},
+    )
 
 
 def budget_weeks(greenhouse, variety, year) -> dict[int, int]:

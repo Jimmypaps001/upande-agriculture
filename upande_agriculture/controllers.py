@@ -12,6 +12,46 @@ from upande_agriculture.todo_helpers import upsert_todo
 def crop_cycle_on_update(doc, method=None):
     _ensure_milestone_todos(doc)
     _sync_greenhouse_from_crop_cycle(doc)
+    # Runs AFTER the Greenhouse ledger sync -- that sync's own prefill only
+    # knows whole-bed standing/not-standing, so it would otherwise clobber
+    # the more precise partial count this one writes.
+    _sync_bed_master_from_crop_cycle(doc)
+
+
+def _sync_bed_master_from_crop_cycle(cycle) -> None:
+    """Mirror each of this cycle's beds straight onto the Bed master --
+    status, variety, and how many plants remain -- independent of whether a
+    Greenhouse ledger document exists for the house. That ledger's own sync
+    (sync_bed_master, on the Greenhouse) is a separate, optional view; a bed
+    shouldn't have to wait on it to know what's actually growing there.
+
+    Only a bed still crediting THIS cycle (or one this cycle is actively
+    giving up) is touched -- a bed already replanted to something else
+    belongs to that new planting now, and its own save will have written it.
+    """
+    meta = frappe.get_meta("Bed")
+    if not meta.has_field("status"):
+        return
+    has_plant_count = meta.has_field("plant_count")
+
+    for row in (cycle.beds or []):
+        if not row.bed:
+            continue
+        if row.status == "Uprooted":
+            updates = {"status": "Uprooted", "variety": None}
+        else:
+            updates = {
+                "status": "Partially Uprooted" if row.status == "Partially Uprooted" else "Planted",
+                "variety": cycle.variety,
+            }
+        if has_plant_count:
+            updates["plant_count"] = 0 if row.status == "Uprooted" else int(row.plants_remaining or 0)
+        current = frappe.db.get_value(
+            "Bed", row.bed, ["status", "variety"] + (["plant_count"] if has_plant_count else []),
+            as_dict=True,
+        )
+        if current and any(str(updates.get(f) or "") != str(current.get(f) or "") for f in updates):
+            frappe.db.set_value("Bed", row.bed, updates, update_modified=False)
 
 
 def _sync_greenhouse_from_crop_cycle(cycle) -> None:

@@ -265,6 +265,7 @@ class CropCycle(Document):
         self.roll_up_beds()
         self.check_uproot_log()
         self.derive_bending_dates()
+        self.check_actual_dates()
         self.pull_from_invoice()
         self.check_density()
         self.check_greenhouse_capacity()
@@ -429,8 +430,9 @@ class CropCycle(Document):
         plants_standing is what a grower should be shown today; qty_planted
         stays the original investment, untouched, for costing. The `beds`
         table itself stays the original planting for the same reason -- but
-        each row's own status is recomputed every save, so looking at the
-        table doesn't require cross-checking it against Uproot Log by hand.
+        each row's own status and plants_remaining are recomputed every save,
+        so looking at the table doesn't require cross-checking it against
+        Uproot Log by hand.
         """
         bed_names = [row.bed for row in (self.beds or []) if row.bed]
         numbers = {}
@@ -443,6 +445,11 @@ class CropCycle(Document):
             }
         by_number = {numbers[row.bed]: row for row in (self.beds or []) if row.bed in numbers}
 
+        # Starts at the original planting; each row below eats into it. A
+        # row spanning several beds splits its removal across them in
+        # proportion to what each still has standing, so one bed's history
+        # doesn't have to be logged one plant at a time.
+        remaining = {n: int(row.plants or 0) for n, row in by_number.items()}
         for row in by_number.values():
             row.status = "Standing"
 
@@ -457,18 +464,51 @@ class CropCycle(Document):
                         u.bed_range, _compact(missing)),
                     title=_("Bed not in this cycle"),
                 )
+            # Rows replay in order, so a bed an EARLIER row already emptied
+            # out shows up here as already gone. Only refuse it for a row
+            # being typed IN THIS SAVE -- a row already on record is
+            # history, and re-checking it on every future save (for any
+            # other reason) would lock the cycle out of saving the moment
+            # any old overlap exists, rather than just catching a NEW
+            # mistake as it happens.
+            if u.is_new():
+                already = [n for n in wanted if remaining[n] <= 0]
+                if already:
+                    frappe.throw(
+                        _("{0} already uprooted — can't uproot it again.").format(
+                            _compact(already)),
+                        title=_("Already uprooted"),
+                    )
             u.area_sqm = round(
                 sum(float(by_number[n].bed_area or 0) * partial.get(n, 1.0) for n in wanted), 2
             )
-            standing = sum(by_number[n].plants or 0 for n in wanted)
-            if u.plants and u.plants > standing:
+            standing = sum(remaining[n] for n in wanted)
+            to_remove = int(u.plants or 0)
+            if to_remove > standing:
                 frappe.throw(
                     _("{0} plants removed but only {1:,} are standing on beds {2}.").format(
                         u.plants, standing, u.bed_range),
                     title=_("More than what's standing"),
                 )
-            for n in wanted:
-                by_number[n].status = "Uprooted"
+            allocated = 0
+            for i, n in enumerate(wanted):
+                if i == len(wanted) - 1:
+                    share = to_remove - allocated       # last bed absorbs any rounding
+                elif standing:
+                    share = round(to_remove * remaining[n] / standing)
+                    allocated += share
+                else:
+                    share = 0
+                remaining[n] = max(0, remaining[n] - share)
+
+        for n, row in by_number.items():
+            row.plants_remaining = remaining[n]
+            original = int(row.plants or 0)
+            row.status = (
+                "Uprooted" if remaining[n] <= 0
+                else "Partially Uprooted" if remaining[n] < original
+                else "Standing"
+            )
 
         self.plants_standing = int(self.qty_planted or 0) - sum(
             int(u.plants or 0) for u in (self.uproot_log or [])
@@ -499,6 +539,32 @@ class CropCycle(Document):
             self.first_bending_date = self.actual_first_bending_date
         if self.actual_second_bending_date:
             self.second_bending_date = self.actual_second_bending_date
+
+    def check_actual_dates(self):
+        """A recorded date has to make sense against the rest of this
+        cycle's own timeline -- these are events that actually happened, in
+        order, not planned estimates that can drift.
+        """
+        planting = getdate(self.planting_date) if self.planting_date else None
+
+        if self.actual_first_bending_date and planting:
+            if getdate(self.actual_first_bending_date) < planting:
+                frappe.throw(
+                    _("Actual First Bending Date can't be before Planting Date."),
+                    title=_("Date out of order"),
+                )
+        if self.actual_second_bending_date and self.actual_first_bending_date:
+            if getdate(self.actual_second_bending_date) < getdate(self.actual_first_bending_date):
+                frappe.throw(
+                    _("Actual Second Bending Date can't be before Actual First Bending Date."),
+                    title=_("Date out of order"),
+                )
+        if self.cycle_end_date and planting:
+            if getdate(self.cycle_end_date) < planting:
+                frappe.throw(
+                    _("Cycle End Date (uprooting) can't be before Planting Date."),
+                    title=_("Date out of order"),
+                )
 
     def check_lifecycle(self):
         """Uprooting and replanting must leave the record able to stop producing.

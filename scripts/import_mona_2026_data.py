@@ -244,7 +244,7 @@ def write_forecasts() -> None:
             for w in range(start, end + 1):
                 doc.append("weeks", {
                     "week_number": w,
-                    "forecasted_stems": window_weeks.get(w, 0),
+                    "revised_forecast_stems": window_weeks.get(w, 0),
                     "budget_stems": budget_weeks.get(w, 0),
                 })
             if existing:
