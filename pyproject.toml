@@ -15,6 +15,13 @@ dependencies = [
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
+# The Frappe major line this app is built against. bench and Frappe Cloud read this
+# to decide whether the app can be installed on a given bench; without it they
+# report "Could not find compatible Frappe version in pyproject.toml file" and the
+# deploy stops there.
+[tool.bench.frappe-dependencies]
+frappe = ">=16.0.0,<=17.0.0"
+
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
 # package_name = "~=1.1.0"
