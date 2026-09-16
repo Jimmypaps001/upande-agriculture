@@ -414,7 +414,12 @@ class CropCycle(Document):
         if self.planted_area and self.qty_planted and not self.plants_per_sqm:
             self.plants_per_sqm = round(self.qty_planted / self.planted_area, 2)
         elif self.planted_area and self.plants_per_sqm and not self.qty_planted:
-            self.qty_planted = int(round(self.planted_area * float(self.plants_per_sqm)))
+            # Sum the bed rows rather than re-multiplying the total. Each row
+            # already rounded its own count, so round(total x density) lands a
+            # plant or two away from what the rows actually hold -- and the
+            # uproot check measures against those rows. Re-multiplying made
+            # "uproot the whole cycle" fail by one plant.
+            self.qty_planted = sum(int(row.plants or 0) for row in (self.beds or []))
 
         density = float(self.plants_per_sqm or 0)
         self.implied_plants = int(round(self.planted_area * density))
