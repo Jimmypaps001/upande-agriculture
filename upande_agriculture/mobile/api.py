@@ -1766,7 +1766,7 @@ def productionRecordReplant():
                 if standing > 0:
                     reasonmap = {"End of Life": "Age (End of Life)", "Soil Issue": "Other"}
                     ghreason = reasonmap.get(reason, reason)
-                    if ghreason not in ["Low Yield", "Disease", "Variety Change", "Age (End of Life)", "Storm Damage", "Other"]:
+                    if ghreason not in ["Low Yield", "Disease", "Variety Change", "Age (End of Life)", "Storm Damage", "Theft", "Other"]:
                         ghreason = "Other"
                     qty_out = int(qty_uprooted)
                     if qty_out > standing:
@@ -1814,6 +1814,57 @@ def productionRecordReplant():
 
 
 @frappe.whitelist()
+def productionRecordGapFill():
+    # Topping up dead/missing plants in beds that are still standing --
+    # NOT a Replant (which uproots the range and starts a new Crop Cycle
+    # on it). Same variety, same cycle, just more plants in the ground.
+    # ponytail: the Crop Cycle and Bed master both pick this up correctly;
+    # the Greenhouse ledger's own individual_beds.plant_count for an
+    # already-occupied bed doesn't (expand_bed_ranges skips beds it
+    # already tracks as occupied) -- stays stale there until that bed's
+    # next uproot/replant. Fix if the Greenhouse-level plant rollup needs
+    # to be exact in between.
+    data = frappe.request.get_json() or {}
+    crop_cycle = (data.get("crop_cycle") or "").strip()
+    fill_date = (data.get("fill_date") or "").strip()
+    bed_range = (data.get("bed_range") or "").strip()
+    qty_planted = data.get("qty_planted")
+    remarks = (data.get("remarks") or "").strip()
+
+    if not crop_cycle:
+        frappe.response["data"] = {"error": "crop_cycle is required."}
+    elif not fill_date:
+        frappe.response["data"] = {"error": "fill_date is required."}
+    elif not bed_range:
+        frappe.response["data"] = {"error": "bed_range is required."}
+    elif qty_planted is None:
+        frappe.response["data"] = {"error": "qty_planted is required."}
+    else:
+        try:
+            qty_planted = int(qty_planted)
+            cycle = frappe.get_doc("Crop Cycle", crop_cycle)
+            row = cycle.append("gap_fill_log", {})
+            row.fill_date = fill_date
+            row.bed_range = bed_range
+            row.plants = qty_planted
+            if remarks:
+                row.remarks = remarks
+            cycle.save(ignore_permissions=True)
+            frappe.db.commit()
+            frappe.response["data"] = {
+                "status": "success",
+                "name": cycle.name,
+                "message": str(qty_planted) + " plant(s) recorded on beds " + bed_range + " for " + crop_cycle + ".",
+            }
+        except (TypeError, ValueError):
+            frappe.response["data"] = {"error": "qty_planted must be a whole number."}
+        except Exception as e:
+            frappe.db.rollback()
+            frappe.log_error("productionRecordGapFill error: " + str(e))
+            frappe.response["data"] = {"error": str(e)}
+
+
+@frappe.whitelist()
 def productionRecordUproot():
     data = frappe.request.get_json() or {}
     crop_cycle = (data.get("crop_cycle") or "").strip()
@@ -1841,7 +1892,7 @@ def productionRecordUproot():
             # App reasons -> Greenhouse Uprooting Log select options.
             reasonmap = {"End of Life": "Age (End of Life)", "Soil Issue": "Other"}
             ghreason = reasonmap.get(reason, reason)
-            if ghreason not in ["Low Yield", "Disease", "Variety Change", "Age (End of Life)", "Storm Damage", "Other"]:
+            if ghreason not in ["Low Yield", "Disease", "Variety Change", "Age (End of Life)", "Storm Damage", "Theft", "Other"]:
                 ghreason = "Other"
 
             if frappe.db.exists("Greenhouse", house):

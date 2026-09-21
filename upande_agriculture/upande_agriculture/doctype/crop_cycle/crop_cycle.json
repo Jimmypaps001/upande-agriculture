@@ -35,6 +35,8 @@
   "implied_plants",
   "section_uprooting",
   "uproot_log",
+  "section_gap_fill",
+  "gap_fill_log",
   "section_beds",
   "bed_range",
   "beds",
@@ -237,6 +239,19 @@
    "fieldtype": "Table",
    "label": "Uprooting Log",
    "options": "Crop Cycle Uproot"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_gap_fill",
+   "fieldtype": "Section Break",
+   "label": "Gap Filling"
+  },
+  {
+   "description": "New plants added to top up dead/missing spots in beds that are still standing. A fresh planting on cleared ground is a Replant, not a gap fill.",
+   "fieldname": "gap_fill_log",
+   "fieldtype": "Table",
+   "label": "Gap Fill Log",
+   "options": "Crop Cycle Gap Fill"
   },
   {
    "fieldname": "section_beds",

@@ -262,6 +262,7 @@ class CropCycle(Document):
         self.set_title()
         self.sync_beds_from_range()
         self.check_bed_conflicts()
+        self.apply_gap_fill_log()
         self.roll_up_beds()
         self.check_uproot_log()
         self.derive_bending_dates()
@@ -379,6 +380,57 @@ class CropCycle(Document):
                 c.bed, c.name, c.variety, self.greenhouse),
             title=_("Bed already occupied"),
         )
+
+    def apply_gap_fill_log(self):
+        """New plants topping up dead/missing spots in beds that are still
+        standing grow the bed's own `plants` -- the same baseline Uproot Log
+        shrinks `plants_remaining` against, never `plants` itself. Split
+        evenly across a row's beds (not by area) to match how the Greenhouse
+        ledger's own uproot sync splits a multi-bed row -- good enough for
+        the normal case of filling gaps bed by bed.
+
+        Runs before roll_up_beds() so the added plants feed into this same
+        save's area/density recompute, and each row is applied exactly
+        once -- `plants` is a real stored number, not a transient tally like
+        Uproot Log's remaining-plants calculation, so replaying an old row
+        would double-count it.
+        """
+        bed_names = [row.bed for row in (self.beds or []) if row.bed]
+        numbers = {}
+        if bed_names:
+            numbers = {
+                b.name: int(b.bed)
+                for b in frappe.get_all(
+                    "Bed", filters={"name": ("in", bed_names)}, fields=["name", "bed"]
+                )
+            }
+        by_number = {numbers[row.bed]: row for row in (self.beds or []) if row.bed in numbers}
+
+        for g in (self.gap_fill_log or []):
+            if g.applied:
+                continue
+            wanted, _partial = parse_bed_range(g.bed_range)
+            if not wanted:
+                continue
+            missing = [n for n in wanted if n not in by_number]
+            if missing:
+                frappe.throw(
+                    _("{0} isn't among this cycle's beds: {1}.").format(
+                        g.bed_range, _compact(missing)),
+                    title=_("Bed not in this cycle"),
+                )
+            rows = [by_number[n] for n in wanted]
+            added = int(g.plants or 0)
+            allocated = 0
+            for i, row in enumerate(rows):
+                if i == len(rows) - 1:
+                    share = added - allocated       # last bed absorbs any rounding
+                else:
+                    share = round(added / len(rows))
+                    allocated += share
+                row.plants = int(row.plants or 0) + share
+            self.qty_planted = int(self.qty_planted or 0) + added
+            g.applied = 1
 
     def roll_up_beds(self):
         """Turn each bed row into an area and a plant count.

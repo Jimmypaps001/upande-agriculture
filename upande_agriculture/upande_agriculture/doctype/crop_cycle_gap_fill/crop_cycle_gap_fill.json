@@ -1,0 +1,31 @@
+{
+ "actions": [],
+ "creation": "2026-09-21 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "editable_grid": 1,
+ "module": "Upande Agriculture",
+ "name": "Crop Cycle Gap Fill",
+ "owner": "Administrator",
+ "description": "New plants added to beds that are still standing -- topping up dead or missing spots (a gap), not a fresh planting on cleared ground (that's a Replant).",
+ "field_order": ["fill_date", "bed_range", "plants", "remarks", "applied"],
+ "fields": [
+  {"fieldname": "fill_date", "fieldtype": "Date", "label": "Fill Date", "reqd": 1,
+   "in_list_view": 1, "columns": 2},
+  {"fieldname": "bed_range", "fieldtype": "Data", "label": "Bed Range", "reqd": 1, "in_list_view": 1,
+   "columns": 3, "description": "Which beds got new plants, e.g. 12-18"},
+  {"fieldname": "plants", "fieldtype": "Int", "label": "Plants Added", "reqd": 1,
+   "in_list_view": 1, "columns": 2},
+  {"fieldname": "remarks", "fieldtype": "Small Text", "label": "Remarks", "in_list_view": 1, "columns": 3},
+  {"fieldname": "applied", "fieldtype": "Check", "label": "Applied", "hidden": 1, "read_only": 1,
+   "default": "0",
+   "description": "Set once this row's plants have been added to the bed(s). Never re-applied after that, or every future save would add them again."}
+ ],
+ "permissions": [],
+ "links": [],
+ "modified": "2026-09-21 00:00:00",
+ "modified_by": "Administrator",
+ "sort_field": "idx",
+ "sort_order": "ASC"
+}

@@ -377,6 +377,60 @@ class TestCropCycle(FrappeTestCase):
         self.assertEqual(c.beds[0].status, "Standing",
                          "status is recomputed fresh every save, not left stuck from before")
 
+    # -- gap filling -------------------------------------------------------
+
+    def test_gap_fill_adds_plants_without_uprooting(self):
+        """Topping up dead spots in a bed that's still standing grows the
+        original planting and the running total -- no uproot needed first."""
+        house = make_warehouse("TEST GH GAPFILL")
+        bed = self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, beds=[{"bed": bed, "plants": 314}], qty_planted=314)
+        c.append("gap_fill_log", {
+            "fill_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 20,
+        })
+        c.save(ignore_permissions=True)
+
+        self.assertEqual(c.beds[0].plants, 334)
+        self.assertEqual(c.beds[0].plants_remaining, 334)
+        self.assertEqual(c.beds[0].status, "Standing")
+        self.assertEqual(c.qty_planted, 334)
+
+    def test_gap_fill_is_not_reapplied_on_resave(self):
+        house = make_warehouse("TEST GH GAPFILL2")
+        bed = self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, beds=[{"bed": bed, "plants": 314}], qty_planted=314)
+        c.append("gap_fill_log", {
+            "fill_date": datetime.date(2026, 6, 1), "bed_range": "1", "plants": 20,
+        })
+        c.save(ignore_permissions=True)
+        c.notes = "trigger a resave"
+        c.save(ignore_permissions=True)
+
+        self.assertEqual(c.beds[0].plants, 334, "an already-applied row must not be added twice")
+        self.assertEqual(c.qty_planted, 334)
+
+    def test_gap_fill_splits_across_several_beds(self):
+        house = make_warehouse("TEST GH GAPFILL3")
+        beds = [self._bed(house, i, 20, 0.85) for i in (1, 2)]
+        c = self._cycle(house, beds=[{"bed": b, "plants": 314} for b in beds], qty_planted=628)
+        c.append("gap_fill_log", {
+            "fill_date": datetime.date(2026, 6, 1), "bed_range": "1-2", "plants": 21,
+        })
+        c.save(ignore_permissions=True)
+
+        self.assertEqual([b.plants for b in c.beds], [324, 325], "21 split ~evenly, remainder on the last bed")
+        self.assertEqual(c.qty_planted, 649)
+
+    def test_gap_fill_refuses_a_bed_not_in_this_cycle(self):
+        house = make_warehouse("TEST GH GAPFILL4")
+        bed = self._bed(house, 1, 20, 0.85)
+        c = self._cycle(house, beds=[{"bed": bed, "plants": 314}], qty_planted=314)
+        c.append("gap_fill_log", {
+            "fill_date": datetime.date(2026, 6, 1), "bed_range": "5", "plants": 10,
+        })
+        with self.assertRaises(frappe.ValidationError):
+            c.save(ignore_permissions=True)
+
     # -- source & cost ---------------------------------------------------
 
     def _supplier(self, label="TEST BREEDER"):

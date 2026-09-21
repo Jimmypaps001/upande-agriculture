@@ -63,7 +63,7 @@
    "reqd": 1,
    "in_list_view": 1,
    "columns": 2,
-   "options": "\nLow Yield\nDisease\nVariety Change\nAge (End of Life)\nStorm Damage\nOther"
+   "options": "\nLow Yield\nDisease\nVariety Change\nAge (End of Life)\nStorm Damage\nTheft\nOther"
   },
   {
    "fieldname": "qty_uprooted",
