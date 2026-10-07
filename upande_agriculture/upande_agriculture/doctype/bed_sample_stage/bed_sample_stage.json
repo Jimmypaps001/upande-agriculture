@@ -1,0 +1,21 @@
+{
+  "actions": [],
+  "creation": "2026-10-07 13:00:00",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "istable": 1,
+  "module": "Upande Agriculture",
+  "name": "Bed Sample Stage",
+  "owner": "Administrator",
+  "field_order": ["stage_name", "count", "days_to_harvest"],
+  "fields": [
+    {"fieldname": "stage_name", "fieldtype": "Data", "label": "Stage", "in_list_view": 1, "reqd": 1},
+    {"fieldname": "count", "fieldtype": "Int", "label": "Count", "in_list_view": 1, "non_negative": 1},
+    {"fieldname": "days_to_harvest", "fieldtype": "Int", "label": "Days to Harvest", "in_list_view": 1, "read_only": 1, "description": "Copied from the Crop Protocol when sampled, so a later protocol edit cannot rewrite old samples."}
+  ],
+  "modified": "2026-10-07 13:00:00",
+  "modified_by": "Administrator",
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC"
+}
