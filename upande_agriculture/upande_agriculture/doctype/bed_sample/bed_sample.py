@@ -4,8 +4,8 @@ from frappe.model.document import Document
 
 class BedSample(Document):
 	def validate(self):
-		if (self.sample_length_m or 0) <= 0:
-			frappe.throw("Length Counted must be more than 0 m.")
+		if (self.plants_counted or 0) <= 0:
+			frappe.throw("Plants Counted must be at least 1.")
 		# validate() runs before link fetching on insert, so copy these here.
 		self.greenhouse, self.variety, self.crop_protocol = frappe.db.get_value(
 			"Crop Cycle", self.crop_cycle, ["greenhouse", "variety", "crop_protocol"]

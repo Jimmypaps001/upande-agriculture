@@ -1,6 +1,6 @@
-# Bed sampling: the phone counts shoots per growth stage on a measured stretch
-# of bed. This phase only GATHERS samples (plus photos for a later "tight bud"
-# model); the forecast that scales them up to a greenhouse comes next.
+# Bed sampling: the phone counts buds per growth stage on N plants in a row
+# (plus photos for a later "tight bud" model). bed_forecast.py turns the
+# samples into stems per week.
 
 import base64
 import json
@@ -13,7 +13,7 @@ from frappe.utils import getdate, nowdate
 # Used when a variety's Crop Protocol has no Growth Stages yet, so sampling can
 # start before the protocols are filled in. Days to harvest stay blank.
 DEFAULT_STAGES = ["Rice", "Pea", "Chickpea", "Marble", "Colour showing"]
-DEFAULT_SAMPLE_LENGTH_M = 1
+DEFAULT_PLANTS = 10
 # ponytail: fixed 5% of beds (at least 3) per crop cycle per week; make it a
 # setting once the forecast shows how many samples the margin of error needs.
 SAMPLE_FRACTION, MIN_SAMPLES = 0.05, 3
@@ -49,11 +49,11 @@ def get_sampling_plan():
 				pluck="bed_number",
 			))),
 		})
-	return {"sample_length_m": DEFAULT_SAMPLE_LENGTH_M, "week": week, "cycles": cycles}
+	return {"plants_counted": DEFAULT_PLANTS, "week": week, "cycles": cycles}
 
 
 @frappe.whitelist(methods=["POST"])
-def submit_bed_sample(client_uuid, crop_cycle, bed_number, counts, sample_length_m=None,
+def submit_bed_sample(client_uuid, crop_cycle, bed_number, counts, plants_counted=None,
 					  suggested=0, notes=None, captured_at=None, photos=None):
 	"""Saves one sample. Replaying the same client_uuid (offline queue after a
 	lost response) returns the first record instead of a duplicate."""
@@ -70,7 +70,7 @@ def submit_bed_sample(client_uuid, crop_cycle, bed_number, counts, sample_length
 		"client_uuid": client_uuid,
 		"crop_cycle": crop_cycle,
 		"bed_number": int(bed_number),
-		"sample_length_m": float(sample_length_m or DEFAULT_SAMPLE_LENGTH_M),
+		"plants_counted": int(plants_counted or DEFAULT_PLANTS),
 		"suggested": int(bool(int(suggested or 0))),
 		"notes": notes,
 		"sampling_date": getdate(captured_at) if captured_at else nowdate(),

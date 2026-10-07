@@ -10,7 +10,7 @@
   "title_field": "title",
   "field_order": [
     "naming_series", "title", "crop_cycle", "greenhouse", "variety", "crop_protocol",
-    "column_break_where", "bed", "bed_number", "sample_length_m", "suggested",
+    "column_break_where", "bed", "bed_number", "plants_counted", "suggested",
     "section_counts", "stages", "total_count",
     "section_photos", "photo_1", "column_break_photos", "photo_2",
     "section_meta", "sampling_date", "captured_at", "column_break_meta", "notes", "client_uuid"
@@ -25,7 +25,7 @@
     {"fieldname": "column_break_where", "fieldtype": "Column Break"},
     {"fieldname": "bed", "fieldtype": "Link", "label": "Bed", "options": "Bed"},
     {"fieldname": "bed_number", "fieldtype": "Int", "label": "Bed Number", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "sample_length_m", "fieldtype": "Float", "label": "Length Counted (m)", "default": "1", "reqd": 1, "description": "How much of the bed was counted. Scales the sample up to the greenhouse."},
+    {"fieldname": "plants_counted", "fieldtype": "Int", "label": "Plants Counted", "default": "10", "reqd": 1, "non_negative": 1, "description": "Plants in a row whose shoots were counted. Buds per plant x plants standing in the crop cycle = the greenhouse."},
     {"fieldname": "suggested", "fieldtype": "Check", "label": "Bed Suggested by the App", "description": "Off = chosen by hand. Kept so hand-picked beds can be checked for bias."},
     {"fieldname": "section_counts", "fieldtype": "Section Break", "label": "Counts"},
     {"fieldname": "stages", "fieldtype": "Table", "label": "Stages", "options": "Bed Sample Stage"},
