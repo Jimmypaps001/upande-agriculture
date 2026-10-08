@@ -66,6 +66,8 @@ def submit_plot_count(client_uuid, sample_plot, counts, plants_counted=None, not
 	"""One plot count. Replaying the same client_uuid (offline queue after a
 	lost response) returns the first record instead of a duplicate."""
 	frappe.has_permission("Bed Sample", "create", throw=True)
+	if not (client_uuid or "").strip():
+		frappe.throw("client_uuid is required.")
 	existing = frappe.db.get_value("Bed Sample", {"client_uuid": client_uuid})
 	if existing:
 		return {"name": existing}

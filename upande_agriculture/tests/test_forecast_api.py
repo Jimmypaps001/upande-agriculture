@@ -66,3 +66,9 @@ class TestForecastApi(FrappeTestCase):
 
 	def test_days_clamped_to_60(self):
 		self.assertEqual(len(api.get_bay_forecast(self.gh, "S1", days=500)["daily"]), 60)
+
+	def test_blank_client_uuid_refused(self):
+		plot = self._plots()[0]["plot"]
+		for blank in ("", "  ", None):
+			with self.assertRaises(frappe.ValidationError):
+				api.submit_plot_count(client_uuid=blank, sample_plot=plot, counts='[{"stage_name": "Rice", "count": 1}]')
