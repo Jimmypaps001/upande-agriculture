@@ -192,6 +192,10 @@ doc_events = {
 scheduler_events = {
     "daily": [
         "upande_agriculture.scheduled.rollup_actuals",
+        "upande_agriculture.forecast.jobs.daily_snapshot",
+    ],
+    "weekly": [
+        "upande_agriculture.forecast.jobs.weekly_calibrate",
     ],
 }
 
