@@ -9,7 +9,9 @@ Two sources of stems for a day:
 """
 from datetime import timedelta
 
-from upande_agriculture.forecast.curves import day_mass, stage_mass
+from upande_agriculture.forecast.curves import day_mass, stage_mass, stage_params
+
+DEFAULTS = {n.lower(): v for n, v in stage_params(None).items()}
 
 REGROWTH_SPREAD = 0.12  # sd of the regrowth timing as a share of its days
 
@@ -18,10 +20,12 @@ def bud_curve(rates, stages, count_date, k, start, days):
 	"""Expected stems per plant per day, from `start` for `days` days."""
 	out = [0.0] * days
 	first = (start - count_date).days
+	# a counted stage the protocol no longer lists takes its default, by lower-case name
+	known = {**DEFAULTS, **{n.lower(): v for n, v in stages.items()}}
 	for name, rate in rates.items():
-		if not rate or name not in stages:
+		if not rate or name.lower() not in known:
 			continue
-		mean, spread, survival = stages[name]
+		mean, spread, survival = known[name.lower()]
 		for i in range(days):
 			out[i] += rate * survival * stage_mass(first + i, k * mean, k * spread)
 	return out

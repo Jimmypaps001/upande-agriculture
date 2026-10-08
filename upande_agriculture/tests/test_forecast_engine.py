@@ -21,6 +21,12 @@ class TestEngine(unittest.TestCase):
 	def test_unknown_stage_ignored(self):
 		self.assertEqual(sum(engine.bud_curve({"Marble": 9.0}, {"Rice": (10.0, 1.0, 1.0)}, D, 1, D, 21)), 0)
 
+	def test_counted_stage_missing_from_protocol_takes_its_default(self):
+		# protocol lists only Rice; "opening" (any case) is still forecast from the default, ~3 days out
+		out = engine.bud_curve({"opening": 1.0}, {"Rice": (10.0, 1.0, 1.0)}, D, 1.0, D, 21)
+		self.assertGreater(sum(out), 0.9)
+		self.assertLess(out.index(max(out)), 6)
+
 	def test_counted_after_start_still_lands_later(self):
 		# forecast from D, count made 2 days earlier: peak 8 days into the window
 		out = engine.bud_curve({"Rice": 1.0}, {"Rice": (10.0, 1.0, 1.0)}, D - datetime.timedelta(days=2), 1, D, 21)
