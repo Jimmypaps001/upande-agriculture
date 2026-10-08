@@ -9,7 +9,7 @@ Two sources of stems for a day:
 """
 from datetime import timedelta
 
-from upande_agriculture.forecast.curves import day_mass
+from upande_agriculture.forecast.curves import day_mass, stage_mass
 
 REGROWTH_SPREAD = 0.12  # sd of the regrowth timing as a share of its days
 
@@ -21,9 +21,9 @@ def bud_curve(rates, stages, count_date, k, start, days):
 	for name, rate in rates.items():
 		if not rate or name not in stages:
 			continue
-		mean, sd, survival = stages[name]
+		mean, spread, survival = stages[name]
 		for i in range(days):
-			out[i] += rate * survival * day_mass(first + i, k * mean, k * sd)
+			out[i] += rate * survival * stage_mass(first + i, k * mean, k * spread)
 	return out
 
 

@@ -1,7 +1,6 @@
 """Stage timing maths for the harvest forecast. Pure Python: no Frappe.
 
-A bud counted at a stage is cut, on average, `days` later, give or take
-`spread` days (one standard deviation of a normal curve), if it survives.
+A bud counted at a stage is cut, on average, `days` later, about uniformly within +-`spread` days (a size band), blurred a little, if it survives.
 Sources: Monroy, Pérez & Cure (2003) via La Salle (2008), days to harvest
 by stage and temperature; Rodríguez & Flórez (2006), base temperature 5.3 °C.
 """
@@ -22,6 +21,7 @@ DEFAULT_STAGES = [
 	{"stage_name": "Opening", "days_to_harvest": 3, "survival": 0.99},
 ]
 SPREAD_FRACTION, MIN_SPREAD = 0.2, 1.5
+BLUR_FRACTION, MIN_BLUR = 0.1, 0.5
 DEFAULT_SURVIVAL = 0.9
 
 # Error bands are kept per horizon bucket (days ahead of the forecast date).
@@ -29,25 +29,41 @@ BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20")]
 
 
 def stage_params(rows):
-	"""{stage: (days, spread, survival)} from protocol rows, survival as a
-	fraction. Blank cells take the default for a stage of that name; a stage
+	"""{stage: (band centre, half width, survival)} from protocol rows, survival
+	as a fraction. With a blank spread the band runs between the midpoints to the
+	neighbouring stages (by days), so the centre may differ from the days. Blank cells take the default for a stage of that name; a stage
 	with no days anywhere cannot be placed in time and is dropped."""
 	defaults = {s["stage_name"].lower(): s for s in DEFAULT_STAGES}
-	out = {}
+	placed = []  # (name, days, row, default) for stages that can be placed in time
 	for r in rows or DEFAULT_STAGES:
-		name = r["stage_name"]
-		d = defaults.get(name.lower(), {})
+		d = defaults.get(r["stage_name"].lower(), {})
 		days = r.get("days_to_harvest")
 		if days in (None, ""):
 			days = d.get("days_to_harvest")
-		if days in (None, ""):
-			continue
-		days = float(days)
-		spread = max(MIN_SPREAD, round(float(r.get("spread_days") or SPREAD_FRACTION * days), 10))
+		if days not in (None, ""):
+			placed.append((r["stage_name"], float(days), r, d))
+	out = {}
+	order = sorted(p[1] for p in placed)
+	for name, days, r, d in placed:
+		i = order.index(days)
+		below, above = order[i - 1] if i else None, order[i + 1] if i + 1 < len(order) else None
+		if below is None and above is None:
+			lo, hi = days - SPREAD_FRACTION * days, days + SPREAD_FRACTION * days
+		else:
+			lo = (days + below) / 2 if below is not None else None
+			hi = (days + above) / 2 if above is not None else None
+			lo = days - (hi - days) if lo is None else lo
+			hi = days + (days - lo) if hi is None else hi
+		explicit = r.get("spread_days")
+		if explicit:
+			centre, half = days, float(explicit)
+		else:
+			centre, half = (lo + hi) / 2, (hi - lo) / 2
+		centre, spread = round(centre, 10), max(MIN_SPREAD, round(half, 10))
 		survival = r.get("survival")
 		if survival in (None, ""):
 			survival = d.get("survival", DEFAULT_SURVIVAL)
-		out[name] = (days, spread, float(survival))
+		out[name] = (centre, spread, float(survival))
 	return out
 
 
@@ -57,6 +73,17 @@ def day_mass(offset, mean, sd):
 		return 1.0 if round(mean) == offset else 0.0
 	cdf = lambda x: 0.5 * (1 + math.erf((x - mean) / (sd * math.sqrt(2))))
 	return cdf(offset + 0.5) - cdf(offset - 0.5)
+
+
+def stage_mass(offset, mean, half_width, blur=None, floor_at_zero=True):
+	"""Share of a stage's buds cut on day `offset`: uniform over mean +- half_width, blurred by a normal (sd = blur, default max(MIN_BLUR, BLUR_FRACTION*mean))."""
+	blur = max(MIN_BLUR, BLUR_FRACTION * mean) if blur is None else blur
+	centres = [mean + half_width * (2 * i / 8 - 1) for i in range(9)]
+	if floor_at_zero and offset < 0:  # a counted bud cannot be cut before the count
+		return 0.0
+	if floor_at_zero and offset == 0:  # ... so what would land earlier lands on day 0
+		return sum(0.5 * (1 + math.erf((0.5 - c) / (blur * math.sqrt(2)))) for c in centres) / 9
+	return sum(day_mass(offset, c, blur) for c in centres) / 9
 
 
 def temperature_factor(ref_temp, recent_temp):
