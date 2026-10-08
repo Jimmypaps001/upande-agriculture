@@ -1,56 +1,250 @@
 {
-  "actions": [],
-  "autoname": "naming_series:",
-  "creation": "2026-10-07 13:00:00",
-  "doctype": "DocType",
-  "engine": "InnoDB",
-  "module": "Upande Agriculture",
-  "name": "Bed Sample",
-  "owner": "Administrator",
-  "title_field": "title",
-  "field_order": [
-    "naming_series", "title", "crop_cycle", "greenhouse", "variety", "crop_protocol",
-    "column_break_where", "bed", "bed_number", "plants_counted", "suggested",
-    "section_counts", "stages", "total_count",
-    "section_photos", "photo_1", "column_break_photos", "photo_2",
-    "section_meta", "sampling_date", "captured_at", "column_break_meta", "notes", "client_uuid"
-  ],
-  "fields": [
-    {"fieldname": "naming_series", "fieldtype": "Select", "label": "Series", "options": "BS-.YYYY.-.#####", "default": "BS-.YYYY.-.#####", "hidden": 1},
-    {"fieldname": "title", "fieldtype": "Data", "label": "Title", "hidden": 1},
-    {"fieldname": "crop_cycle", "fieldtype": "Link", "label": "Crop Cycle", "options": "Crop Cycle", "reqd": 1, "in_standard_filter": 1},
-    {"fieldname": "greenhouse", "fieldtype": "Link", "label": "Greenhouse", "options": "Warehouse", "fetch_from": "crop_cycle.greenhouse", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1},
-    {"fieldname": "variety", "fieldtype": "Link", "label": "Variety", "options": "Item", "fetch_from": "crop_cycle.variety", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1},
-    {"fieldname": "crop_protocol", "fieldtype": "Link", "label": "Crop Protocol", "options": "Crop Protocol", "fetch_from": "crop_cycle.crop_protocol", "read_only": 1},
-    {"fieldname": "column_break_where", "fieldtype": "Column Break"},
-    {"fieldname": "bed", "fieldtype": "Link", "label": "Bed", "options": "Bed"},
-    {"fieldname": "bed_number", "fieldtype": "Int", "label": "Bed Number", "reqd": 1, "in_list_view": 1},
-    {"fieldname": "plants_counted", "fieldtype": "Int", "label": "Plants Counted", "default": "10", "reqd": 1, "non_negative": 1, "description": "Plants in a row whose shoots were counted. Buds per plant x plants standing in the crop cycle = the greenhouse."},
-    {"fieldname": "suggested", "fieldtype": "Check", "label": "Bed Suggested by the App", "description": "Off = chosen by hand. Kept so hand-picked beds can be checked for bias."},
-    {"fieldname": "section_counts", "fieldtype": "Section Break", "label": "Counts"},
-    {"fieldname": "stages", "fieldtype": "Table", "label": "Stages", "options": "Bed Sample Stage"},
-    {"fieldname": "total_count", "fieldtype": "Int", "label": "Total Counted", "read_only": 1, "in_list_view": 1},
-    {"fieldname": "section_photos", "fieldtype": "Section Break", "label": "Photos"},
-    {"fieldname": "photo_1", "fieldtype": "Attach Image", "label": "Photo 1"},
-    {"fieldname": "column_break_photos", "fieldtype": "Column Break"},
-    {"fieldname": "photo_2", "fieldtype": "Attach Image", "label": "Photo 2"},
-    {"fieldname": "section_meta", "fieldtype": "Section Break"},
-    {"fieldname": "sampling_date", "fieldtype": "Date", "label": "Sampling Date", "default": "Today", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
-    {"fieldname": "captured_at", "fieldtype": "Datetime", "label": "Captured on Phone At", "read_only": 1},
-    {"fieldname": "column_break_meta", "fieldtype": "Column Break"},
-    {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"},
-    {"fieldname": "client_uuid", "fieldtype": "Data", "label": "Client UUID", "unique": 1, "read_only": 1, "hidden": 1}
-  ],
-  "image_field": "photo_1",
-  "modified": "2026-10-07 13:00:00",
-  "modified_by": "Administrator",
-  "permissions": [
-    {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1, "print": 1, "email": 1, "share": 1},
-    {"role": "Agriculture Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1, "print": 1},
-    {"role": "Agriculture User", "read": 1, "write": 1, "create": 1, "report": 1},
-    {"role": "Stock User", "read": 1, "write": 1, "create": 1, "report": 1}
-  ],
-  "sort_field": "creation",
-  "sort_order": "DESC",
-  "track_changes": 1
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-10-07 13:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Bed Sample",
+ "owner": "Administrator",
+ "title_field": "title",
+ "field_order": [
+  "naming_series",
+  "title",
+  "sample_plot",
+  "section",
+  "crop_cycle",
+  "greenhouse",
+  "variety",
+  "crop_protocol",
+  "column_break_where",
+  "bed",
+  "bed_number",
+  "plants_counted",
+  "suggested",
+  "section_counts",
+  "stages",
+  "total_count",
+  "section_photos",
+  "photo_1",
+  "column_break_photos",
+  "photo_2",
+  "section_meta",
+  "sampling_date",
+  "captured_at",
+  "column_break_meta",
+  "notes",
+  "client_uuid"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "BS-.YYYY.-.#####",
+   "default": "BS-.YYYY.-.#####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "hidden": 1
+  },
+  {
+   "fieldname": "sample_plot",
+   "fieldtype": "Link",
+   "label": "Sample Plot",
+   "options": "Sample Plot",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Data",
+   "label": "Section",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "crop_cycle",
+   "fieldtype": "Link",
+   "label": "Crop Cycle",
+   "options": "Crop Cycle",
+   "in_standard_filter": 1,
+   "description": "Optional when counting a Sample Plot."
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "crop_protocol",
+   "fieldtype": "Link",
+   "label": "Crop Protocol",
+   "options": "Crop Protocol",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_where",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bed",
+   "fieldtype": "Link",
+   "label": "Bed",
+   "options": "Bed"
+  },
+  {
+   "fieldname": "bed_number",
+   "fieldtype": "Int",
+   "label": "Bed Number",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plants_counted",
+   "fieldtype": "Int",
+   "label": "Plants Counted",
+   "default": "10",
+   "reqd": 1,
+   "non_negative": 1,
+   "description": "Plants in a row whose shoots were counted. Buds per plant x plants standing in the crop cycle = the greenhouse."
+  },
+  {
+   "fieldname": "suggested",
+   "fieldtype": "Check",
+   "label": "Bed Suggested by the App",
+   "description": "Off = chosen by hand. Kept so hand-picked beds can be checked for bias."
+  },
+  {
+   "fieldname": "section_counts",
+   "fieldtype": "Section Break",
+   "label": "Counts"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Bed Sample Stage"
+  },
+  {
+   "fieldname": "total_count",
+   "fieldtype": "Int",
+   "label": "Total Counted",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_photos",
+   "fieldtype": "Section Break",
+   "label": "Photos"
+  },
+  {
+   "fieldname": "photo_1",
+   "fieldtype": "Attach Image",
+   "label": "Photo 1"
+  },
+  {
+   "fieldname": "column_break_photos",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "photo_2",
+   "fieldtype": "Attach Image",
+   "label": "Photo 2"
+  },
+  {
+   "fieldname": "section_meta",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "sampling_date",
+   "fieldtype": "Date",
+   "label": "Sampling Date",
+   "default": "Today",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "captured_at",
+   "fieldtype": "Datetime",
+   "label": "Captured on Phone At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "client_uuid",
+   "fieldtype": "Data",
+   "label": "Client UUID",
+   "unique": 1,
+   "read_only": 1,
+   "hidden": 1
+  }
+ ],
+ "image_field": "photo_1",
+ "modified": "2026-10-08 11:30:00",
+ "modified_by": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Agriculture Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Agriculture User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 1
 }

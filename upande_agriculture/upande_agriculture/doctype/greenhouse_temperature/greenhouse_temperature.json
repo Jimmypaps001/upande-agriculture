@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "creation": "2026-10-08 11:30:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Temperature",
+ "owner": "Administrator",
+ "modified": "2026-10-08 11:30:00",
+ "modified_by": "Administrator",
+ "field_order": [
+  "greenhouse",
+  "date",
+  "mean_temp"
+ ],
+ "fields": [
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "mean_temp",
+   "fieldtype": "Float",
+   "label": "Mean Temperature (\u00b0C)",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "24-hour mean inside the greenhouse. Import from a logger with Data Import, or type it in."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Agriculture Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Agriculture User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "format:{greenhouse}-{date}"
+}

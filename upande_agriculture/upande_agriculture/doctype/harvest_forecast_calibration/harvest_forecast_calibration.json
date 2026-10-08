@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "creation": "2026-10-08 11:30:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Harvest Forecast Calibration",
+ "owner": "Administrator",
+ "modified": "2026-10-08 11:30:00",
+ "modified_by": "Administrator",
+ "field_order": [
+  "variety",
+  "fitted_on",
+  "status",
+  "column_break_1",
+  "time_scale",
+  "bud_survival",
+  "regrowth_days",
+  "regrowth_yield",
+  "ref_temp",
+  "section_errors",
+  "rounds_used",
+  "error_bands"
+ ],
+ "fields": [
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "fitted_on",
+   "fieldtype": "Datetime",
+   "label": "Fitted On",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "label": "Status",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "time_scale",
+   "fieldtype": "Float",
+   "label": "Timing Scale",
+   "default": "1",
+   "precision": "3",
+   "description": "Multiplies every stage's days to harvest. Below 1: this variety runs faster than its protocol says."
+  },
+  {
+   "fieldname": "bud_survival",
+   "fieldtype": "Float",
+   "label": "Bud Survival Multiplier",
+   "default": "1",
+   "precision": "3",
+   "description": "Learned share of counted buds that are cut, on top of each stage's own survival."
+  },
+  {
+   "fieldname": "regrowth_days",
+   "fieldtype": "Int",
+   "label": "Regrowth Days (cut to next cut)",
+   "default": "56"
+  },
+  {
+   "fieldname": "regrowth_yield",
+   "fieldtype": "Float",
+   "label": "Regrowth Yield",
+   "default": "0.8",
+   "precision": "3",
+   "description": "New stems per stem cut, one cycle later."
+  },
+  {
+   "fieldname": "ref_temp",
+   "fieldtype": "Float",
+   "label": "Reference Temperature (\u00b0C)",
+   "read_only": 1,
+   "description": "Mean greenhouse temperature over the fitted period. Warmer days speed the forecast up, cooler slow it down."
+  },
+  {
+   "fieldname": "section_errors",
+   "fieldtype": "Section Break",
+   "label": "Accuracy"
+  },
+  {
+   "fieldname": "rounds_used",
+   "fieldtype": "Int",
+   "label": "Count Rounds Used",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_bands",
+   "fieldtype": "Code",
+   "label": "Error Bands (JSON)",
+   "options": "JSON",
+   "read_only": 1,
+   "description": "Per horizon: 10th / 90th percentile of actual \u00f7 forecast, and the mean absolute % error."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Agriculture Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Agriculture User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  },
+  {
+   "role": "Stock User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "field:variety",
+ "track_changes": 1
+}

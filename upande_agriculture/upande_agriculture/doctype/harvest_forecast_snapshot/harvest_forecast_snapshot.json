@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "creation": "2026-10-08 11:30:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Upande Agriculture",
+ "name": "Harvest Forecast Snapshot",
+ "owner": "Administrator",
+ "modified": "2026-10-08 11:30:00",
+ "modified_by": "Administrator",
+ "field_order": [
+  "made_on",
+  "target_date",
+  "greenhouse",
+  "section",
+  "variety",
+  "stems",
+  "low",
+  "high",
+  "model_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "made_on",
+   "fieldtype": "Date",
+   "label": "Made On",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "target_date",
+   "fieldtype": "Date",
+   "label": "For Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "section",
+   "fieldtype": "Data",
+   "label": "Section",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "variety",
+   "fieldtype": "Link",
+   "label": "Variety",
+   "options": "Item",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "stems",
+   "fieldtype": "Float",
+   "label": "Forecast Stems",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "low",
+   "fieldtype": "Float",
+   "label": "Low (10%)"
+  },
+  {
+   "fieldname": "high",
+   "fieldtype": "Float",
+   "label": "High (90%)"
+  },
+  {
+   "fieldname": "model_version",
+   "fieldtype": "Data",
+   "label": "Model Version",
+   "description": "The variety's calibration, as fitted when this forecast was made."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "delete": 1
+  },
+  {
+   "role": "Agriculture Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "Agriculture User",
+   "read": 1,
+   "report": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "autoname": "hash",
+ "in_create": 1
+}

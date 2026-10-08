@@ -1,0 +1,22 @@
+{
+ "custom_fields": [
+  {
+   "doctype": "Custom Field",
+   "dt": "Warehouse Section",
+   "fieldname": "custom_plants",
+   "fieldtype": "Int",
+   "insert_after": "to_bed",
+   "label": "Plants",
+   "description": "Plants standing in this section. The harvest forecast scales the sample plots' counts by it.",
+   "in_list_view": 1,
+   "module": "Upande Agriculture",
+   "name": "Warehouse Section-custom_plants",
+   "non_negative": 1
+  }
+ ],
+ "custom_perms": [],
+ "doctype": "Warehouse Section",
+ "links": [],
+ "property_setters": [],
+ "sync_on_migrate": 1
+}
