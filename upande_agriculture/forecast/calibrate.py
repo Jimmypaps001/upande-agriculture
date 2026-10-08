@@ -115,11 +115,10 @@ def calibrate(variety, today=None):
 			label = curves.bucket(i + 1)
 			if fa > 0:
 				ratios.setdefault(label, []).append(aa / fa)
-			if aa > 0:
-				e = errs.setdefault(label, [0.0, 0.0])
-				e[0] += abs(aa - fa); e[1] += aa
+			e = errs.setdefault(label, [0.0, 0.0])
+			e[0] += abs(aa - fa); e[1] += aa
 	bands = {label: [round(curves.quantile(r, 0.1), 3), round(curves.quantile(r, 0.9), 3),
-		round(errs[label][0] / errs[label][1], 3) if label in errs else 0.0] for label, r in ratios.items()}
+		round(errs[label][0] / errs[label][1], 3) if errs[label][1] else 0.0] for label, r in ratios.items()}
 
 	doc.update({"time_scale": k, "bud_survival": round(s, 4), "regrowth_days": R, "regrowth_yield": round(g, 4),
 		"ref_temp": ref, "rounds_used": len(cases), "error_bands": json.dumps(bands, indent=1),
