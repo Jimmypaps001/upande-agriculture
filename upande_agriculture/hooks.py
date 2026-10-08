@@ -194,7 +194,7 @@ scheduler_events = {
         "upande_agriculture.scheduled.rollup_actuals",
         "upande_agriculture.forecast.jobs.daily_snapshot",
     ],
-    "weekly": [
+    "weekly_long": [
         "upande_agriculture.forecast.jobs.weekly_calibrate",
     ],
 }

@@ -30,7 +30,9 @@ def weekly_calibrate():
 		try:
 			calibrate.calibrate(variety)
 			done.append(variety)
+			frappe.db.commit()  # keep this fit if a later variety fails or the job times out
 		except Exception:
-			frappe.log_error(title=f"Harvest forecast calibration failed for {variety}")
-	frappe.db.commit()
+			frappe.db.rollback()
+			frappe.log_error(title=f"Harvest forecast calibration failed for {variety}",
+				message=frappe.get_traceback())
 	return done
