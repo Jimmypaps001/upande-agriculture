@@ -13,7 +13,7 @@ from upande_agriculture.tests.forecast_fixtures import make_greenhouse, make_var
 class TestForecastApi(FrappeTestCase):
 	def setUp(self):
 		make_variety()
-		self.gh = make_greenhouse("FC API", (("S1", 1, 9, "FC-ROSE", 1000), ("S2", 10, 10, "FC-ROSE", 500)))
+		self.gh = make_greenhouse(f"FC API {self._testMethodName[-8:]}", (("S1", 1, 9, "FC-ROSE", 1000), ("S2", 10, 10, "FC-ROSE", 500)))
 
 	def _plots(self):
 		return [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == self.gh]
@@ -49,3 +49,20 @@ class TestForecastApi(FrappeTestCase):
 	def test_unknown_section_refused(self):
 		with self.assertRaises(frappe.ValidationError):
 			api.get_bay_forecast(self.gh, "NOPE")
+
+	def test_garbage_photo_is_skipped_but_count_saves(self):
+		plot = self._plots()[0]["plot"]
+		r = api.submit_plot_count(client_uuid="fc-api-bad", sample_plot=plot, counts=[{"stage_name": "Rice", "count": 3}],
+			photos=[base64.b64encode(b"not an image").decode()])
+		doc = frappe.get_doc("Bed Sample", r["name"])
+		self.assertEqual(doc.total_count, 3)
+		self.assertFalse(doc.photo_1)
+		self.assertIn("photo 1 skipped", doc.notes)
+
+	def test_negative_count_refused(self):
+		plot = self._plots()[0]["plot"]
+		with self.assertRaises(frappe.ValidationError):
+			api.submit_plot_count(client_uuid="fc-api-neg", sample_plot=plot, counts=[{"stage_name": "Rice", "count": -1}])
+
+	def test_days_clamped_to_60(self):
+		self.assertEqual(len(api.get_bay_forecast(self.gh, "S1", days=500)["daily"]), 60)
