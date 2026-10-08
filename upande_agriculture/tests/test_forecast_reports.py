@@ -32,3 +32,17 @@ class TestForecastReports(FrappeTestCase):
 		self.assertEqual(len(ours), 3)
 		self.assertEqual(ours[0]["actual"], 50 if monday < today else 0)
 		self.assertAlmostEqual(ours[0]["total"], ours[0]["actual"] + ours[0]["forecast"], delta=1)
+
+	def test_sales_user_can_run_weekly_report(self):
+		import frappe
+		from frappe.desk.query_report import run
+		email = "fc-sales@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "FC Sales",
+				"send_welcome_email": 0, "roles": [{"role": "Sales User"}]}).insert(ignore_permissions=True)
+		frappe.set_user(email)
+		try:
+			out = run("Weekly Harvest Forecast", filters={"weeks": 1})
+		finally:
+			frappe.set_user("Administrator")
+		self.assertIn("result", out)
