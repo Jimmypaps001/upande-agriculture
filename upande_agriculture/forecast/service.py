@@ -1,4 +1,5 @@
 """A section's forecast: database reads -> engine -> error bands and flags."""
+import frappe
 from frappe.utils import add_days, getdate, nowdate
 
 from upande_agriculture.forecast import curves, data, engine
@@ -33,4 +34,13 @@ def forecast_section(row, start=None, days=HORIZON, as_of=None):
 
 
 def forecast_all(farm=None, greenhouse=None, variety=None, start=None, days=HORIZON):
-	return [forecast_section(r, start, days) for r in data.sections(farm, greenhouse, variety) if r.variety]
+	out = []
+	for r in data.sections(farm, greenhouse, variety):
+		if not r.variety:
+			continue
+		try:
+			out.append(forecast_section(r, start, days))
+		except Exception:  # one bad section must not sink the rest
+			frappe.log_error(title=f"Harvest forecast failed for {r.greenhouse} {r.section}",
+				message=frappe.get_traceback())
+	return out

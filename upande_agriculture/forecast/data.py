@@ -101,6 +101,13 @@ def default_regrowth_days(variety):
 	return int(weeks * 7) if weeks else DEFAULT_REGROWTH_DAYS
 
 
+def _bands(raw):
+	try:
+		return json.loads(raw or "{}")
+	except ValueError:  # hand-edited in Desk: fall back to the default bands
+		return {}
+
+
 def params(variety):
 	p = {"time_scale": 1.0, "bud_survival": 1.0, "regrowth_days": default_regrowth_days(variety),
 		"regrowth_yield": DEFAULT_REGROWTH_YIELD, "ref_temp": None, "error_bands": {}, "model_version": "defaults"}
@@ -111,7 +118,7 @@ def params(variety):
 		p.update({"time_scale": float(cal.time_scale or 1), "bud_survival": float(cal.bud_survival or 0),
 			"regrowth_days": int(cal.regrowth_days or p["regrowth_days"]),
 			"regrowth_yield": float(cal.regrowth_yield or 0), "ref_temp": cal.ref_temp,
-			"error_bands": json.loads(cal.error_bands or "{}"), "model_version": f"{variety}@{cal.fitted_on}"})
+			"error_bands": _bands(cal.error_bands), "model_version": f"{variety}@{cal.fitted_on}"})
 	return p
 
 

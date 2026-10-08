@@ -1,3 +1,5 @@
+from unittest import mock
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
@@ -46,3 +48,28 @@ class TestForecastService(FrappeTestCase):
 	def test_forecast_all_covers_sections(self):
 		got = {(f["greenhouse"], f["section"]) for f in service.forecast_all(greenhouse=self.gh)}
 		self.assertEqual(got, {(self.gh, "S1"), (self.gh, "S2")})
+
+	def test_counted_stage_missing_from_protocol_still_forecast(self):
+		from upande_agriculture.forecast import curves
+		make_count(make_plot(self.gh, "S1"), self.today, {"Opening": 10})
+		protocol = {k: v for k, v in curves.stage_params(None).items() if k != "Opening"}
+		with mock.patch.object(data, "stages", return_value=protocol):
+			f = service.forecast_section(_row(self.gh, "S1"))
+		self.assertAlmostEqual(sum(d["stems"] for d in f["daily"]), 1000 * 0.99, delta=5)
+
+	def test_one_failing_section_does_not_stop_the_others(self):
+		real = service.forecast_section
+
+		def flaky(row, *a, **kw):
+			if row.section == "S1":
+				raise ValueError("bad section")
+			return real(row, *a, **kw)
+		with mock.patch.object(service, "forecast_section", flaky), mock.patch.object(frappe, "log_error") as log:
+			out = service.forecast_all(greenhouse=self.gh)
+		self.assertEqual([f["section"] for f in out], ["S2"])
+		self.assertTrue(log.called)
+
+	def test_bad_error_bands_json_falls_back_to_defaults(self):
+		frappe.get_doc({"doctype": "Harvest Forecast Calibration", "variety": "FC-ROSE", "fitted_on": nowdate(),
+			"error_bands": "{not json"}).insert(ignore_permissions=True)
+		self.assertEqual(data.params("FC-ROSE")["error_bands"], {})
