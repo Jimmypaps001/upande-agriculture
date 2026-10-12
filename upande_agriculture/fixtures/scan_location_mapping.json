@@ -1,0 +1,45 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Scan Location Mapping",
+  "farm": "Simotwo",
+  "items": [
+   {
+    "action": "Receiving",
+    "source_warehouse": null,
+    "target_warehouse": "Simotwo Receiving Cold Store - KR"
+   },
+   {
+    "action": "Receiving Quarantined",
+    "source_warehouse": null,
+    "target_warehouse": "Simotwo Receiving Quarantined - KR"
+   },
+   {
+    "action": "Grading",
+    "source_warehouse": "Simotwo Receiving Cold Store - KR",
+    "target_warehouse": null
+   }
+  ],
+  "modified": "2026-09-12 01:32:17.603177",
+  "name": "Simotwo-MAP"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Scan Location Mapping",
+  "farm": "Chepsito",
+  "items": [
+   {
+    "action": "Receiving",
+    "source_warehouse": null,
+    "target_warehouse": "Chepsito Receiving Cold Store - KR"
+   },
+   {
+    "action": "Grading",
+    "source_warehouse": "Chepsito Receiving Cold Store - KR",
+    "target_warehouse": null
+   }
+  ],
+  "modified": "2026-09-12 01:32:17.650392",
+  "name": "Chepsito-MAP"
+ }
+]

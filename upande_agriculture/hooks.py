@@ -157,10 +157,6 @@ doc_events = {
             "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_bed_master",
         ],
     },
-    "Stock Entry": {
-        "on_submit": "upande_agriculture.controllers.stock_entry_on_submit",
-        "on_cancel": "upande_agriculture.controllers.stock_entry_on_submit",
-    },
     "Production Plan Form": {
         "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
         "on_update":   "upande_agriculture.controllers.production_plan_form_on_update",
@@ -192,6 +188,7 @@ doc_events = {
 scheduler_events = {
     "daily": [
         "upande_agriculture.scheduled.rollup_actuals",
+        "upande_agriculture.scheduled.release_stale_buckets",
     ],
 }
 
@@ -201,6 +198,12 @@ fixtures = [
         "dt": "Custom HTML Block",
         "filters": [["name", "in", ["Roses Production Navigation", "Crop Cycle Dashboard"]]],
     },
+    # Per-farm scan-location routing createGradingStockEntry depends on for
+    # Standard Roses (Spray Roses graded in place, no mapping needed). Master
+    # data, not code, but without a fixture it silently doesn't exist on a
+    # fresh deploy -- exactly the gap that made Standard Roses grading fail
+    # outright on this bench until these were (re)created.
+    {"dt": "Scan Location Mapping", "filters": [["name", "in", ["Simotwo-MAP", "Chepsito-MAP", "Kapkolia-MAP", "Karen-MAP", "Torongo-MAP", "Kaptumbo-MAP"]]]},
 ]
 
 # Testing
