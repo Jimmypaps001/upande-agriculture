@@ -21,6 +21,12 @@ def get_dashboard_data(data):
 	data.setdefault("transactions", [])
 	data.setdefault("non_standard_fieldnames", {})
 
+	# custom_receiving_entry only exists on sites that run the packhouse
+	# receiving chain. Without the column every Stock Entry's Connections tab
+	# failed with "Unknown column 'custom_receiving_entry'" (Mona, TASK-2026-00579).
+	if not frappe.db.has_column("Stock Entry", "custom_receiving_entry"):
+		return data
+
 	# The related Stock Entries link back through custom_receiving_entry, not the
 	# default parent field name.
 	data["non_standard_fieldnames"]["Stock Entry"] = "custom_receiving_entry"
