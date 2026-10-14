@@ -32,22 +32,27 @@ def spot_layout(key, from_bed, to_bed):
 		lo, n = int(from_bed), int(to_bed) - int(from_bed) + 1
 	step = n / SPOTS
 	start = int(hashlib.md5(key.encode()).hexdigest(), 16) % 1000 / 1000 * step
-	return [(lo + int(start + i * step), POSITIONS[i % 3]) for i in range(SPOTS)]
+	# a section of under 3 usable beds has fewer than 8 distinct places: one spot each
+	return list(dict.fromkeys((lo + int(start + i * step), POSITIONS[i % 3]) for i in range(SPOTS)))
 
 
 def ensure_plots(row):
-	"""Tops the section up to SPOTS active spots of SPOT_PLANTS plants, laid out
-	by spot_layout, when the plan is asked for, so new sections need no setup.
-	Existing spots stay as they are. Returns True if it created any."""
-	active = frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section, "active": 1},
-		pluck="bed")
-	if len(active) >= SPOTS:
-		return False
+	"""Tops the section up to its spot_layout spots of SPOT_PLANTS plants, when
+	the plan is asked for (and once at migrate), so new sections need no setup.
+	Existing spots stay as they are; a section whose spots were all switched off
+	stays off. Returns True if it created any."""
 	layout = spot_layout(f"{row.greenhouse}|{row.section}", row.from_bed, row.to_bed)
+	# Two phones loading the plan at once must not both top up: lock the greenhouse,
+	# then read the spots with a locking read (it sees rows committed while we waited).
+	frappe.db.sql("SELECT name FROM `tabWarehouse` WHERE name = %s FOR UPDATE", row.greenhouse)
+	spots = frappe.db.sql("""SELECT bed, active, plot_no FROM `tabSample Plot`
+		WHERE greenhouse = %s AND section = %s FOR UPDATE""", (row.greenhouse, row.section), as_dict=True)
+	active = [p.bed for p in spots if p.active]
+	if len(active) >= len(layout) or (spots and not active):
+		return False
 	for bed in active:  # an existing spot stands in for the planned one nearest it
 		layout.remove(min(layout, key=lambda s: abs((s[0] or 0) - (bed or 0))))
-	n = max(frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section},
-		pluck="plot_no") or [0])
+	n = max([p.plot_no or 0 for p in spots] or [0])
 	for bed, position in layout:
 		n += 1
 		frappe.get_doc({"doctype": "Sample Plot", "greenhouse": row.greenhouse, "section": row.section,
@@ -91,10 +96,12 @@ def get_plot_plan(farm=None):
 	me = frappe.db.get_value("Employee", {"user_id": frappe.session.user})
 	found = []
 	created = False
+	can_create = frappe.has_permission("Sample Plot", "create")  # read-only users (sales) never write
 	for row in data.sections(farm=farm or None):
 		if not row.variety:
 			continue
-		created = ensure_plots(row) or created
+		if can_create:
+			created = ensure_plots(row) or created
 		stages = [{"stage_name": n, "days_to_harvest": round(v[0])} for n, v in data.stages(row.variety).items()]
 		spots = frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section, "active": 1},
 			fields=["name", "title", "plot_no", "bed", "position", "plants", "set_up"])

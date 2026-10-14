@@ -25,10 +25,11 @@ class TestForecastApi(FrappeTestCase):
 		self.assertEqual(len(s1), 8)
 		self.assertTrue(all(2 <= p["bed"] <= 8 and p["plants"] == 5 and not p["set_up"] for p in s1))
 		self.assertEqual([p["bed"] for p in s1], sorted(p["bed"] for p in s1))
-		self.assertEqual({p["bed"] for p in plots if p["section"] == "S2"}, {10})  # a single bed takes them all
+		s2 = [(p["bed"], p["position"]) for p in plots if p["section"] == "S2"]
+		self.assertEqual(sorted(s2), [(10, "¼"), (10, "½"), (10, "¾")])  # a single bed: one spot per place
 		self.assertTrue(all(p["due"] for p in plots))
 		self.assertEqual([s["stage_name"] for s in plots[0]["stages"]], ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
-		self.assertEqual(len(self._plots()), 16)  # second call creates nothing new
+		self.assertEqual(len(self._plots()), 11)  # second call creates nothing new
 
 	def test_spot_layout_is_systematic_and_deterministic(self):
 		a = api.spot_layout("GH|A", 1, 41)
@@ -176,3 +177,41 @@ class TestForecastApi(FrappeTestCase):
 		api.plot_tags_pdf(self.gh)
 		self.assertTrue(frappe.local.response.filecontent.startswith(b"%PDF"))
 		self.assertEqual(frappe.local.response.type, "pdf")
+
+	def test_ensure_plots_twice_leaves_eight(self):
+		gh = make_greenhouse(f"FC API TWICE {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		row = [r for r in api.data.sections(greenhouse=gh)][0]
+		self.assertTrue(api.ensure_plots(row))
+		self.assertFalse(api.ensure_plots(row))
+		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "section": "S1"}), 8)
+
+	def test_small_section_has_no_duplicate_spots(self):
+		layout = api.spot_layout("GH|S", 1, 4)
+		self.assertEqual(len(layout), len(set(layout)))
+		self.assertEqual({b for b, _p in layout}, {2, 3})
+		self.assertEqual(len(api.spot_layout("GH|S", 5, 5)), 3)
+
+	def test_section_switched_off_stays_off(self):
+		gh = make_greenhouse(f"FC API OFF {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		frappe.db.set_value("Sample Plot", make_plot(gh, "S1", 1), "active", 0)
+		row = [r for r in api.data.sections(greenhouse=gh)][0]
+		self.assertFalse(api.ensure_plots(row))
+
+	def test_read_only_user_does_not_create_spots(self):
+		gh = make_greenhouse(f"FC API RO {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		email = "fc-sales@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "FC Sales",
+				"send_welcome_email": 0, "roles": [{"role": "Sales User"}]}).insert(ignore_permissions=True)
+		frappe.set_user(email)
+		try:
+			api.get_plot_plan()
+		finally:
+			frappe.set_user("Administrator")
+		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh}), 0)
+
+	def test_migrate_patch_creates_the_spots(self):
+		from upande_agriculture.patches.v2_0 import create_sample_spots
+		gh = make_greenhouse(f"FC API PATCH {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		create_sample_spots.execute()
+		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "active": 1}), 8)
