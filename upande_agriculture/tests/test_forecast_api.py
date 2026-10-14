@@ -7,7 +7,7 @@ from frappe.utils import add_days, nowdate
 from PIL import Image
 
 from upande_agriculture.forecast import api
-from upande_agriculture.tests.forecast_fixtures import make_greenhouse, make_variety
+from upande_agriculture.tests.forecast_fixtures import make_greenhouse, make_plot, make_variety
 
 
 class TestForecastApi(FrappeTestCase):
@@ -18,12 +18,40 @@ class TestForecastApi(FrappeTestCase):
 	def _plots(self):
 		return [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == self.gh]
 
-	def test_plan_creates_two_plots_per_section_one_for_a_single_bed(self):
+	def test_plan_creates_eight_spots_of_five_plants_per_section(self):
 		plots = self._plots()
-		self.assertEqual(sorted((p["section"], p["bed"]) for p in plots), [("S1", 3), ("S1", 6), ("S2", 10)])
+		s1 = [p for p in plots if p["section"] == "S1"]
+		self.assertEqual(len(s1), 8)
+		self.assertTrue(all(2 <= p["bed"] <= 8 and p["plants"] == 5 and not p["set_up"] for p in s1))
+		self.assertEqual([p["bed"] for p in s1], sorted(p["bed"] for p in s1))
+		self.assertEqual({p["bed"] for p in plots if p["section"] == "S2"}, {10})  # a single bed takes them all
 		self.assertTrue(all(p["due"] for p in plots))
 		self.assertEqual([s["stage_name"] for s in plots[0]["stages"]], ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
-		self.assertEqual(len(self._plots()), 3)  # second call creates nothing new
+		self.assertEqual(len(self._plots()), 16)  # second call creates nothing new
+
+	def test_spot_layout_is_systematic_and_deterministic(self):
+		a = api.spot_layout("GH|A", 1, 41)
+		self.assertEqual(a, api.spot_layout("GH|A", 1, 41))
+		beds = [b for b, _p in a]
+		self.assertTrue(all(2 <= b <= 40 for b in beds))
+		self.assertTrue(all(4 <= y - x <= 5 for x, y in zip(beds, beds[1:])))  # step 39/8
+		self.assertEqual([p for _b, p in a], ["¼", "½", "¾", "¼", "½", "¾", "¼", "½"])
+		self.assertNotEqual([b for b, _p in api.spot_layout("GH|B", 1, 200)], [b for b, _p in api.spot_layout("GH|A", 1, 200)])
+		self.assertEqual({b for b, _p in api.spot_layout("GH|A", None, None)}, {None})
+
+	def test_section_without_beds_gets_spots_awaiting_set_up(self):
+		gh = make_greenhouse(f"FC API NB {self._testMethodName[-6:]}", (("S9", None, None, "FC-ROSE", 300),))
+		plots = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh]
+		self.assertEqual(len(plots), 8)
+		self.assertTrue(all(p["bed"] in (None, 0) and not p["set_up"] for p in plots))
+
+	def test_tops_up_old_plots_and_leaves_them_alone(self):
+		gh = make_greenhouse(f"FC API TOP {self._testMethodName[-6:]}", (("S1", 1, 21, "FC-ROSE", 1000),))
+		old = make_plot(gh, "S1", 1, plants=10)
+		plots = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh]
+		self.assertEqual(len(plots), 8)
+		self.assertEqual(sorted(p["plot_no"] for p in plots), list(range(1, 9)))
+		self.assertEqual(frappe.db.get_value("Sample Plot", old, "plants"), 10)
 
 	def test_submit_is_idempotent_and_marks_plot_done(self):
 		plot = self._plots()[0]["plot"]

@@ -1,5 +1,6 @@
 """Phone endpoints for plot counting and the bay forecast."""
 import base64
+import hashlib
 import io
 import json
 
@@ -11,22 +12,44 @@ from upande_agriculture.forecast import calibrate as calib
 from upande_agriculture.forecast import data, service
 
 COUNT_INTERVAL_DAYS = 3  # ponytail: one interval for every section; make it a setting when sections differ
-PLOT_PLANTS = 10
+SPOTS, SPOT_PLANTS = 8, 5  # 8 spots of 5 plants per section beat 1-2 big plots (plot-to-plot CV ~35-50%)
+POSITIONS = ("¼", "½", "¾")
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 
 
+def spot_layout(key, from_bed, to_bed):
+	"""[(bed, position)] for SPOTS spots spread systematically over the section:
+	never the first or last bed, a start seeded from `key` so it never moves,
+	and the position along the bed rotating ¼, ½, ¾. Bed None when the section
+	has no bed range (the set-up scan fills it in)."""
+	if not from_bed or not to_bed:
+		return [(None, POSITIONS[i % 3]) for i in range(SPOTS)]
+	lo, n = int(from_bed) + 1, int(to_bed) - int(from_bed) - 1
+	if n < 1:  # one or two beds: use them all
+		lo, n = int(from_bed), int(to_bed) - int(from_bed) + 1
+	step = n / SPOTS
+	start = int(hashlib.md5(key.encode()).hexdigest(), 16) % 1000 / 1000 * step
+	return [(lo + int(start + i * step), POSITIONS[i % 3]) for i in range(SPOTS)]
+
+
 def ensure_plots(row):
-	"""Two plots per section, a third and two thirds of the way along its beds
-	(one plot when the section is a single bed). Created the first time the
-	plan is asked for, so new sections need no setup. Returns True if it created any."""
-	if frappe.db.exists("Sample Plot", {"greenhouse": row.greenhouse, "section": row.section}):
+	"""Tops the section up to SPOTS active spots of SPOT_PLANTS plants, laid out
+	by spot_layout, when the plan is asked for, so new sections need no setup.
+	Existing spots stay as they are. Returns True if it created any."""
+	active = frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section, "active": 1},
+		pluck="bed")
+	if len(active) >= SPOTS:
 		return False
-	lo = int(row.from_bed or 1)
-	hi = int(row.to_bed or lo)
-	beds = [lo + (hi - lo) // 3, lo + 2 * (hi - lo) // 3] if hi > lo else [lo]
-	for n, bed in enumerate(beds, start=1):
+	layout = spot_layout(f"{row.greenhouse}|{row.section}", row.from_bed, row.to_bed)
+	for bed in active:  # an existing spot stands in for the planned one nearest it
+		layout.remove(min(layout, key=lambda s: abs((s[0] or 0) - (bed or 0))))
+	n = max(frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section},
+		pluck="plot_no") or [0])
+	for bed, position in layout:
+		n += 1
 		frappe.get_doc({"doctype": "Sample Plot", "greenhouse": row.greenhouse, "section": row.section,
-			"plot_no": n, "bed": bed, "plants": PLOT_PLANTS}).insert(ignore_permissions=True)
+			"plot_no": n, "bed": bed, "position": position, "plants": SPOT_PLANTS, "set_up": 0,
+		}).insert(ignore_permissions=True)
 	return True
 
 
@@ -45,13 +68,13 @@ def get_plot_plan(farm=None):
 		created = ensure_plots(row) or created
 		stages = [{"stage_name": n, "days_to_harvest": round(v[0])} for n, v in data.stages(row.variety).items()]
 		for p in frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section, "active": 1},
-				fields=["name", "title", "plot_no", "bed", "plants"], order_by="plot_no"):
+				fields=["name", "title", "plot_no", "bed", "plants", "set_up"], order_by="plot_no"):
 			last = frappe.get_all("Bed Sample", filters={"sample_plot": p.name}, pluck="sampling_date",
 				order_by="sampling_date desc", limit=1)
 			last = getdate(last[0]) if last else None
 			plots.append({"plot": p.name, "title": p.title, "greenhouse": row.greenhouse,
 				"greenhouse_name": row.warehouse_name, "section": row.section, "variety": row.variety,
-				"plants": p.plants, "bed": p.bed, "plot_no": p.plot_no, "stages": stages,
+				"plants": p.plants, "bed": p.bed, "plot_no": p.plot_no, "stages": stages, "set_up": p.set_up,
 				"last_counted": str(last) if last else None,
 				"due": not last or (today - last).days >= COUNT_INTERVAL_DAYS,
 				"mine": bool(me and row.employee == me)})
@@ -87,7 +110,7 @@ def submit_plot_count(client_uuid, sample_plot, counts, plants_counted=None, not
 	try:
 		doc = frappe.get_doc({
 		"doctype": "Bed Sample", "client_uuid": client_uuid, "sample_plot": plot.name,
-		"plants_counted": int(plants_counted or plot.plants or PLOT_PLANTS), "notes": notes,
+		"plants_counted": int(plants_counted or plot.plants or SPOT_PLANTS), "notes": notes,
 		"sampling_date": getdate(captured_at) if captured_at else nowdate(), "captured_at": captured_at,
 		"stages": [{"stage_name": r["stage_name"], "count": int(r.get("count") or 0),
 			"days_to_harvest": days.get(r["stage_name"])} for r in counts],
