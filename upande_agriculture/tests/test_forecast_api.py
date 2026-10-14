@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -100,3 +101,78 @@ class TestForecastApi(FrappeTestCase):
 		for blank in ("", "  ", None):
 			with self.assertRaises(frappe.ValidationError):
 				api.submit_plot_count(client_uuid=blank, sample_plot=plot, counts='[{"stage_name": "Rice", "count": 1}]')
+
+	def test_quality_flags(self):
+		order = ["Pea", "Bud", "Colour break"]
+		self.assertEqual(api.quality_flags({"Pea": 40}, {"Pea": 4}, order), ["jump: Pea 4→40"])
+		self.assertEqual(api.quality_flags({"Pea": 6}, {"Pea": 4}, order), [])  # within max(3, 50%)
+		self.assertEqual(api.quality_flags({"Pea": 0, "Bud": 25}, {"Pea": 0, "Bud": 20}, order),
+			["flow: Bud 25 > 22 possible from the last count"])  # more buds than pea + bud could supply
+		self.assertEqual(api.quality_flags({"Pea": 1}, None, order, duration_seconds=9, missing_plants=2),
+			["fast: 9 s for the spot", "missing: 2 plants"])
+
+	def test_submit_v2_stores_plants_flags_and_shows_last(self):
+		plot = self._plots()[0]["plot"]
+		yday = add_days(nowdate(), -1)
+		api.submit_plot_count(client_uuid=f"fc-v2a-{self.gh}", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 4}],
+			captured_at=f"{yday} 08:00:00", duration_seconds=60)
+		pc = [{"plant": i, "counts": {"Pea": 10 if i == 1 else 7}} for i in range(1, 5)]
+		r = api.submit_plot_count(client_uuid=f"fc-v2b-{self.gh}", sample_plot=plot,
+			counts='[{"stage_name": "Pea", "count": 38}]', plant_counts=json.dumps(pc), blind_shoots=2,
+			missing_plants=1, duration_seconds=8)
+		self.assertEqual(r["flags"], ["jump: Pea 4→38", "flow: Pea 38 > 6 possible from the last count",
+			"fast: 8 s for the spot", "missing: 1 plant"])
+		doc = frappe.get_doc("Bed Sample", r["name"])
+		self.assertEqual((doc.plants_counted, doc.blind_shoots, doc.missing_plants, doc.duration_seconds), (4, 2, 1, 8))
+		self.assertEqual(json.loads(doc.plant_counts), pc)
+		self.assertEqual((doc.counted_by, doc.is_recount), ("Administrator", 0))
+		self.assertIn("jump: Pea 4→38", doc.quality_flags)
+		self.assertEqual(api.submit_plot_count(client_uuid=f"fc-v2b-{self.gh}", sample_plot=plot, counts=[])["flags"], r["flags"])
+		p = [x for x in self._plots() if x["plot"] == plot][0]
+		self.assertEqual(p["last"], {"date": nowdate(), "counts": {"Pea": 38}, "blind_shoots": 2, "missing_plants": 1})
+		self.assertEqual((p["position"], p["route_no"], p["plants"]), ("¼", 1, 5))
+
+	def test_plan_route_numbers_follow_the_beds(self):
+		s1 = sorted((p for p in self._plots() if p["section"] == "S1"), key=lambda p: p["route_no"])
+		self.assertEqual([p["route_no"] for p in s1], list(range(1, 9)))
+		self.assertEqual([p["bed"] for p in s1], sorted(p["bed"] for p in s1))
+
+	def test_second_person_same_day_is_a_recount(self):
+		plot = self._plots()[0]["plot"]
+		api.submit_plot_count(client_uuid=f"fc-rc1-{self.gh}", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 4}])
+		email = "fc-counter@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "FC Counter", "send_welcome_email": 0,
+				"roles": [{"role": "Agriculture User"}]}).insert(ignore_permissions=True)
+		frappe.set_user(email)
+		try:
+			r = api.submit_plot_count(client_uuid=f"fc-rc2-{self.gh}", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 5}])
+		finally:
+			frappe.set_user("Administrator")
+		self.assertEqual(frappe.db.get_value("Bed Sample", r["name"], ["is_recount", "counted_by"]), (1, email))
+
+	def test_bad_plant_counts_refused(self):
+		plot = self._plots()[0]["plot"]
+		for bad in ('{"plant": 1}', '[{"plant": 1, "counts": {"Pea": -2}}]'):
+			with self.assertRaises(frappe.ValidationError):
+				api.submit_plot_count(client_uuid=f"fc-bad-{bad[:4]}-{self.gh}", sample_plot=plot,
+					counts=[{"stage_name": "Pea", "count": 1}], plant_counts=bad)
+
+	def test_confirm_plot_bed_is_idempotent_and_checks_the_range(self):
+		plot = self._plots()[0]["plot"]
+		for _ in range(2):
+			self.assertEqual(api.confirm_plot_bed(plot, "7"), {"name": plot, "bed": 7, "set_up": 1})
+		doc = frappe.get_doc("Sample Plot", plot)
+		self.assertEqual((doc.bed, doc.set_up, str(doc.started_on)), (7, 1, nowdate()))
+		with self.assertRaises(frappe.ValidationError):
+			api.confirm_plot_bed(plot, 40)
+
+	def test_plot_tags_pdf(self):
+		self._plots()
+		html = api.plot_tags_html(self.gh, "S1")
+		self.assertEqual(html.count('class="tag"'), 8)
+		self.assertIn("Spot 1 of 8 · plants 1–5", html)
+		self.assertIn("Skip the first 2 m of the bed.", html)
+		api.plot_tags_pdf(self.gh)
+		self.assertTrue(frappe.local.response.filecontent.startswith(b"%PDF"))
+		self.assertEqual(frappe.local.response.type, "pdf")
