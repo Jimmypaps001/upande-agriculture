@@ -15,7 +15,7 @@ from frappe.utils import add_days, getdate, nowdate
 from upande_agriculture.forecast import curves, data, engine
 
 WINDOW_DAYS = 70
-HORIZON = 56
+HORIZON = 63  # 9 weeks: eye pop-up buds are ~56-59 days out
 MIN_ROUNDS, MIN_STEMS = 3, 200
 K_GRID = [round(0.7 + 0.05 * i, 2) for i in range(15)]  # 0.70 .. 1.40
 R_OFFSETS = (-14, -7, 0, 7, 14)

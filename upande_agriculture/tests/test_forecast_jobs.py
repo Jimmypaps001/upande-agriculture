@@ -17,7 +17,7 @@ class TestForecastJobs(FrappeTestCase):
 		jobs.daily_snapshot()
 		jobs.daily_snapshot()
 		n = frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "made_on": nowdate()})
-		self.assertEqual(n, 56)
+		self.assertEqual(n, 63)
 		self.assertEqual(frappe.db.get_value("Harvest Forecast Snapshot", {"greenhouse": gh}, "ratio"), 1)  # no section ratio yet
 
 	def test_accuracy_report_compares_snapshot_with_picks(self):
@@ -46,7 +46,7 @@ class TestForecastJobs(FrappeTestCase):
 		with mock.patch.object(service, "forecast_section", flaky), mock.patch.object(frappe, "log_error"):
 			jobs.daily_snapshot()
 		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "S1"}), 0)
-		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "S2"}), 56)
+		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "S2"}), 63)
 
 	def test_weekly_calibrate_commits_each_variety_and_rolls_back_a_failure(self):
 		rows = [frappe._dict(variety="FC-A"), frappe._dict(variety="FC-B")]

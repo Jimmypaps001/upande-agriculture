@@ -36,7 +36,7 @@ BLUR_FRACTION, MIN_BLUR = 0.1, 0.5
 DEFAULT_SURVIVAL = 0.9
 
 # Error bands are kept per horizon bucket (days ahead of the forecast date).
-BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20"), (21, 34, "21-34"), (35, 55, "35-55")]
+BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20"), (21, 34, "21-34"), (35, 62, "35-62")]
 
 
 def stage_params(rows):

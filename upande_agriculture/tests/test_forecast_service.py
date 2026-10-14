@@ -22,7 +22,7 @@ class TestForecastService(FrappeTestCase):
 	def test_counted_section_forecasts_buds_with_bands(self):
 		make_count(make_plot(self.gh, "S1"), self.today, {"Colour break": 10})  # 1 bud/plant, ~7 days out
 		f = service.forecast_section(_row(self.gh, "S1"))
-		self.assertEqual(len(f["daily"]), 56)
+		self.assertEqual(len(f["daily"]), 63)
 		self.assertFalse(any(f["flags"].values()))
 		total = sum(d["stems"] for d in f["daily"])
 		self.assertAlmostEqual(total, 1000 * 0.99, delta=5)
