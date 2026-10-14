@@ -6,6 +6,22 @@ from upande_agriculture.forecast import curves, data, engine
 
 HORIZON = 56  # the counts see the whole regrowth cycle, eye pop-up ~55 days out
 STALE_DAYS = 7
+RATIO_WINDOW, RATIO_MIN_DAYS, RATIO_MIN_STEMS = 21, 10, 300
+RATIO_CLAMP, RATIO_OK = (0.5, 2.0), (0.8, 1.25)
+
+
+def section_ratio(greenhouse, section, as_of):
+	"""(R, days): actual ÷ forecast stems over the last RATIO_WINDOW days, from
+	snapshots made 0-2 days ahead, clamped. R is None until there are enough
+	days and stems to trust it."""
+	since, until = add_days(as_of, -RATIO_WINDOW), add_days(as_of, -1)
+	fc = data.raw_snapshots(greenhouse, section, since, until)
+	actual = data.cuts(greenhouse, section, since, until)
+	f = sum(fc.values())
+	if len(fc) < RATIO_MIN_DAYS or f < RATIO_MIN_STEMS:
+		return None, len(fc)
+	r = sum(actual.get(d, 0.0) for d in fc) / f
+	return min(max(r, RATIO_CLAMP[0]), RATIO_CLAMP[1]), len(fc)
 
 
 def forecast_section(row, start=None, days=HORIZON, as_of=None):
@@ -18,17 +34,22 @@ def forecast_section(row, start=None, days=HORIZON, as_of=None):
 	tf = curves.temperature_factor(prm["ref_temp"], data.recent_temp(row.greenhouse, as_of))
 	history = data.cuts(row.greenhouse, row.section, add_days(as_of, -(prm["regrowth_days"] + 45)), as_of)
 	res = engine.section_forecast(start, days, plants, rnd, stages, history, prm, tf)
+	ratio, ratio_days = section_ratio(row.greenhouse, row.section, as_of)
+	m = ratio or 1.0
 	daily = []
 	for i, stems in enumerate(res["stems"]):
 		lo, hi = curves.band((start - as_of).days + i, prm["error_bands"])
+		stems *= m
 		daily.append({"date": add_days(start, i), "stems": stems, "low": stems * lo, "high": stems * hi,
-			"buds": res["buds"][i], "regrowth": res["regrowth"][i]})
+			"buds": res["buds"][i] * m, "regrowth": res["regrowth"][i] * m})
 	return {
 		"greenhouse": row.greenhouse, "warehouse_name": row.warehouse_name, "section": row.section,
 		"variety": row.variety, "employee": row.employee, "employee_name": row.employee_name,
 		"plants": plants, "last_count": rnd["date"] if rnd else None, "model_version": prm["model_version"],
+		"ratio": ratio, "ratio_days": ratio_days,
 		"flags": {"no_plants": not plants, "no_count": rnd is None,
-			"stale_count": bool(rnd and (as_of - rnd["date"]).days > STALE_DAYS)},
+			"stale_count": bool(rnd and (as_of - rnd["date"]).days > STALE_DAYS),
+			"unrepresentative": bool(ratio and not RATIO_OK[0] <= ratio <= RATIO_OK[1])},
 		"daily": daily,
 	}
 

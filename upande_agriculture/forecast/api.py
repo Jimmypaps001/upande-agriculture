@@ -333,7 +333,8 @@ def get_bay_forecast(greenhouse, section, days=7):
 		"next7": round(sum(x["stems"] for x in week)), "low7": round(sum(x["low"] for x in week)),
 		"high7": round(sum(x["high"] for x in week)),
 		"daily": [{"date": str(x["date"]), "stems": round(x["stems"]), "low": round(x["low"]), "high": round(x["high"])} for x in d],
-		"flags": f["flags"], "last_count": str(f["last_count"]) if f["last_count"] else None}
+		"flags": f["flags"], "last_count": str(f["last_count"]) if f["last_count"] else None,
+		"ratio": round(f["ratio"], 3) if f["ratio"] else None, "ratio_days": f["ratio_days"]}
 
 
 @frappe.whitelist()

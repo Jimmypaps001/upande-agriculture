@@ -57,5 +57,6 @@ def make_harvest(greenhouse, section, item, day, qty):
 		"items": [{"item_code": item, "qty": qty, "t_warehouse": greenhouse, "basic_rate": 1,
 			"allow_zero_valuation_rate": 1}]})
 	se.insert(ignore_permissions=True)
+	frappe.flags.warehouse_account_map = {}  # ERPNext caches it per run; new test greenhouses are missing from it
 	se.submit()
 	return se.name

@@ -6,7 +6,7 @@ from frappe.utils import getdate, nowdate
 from upande_agriculture.forecast import calibrate, data, service
 
 FIELDS = ["name", "made_on", "target_date", "greenhouse", "section", "variety", "stems", "low", "high",
-	"model_version", "creation", "modified", "owner", "modified_by", "docstatus"]
+	"model_version", "ratio", "creation", "modified", "owner", "modified_by", "docstatus"]
 
 
 def daily_snapshot(today=None):
@@ -16,7 +16,7 @@ def daily_snapshot(today=None):
 	values = [
 		(frappe.generate_hash(length=12), today, d["date"], f["greenhouse"], f["section"], f["variety"],
 			round(d["stems"], 2), round(d["low"], 2), round(d["high"], 2), f["model_version"],
-			now, now, "Administrator", "Administrator", 0)
+			f["ratio"] or 1, now, now, "Administrator", "Administrator", 0)
 		for f in service.forecast_all(start=today) for d in f["daily"]]
 	if values:
 		frappe.db.bulk_insert("Harvest Forecast Snapshot", FIELDS, values)

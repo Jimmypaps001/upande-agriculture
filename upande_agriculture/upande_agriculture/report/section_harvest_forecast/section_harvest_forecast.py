@@ -5,7 +5,8 @@ from frappe.utils import add_days, getdate, nowdate
 from upande_agriculture.forecast import service
 
 FLAG_TEXT = {"no_plants": "Plants not set on the section (regrowth only)",
-	"no_count": "No plot count in 35 days (regrowth only)", "stale_count": "Last count over a week old"}
+	"no_count": "No plot count in 35 days (regrowth only)", "stale_count": "Last count over a week old",
+	"unrepresentative": "Spots unrepresentative: picks differ from the forecast by over 20% (corrected by the section ratio)"}
 
 
 def execute(filters=None):
@@ -35,7 +36,8 @@ def execute(filters=None):
 			"harvester": fc["employee_name"], "total": round(sum(x["stems"] for x in d)),
 			"low": round(sum(x["low"] for x in d)), "high": round(sum(x["high"] for x in d)),
 			"last_count": fc["last_count"], "warn": bool(warn),
-			"basis": "; ".join(warn + [f"model {fc['model_version']}"])}
+			"basis": "; ".join(warn + [f"model {fc['model_version']}"]
+				+ ([f"section ratio {fc['ratio']:.2f} over {fc['ratio_days']} days"] if fc["ratio"] else []))}
 		for i, x in enumerate(d):
 			row[f"d{i}"] = round(x["stems"])
 		rows.append(row)

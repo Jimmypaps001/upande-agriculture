@@ -18,6 +18,7 @@ class TestForecastJobs(FrappeTestCase):
 		jobs.daily_snapshot()
 		n = frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "made_on": nowdate()})
 		self.assertEqual(n, 56)
+		self.assertEqual(frappe.db.get_value("Harvest Forecast Snapshot", {"greenhouse": gh}, "ratio"), 1)  # no section ratio yet
 
 	def test_accuracy_report_compares_snapshot_with_picks(self):
 		from upande_agriculture.upande_agriculture.report.harvest_forecast_accuracy.harvest_forecast_accuracy import execute

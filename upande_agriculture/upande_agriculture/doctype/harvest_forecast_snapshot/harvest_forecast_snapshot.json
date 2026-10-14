@@ -6,7 +6,7 @@
  "module": "Upande Agriculture",
  "name": "Harvest Forecast Snapshot",
  "owner": "Administrator",
- "modified": "2026-10-08 11:30:00",
+ "modified": "2026-10-14 12:00:00",
  "modified_by": "Administrator",
  "field_order": [
   "made_on",
@@ -17,7 +17,8 @@
   "stems",
   "low",
   "high",
-  "model_version"
+  "model_version",
+  "ratio"
  ],
  "fields": [
   {
@@ -76,6 +77,13 @@
    "fieldtype": "Data",
    "label": "Model Version",
    "description": "The variety's calibration, as fitted when this forecast was made."
+  },
+  {
+   "fieldname": "ratio",
+   "fieldtype": "Float",
+   "label": "Section Ratio Applied",
+   "default": "1",
+   "description": "The section's actual ÷ forecast ratio that was applied to Forecast Stems (1 = none). The raw forecast is stems ÷ ratio."
   }
  ],
  "permissions": [

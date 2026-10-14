@@ -82,6 +82,19 @@ def cuts(greenhouse, section, since, until):
 	return {getdate(r.d): float(r.q) for r in rows}
 
 
+def raw_snapshots(greenhouse, section, since, until, max_ahead=2):
+	"""{target day: stems} the snapshots made 0..max_ahead days before it
+	forecast, before any section ratio (averaged over those snapshots)."""
+	rows = frappe.db.sql(
+		"""SELECT target_date AS d, AVG(stems / IF(IFNULL(ratio, 0) > 0, ratio, 1)) AS f
+		   FROM `tabHarvest Forecast Snapshot`
+		   WHERE greenhouse = %s AND section = %s AND target_date BETWEEN %s AND %s
+		     AND DATEDIFF(target_date, made_on) BETWEEN 0 AND %s
+		   GROUP BY target_date""",
+		(greenhouse, section, getdate(since), getdate(until), max_ahead), as_dict=True)
+	return {getdate(r.d): float(r.f or 0) for r in rows}
+
+
 def recent_temp(greenhouse, as_of, days=7):
 	return mean_temp([greenhouse], add_days(as_of, -(days - 1)), as_of)
 
