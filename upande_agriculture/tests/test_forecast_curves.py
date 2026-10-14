@@ -26,8 +26,20 @@ class TestCurves(unittest.TestCase):
 		self.assertEqual(curves.day_mass(5, 5, 0), 1.0)
 		self.assertEqual(curves.day_mass(4, 5, 0), 0.0)
 
-	def test_defaults_when_no_rows(self):
+	def test_defaults_when_no_rows_are_the_farms_stages(self):
 		p = curves.stage_params(None)
+		self.assertEqual(list(p), ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
+		self.assertEqual(p, {"Eye pop-up": (55.0, 5.0, 0.8), "Maroon shoot": (36.0, 14.0, 0.85),
+			"Pea": (21.0, 3.5, 0.93), "Bud": (14.0, 3.5, 0.97), "Colour break": (7.0, 3.5, 0.99)})
+
+	def test_protocol_naming_new_stages_takes_their_days_and_survival(self):
+		p = curves.stage_params([{"stage_name": "maroon shoot"}, {"stage_name": "Colour break", "survival": 0.9}])
+		self.assertEqual(p["maroon shoot"][2], 0.85)
+		self.assertEqual(p["maroon shoot"][:2], (36.0, 14.5))  # blank spread: midpoint band to colour break, mirrored
+		self.assertEqual(p["Colour break"][2], 0.9)
+
+	def test_legacy_stage_rows(self):
+		p = curves.stage_params(curves.LEGACY_STAGES)
 		self.assertEqual(list(p), ["Rice", "Pea", "Chickpea", "Showing colour", "Opening"])
 		# band = midpoints to the neighbouring stages' days: (centre, half width)
 		self.assertEqual({k: v[:2] for k, v in p.items()},

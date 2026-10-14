@@ -13,7 +13,7 @@ class TestForecastReports(FrappeTestCase):
 	def setUp(self):
 		make_variety()
 		self.gh = make_greenhouse("FC REP", (("S1", 1, 9, "FC-ROSE", 1000),))
-		make_count(make_plot(self.gh, "S1"), nowdate(), {"Showing colour": 10})
+		make_count(make_plot(self.gh, "S1"), nowdate(), {"Colour break": 10})
 
 	def test_section_report_has_a_column_per_day(self):
 		cols, rows = section_report({"greenhouse": self.gh, "days": 14})

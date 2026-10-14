@@ -8,16 +8,24 @@ import math
 
 BASE_TEMP = 5.3  # °C: roses do not develop below this
 
-# Days to harvest at ~18 °C (pea and chickpea interpolated) and the share of
-# buds at that stage that reach the knife. Each variety's Crop Protocol
-# overrides these.
+# The farm's stages (Bilashaka, 2026-10-14): days from the stage to the knife,
+# with a fixed band each, and the share that reaches the knife. A bud shows as
+# an eye 8-10 days after the cut; a maroon shoot spans ~22-50 days out. Each
+# variety's Crop Protocol overrides these.
 DEFAULT_STAGES = [
+	{"stage_name": "Eye pop-up", "days_to_harvest": 55, "spread_days": 5, "survival": 0.80},
+	{"stage_name": "Maroon shoot", "days_to_harvest": 36, "spread_days": 14, "survival": 0.85},
+	{"stage_name": "Pea", "days_to_harvest": 21, "spread_days": 3.5, "survival": 0.93},
+	{"stage_name": "Bud", "days_to_harvest": 14, "spread_days": 3.5, "survival": 0.97},
+	{"stage_name": "Colour break", "days_to_harvest": 7, "spread_days": 3.5, "survival": 0.99},
+]
+# The first build's stages (Monroy, Pérez & Cure 2003, at ~18 °C): still
+# understood when a protocol or an old count names them.
+LEGACY_STAGES = [
 	{"stage_name": "Rice", "days_to_harvest": 28, "survival": 0.85},
 	{"stage_name": "Pea", "days_to_harvest": 22, "survival": 0.88},
 	{"stage_name": "Chickpea", "days_to_harvest": 15, "survival": 0.92},
 	{"stage_name": "Showing colour", "days_to_harvest": 8, "survival": 0.97},
-	# Petals loosening, a few days from the knife. Without it the latest count
-	# would miss the buds due in the next ~5 days: they are past colour stage.
 	{"stage_name": "Opening", "days_to_harvest": 3, "survival": 0.99},
 ]
 SPREAD_FRACTION, MIN_SPREAD = 0.2, 1.5
@@ -30,10 +38,11 @@ BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20")]
 
 def stage_params(rows):
 	"""{stage: (band centre, half width, survival)} from protocol rows, survival
-	as a fraction. With a blank spread the band runs between the midpoints to the
-	neighbouring stages (by days), so the centre may differ from the days. Blank cells take the default for a stage of that name; a stage
+	as a fraction. Blank days or survival take the default for a stage of that
+	name (old names included). With a blank spread the band runs between the midpoints to the
+	neighbouring stages (by days), so the centre may differ from the days. A stage
 	with no days anywhere cannot be placed in time and is dropped."""
-	defaults = {s["stage_name"].lower(): s for s in DEFAULT_STAGES}
+	defaults = {s["stage_name"].lower(): s for s in LEGACY_STAGES + DEFAULT_STAGES}
 	placed = []  # (name, days, row, default) for stages that can be placed in time
 	for r in rows or DEFAULT_STAGES:
 		d = defaults.get(r["stage_name"].lower(), {})

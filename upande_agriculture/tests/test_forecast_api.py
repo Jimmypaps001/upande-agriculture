@@ -22,18 +22,18 @@ class TestForecastApi(FrappeTestCase):
 		plots = self._plots()
 		self.assertEqual(sorted((p["section"], p["bed"]) for p in plots), [("S1", 3), ("S1", 6), ("S2", 10)])
 		self.assertTrue(all(p["due"] for p in plots))
-		self.assertEqual([s["stage_name"] for s in plots[0]["stages"]], ["Rice", "Pea", "Chickpea", "Showing colour", "Opening"])
+		self.assertEqual([s["stage_name"] for s in plots[0]["stages"]], ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
 		self.assertEqual(len(self._plots()), 3)  # second call creates nothing new
 
 	def test_submit_is_idempotent_and_marks_plot_done(self):
 		plot = self._plots()[0]["plot"]
 		im = io.BytesIO(); Image.new("RGB", (32, 32), (200, 0, 0)).save(im, "JPEG")
-		args = dict(client_uuid="fc-api-1", sample_plot=plot, counts='[{"stage_name": "Rice", "count": 7}]',
+		args = dict(client_uuid="fc-api-1", sample_plot=plot, counts='[{"stage_name": "Pea", "count": 7}]',
 			plants_counted=10, captured_at=f"{nowdate()} 08:00:00", photos=[base64.b64encode(im.getvalue()).decode()])
 		a, b = api.submit_plot_count(**args), api.submit_plot_count(**args)
 		self.assertEqual(a, b)
 		doc = frappe.get_doc("Bed Sample", a["name"])
-		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), ("S1", 7, 28))
+		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), ("S1", 7, 21))
 		self.assertTrue(doc.photo_1)
 		p = [x for x in self._plots() if x["plot"] == plot][0]
 		self.assertFalse(p["due"])

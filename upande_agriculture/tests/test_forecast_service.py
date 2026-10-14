@@ -20,19 +20,19 @@ class TestForecastService(FrappeTestCase):
 		self.gh = make_greenhouse("FC SVC " + self._testMethodName[5:12], (("S1", 1, 9, "FC-ROSE", 1000), ("S2", 10, 18, "FC-ROSE", None)))
 
 	def test_counted_section_forecasts_buds_with_bands(self):
-		make_count(make_plot(self.gh, "S1"), self.today, {"Showing colour": 10})  # 1 bud/plant, ~8 days out
+		make_count(make_plot(self.gh, "S1"), self.today, {"Colour break": 10})  # 1 bud/plant, ~7 days out
 		f = service.forecast_section(_row(self.gh, "S1"))
 		self.assertEqual(len(f["daily"]), 21)
 		self.assertFalse(any(f["flags"].values()))
 		total = sum(d["stems"] for d in f["daily"])
-		self.assertAlmostEqual(total, 1000 * 0.97, delta=5)
+		self.assertAlmostEqual(total, 1000 * 0.99, delta=5)
 		d8 = f["daily"][8]
 		self.assertLess(d8["low"], d8["stems"])
 		self.assertGreater(d8["high"], d8["stems"])
 
 	def test_no_plants_regrowth_only_flagged(self):
 		make_harvest(self.gh, "S2", "FC-ROSE", add_days(self.today, -50), 100)
-		make_count(make_plot(self.gh, "S2"), self.today, {"Rice": 10})
+		make_count(make_plot(self.gh, "S2"), self.today, {"Pea": 10})
 		f = service.forecast_section(_row(self.gh, "S2"))
 		self.assertTrue(f["flags"]["no_plants"])
 		self.assertEqual(sum(d["buds"] for d in f["daily"]), 0)
@@ -52,7 +52,7 @@ class TestForecastService(FrappeTestCase):
 	def test_counted_stage_missing_from_protocol_still_forecast(self):
 		from upande_agriculture.forecast import curves
 		make_count(make_plot(self.gh, "S1"), self.today, {"Opening": 10})
-		protocol = {k: v for k, v in curves.stage_params(None).items() if k != "Opening"}
+		protocol = {k: v for k, v in curves.stage_params(curves.LEGACY_STAGES).items() if k != "Opening"}
 		with mock.patch.object(data, "stages", return_value=protocol):
 			f = service.forecast_section(_row(self.gh, "S1"))
 		self.assertAlmostEqual(sum(d["stems"] for d in f["daily"]), 1000 * 0.99, delta=5)

@@ -5,19 +5,20 @@ forecast the picks well. (No deaths and no regrowth in the simulation, so
 only timing and forecast error are asserted.)"""
 import json
 import math
+from unittest import mock
 
 from frappe.tests.utils import FrappeTestCase
 from frappe.utils import add_days, getdate, nowdate
 
-from upande_agriculture.forecast import calibrate
-from upande_agriculture.forecast.curves import day_mass
+from upande_agriculture.forecast import calibrate, data
+from upande_agriculture.forecast.curves import LEGACY_STAGES, day_mass, stage_params
 from upande_agriculture.tests.forecast_fixtures import (
 	make_count, make_greenhouse, make_harvest, make_plot, make_variety)
 
 K_TRUE = 0.9
 PLANTS, PLOT = 1000, 10
 # Remaining days (at timing 1.0) at which a bud moves into each stage: the
-# midpoints between the default stages' days to harvest (3, 8, 15, 22, 28).
+# midpoints between the first build's stages' days to harvest (3, 8, 15, 22, 28).
 EDGES = [("Opening", 5.5), ("Showing colour", 11.5), ("Chickpea", 18.5), ("Pea", 25.0), ("Rice", 1e9)]
 DURATIONS = {d: day_mass(d, K_TRUE * 28, K_TRUE * 5.6) for d in range(5, 60)}
 
@@ -65,7 +66,8 @@ class TestForecastCalibrate(FrappeTestCase):
 			if i % 3 == 0:
 				make_count(plot, day, {k: round(v * PLOT) for k, v in counts_on(i).items()})
 			make_harvest(gh, "S1", "FC-CAL", day, max(1, round(picks_on(i))))
-		doc = calibrate.calibrate("FC-CAL", today)
+		with mock.patch.object(data, "stages", return_value=stage_params(LEGACY_STAGES)):
+			doc = calibrate.calibrate("FC-CAL", today)
 		self.assertTrue(doc.fitted_on, doc.status)
 		self.assertAlmostEqual(doc.time_scale, K_TRUE, delta=0.051)
 		bands = json.loads(doc.error_bands)

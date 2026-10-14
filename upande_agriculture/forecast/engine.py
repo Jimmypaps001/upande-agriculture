@@ -5,22 +5,24 @@ Two sources of stems for a day:
   its curve and scaled to the section's plants;
 - regrowth: every stem cut grows back one cycle later. A cut whose new bud had
   already reached the earliest counted stage by the last count is part of that
-  count, so it is not added twice.
+  count, so it is not added twice. A cut shows an eye only ~9 days later, so
+  younger cuts always count as regrowth.
 """
 from datetime import timedelta
 
-from upande_agriculture.forecast.curves import day_mass, stage_mass, stage_params
+from upande_agriculture.forecast.curves import LEGACY_STAGES, day_mass, stage_mass, stage_params
 
-DEFAULTS = {n.lower(): v for n, v in stage_params(None).items()}
+# a counted stage the protocol does not list falls back to these, by lower-case name
+DEFAULTS = {n.lower(): v for n, v in {**stage_params(LEGACY_STAGES), **stage_params(None)}.items()}
 
 REGROWTH_SPREAD = 0.12  # sd of the regrowth timing as a share of its days
+SHOOT_VISIBLE_DAYS = 9  # a cut shows a new eye 8-10 days later; younger cuts are not in any count
 
 
 def bud_curve(rates, stages, count_date, k, start, days):
 	"""Expected stems per plant per day, from `start` for `days` days."""
 	out = [0.0] * days
 	first = (start - count_date).days
-	# a counted stage the protocol no longer lists takes its default, by lower-case name
 	known = {**DEFAULTS, **{n.lower(): v for n, v in stages.items()}}
 	for name, rate in rates.items():
 		if not rate or name.lower() not in known:
@@ -36,7 +38,9 @@ def regrowth_curve(cuts, regrowth_days, start, days, visible_after=None, k=1.0, 
 	sd = max(1.0, REGROWTH_SPREAD * regrowth_days)
 	out = [0.0] * days
 	for cut_on, stems in cuts.items():
-		if visible_after and cut_on + timedelta(days=regrowth_days - k * first_stage_days) <= visible_after:
+		# the earliest stage starts regrowth - first days after the cut, but never before the eye shows
+		seen = max(regrowth_days - k * first_stage_days, k * SHOOT_VISIBLE_DAYS)
+		if visible_after and cut_on + timedelta(days=seen) <= visible_after:
 			continue
 		first = (start - cut_on).days
 		for i in range(days):

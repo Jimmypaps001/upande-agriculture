@@ -43,6 +43,19 @@ class TestEngine(unittest.TestCase):
 		self.assertEqual(sum(engine.regrowth_curve({old: 100.0}, 56, D, 21, D, 1.0, 28.0)), 0)
 		self.assertGreater(sum(engine.regrowth_curve({new: 100.0}, 56, D, 40, D, 1.0, 28.0)), 0)
 
+	def test_young_cuts_are_regrowth_even_with_an_eye_stage(self):
+		# earliest stage 55 days out with 56-day regrowth: the eye shows ~9 days after the cut, not 1
+		young = D - datetime.timedelta(days=5)
+		older = D - datetime.timedelta(days=12)
+		self.assertGreater(sum(engine.regrowth_curve({young: 100.0}, 56, D, 60, D, 1.0, 55.0)), 75)
+		self.assertEqual(sum(engine.regrowth_curve({older: 100.0}, 56, D, 60, D, 1.0, 55.0)), 0)
+
+	def test_new_default_stages_forecast(self):
+		from upande_agriculture.forecast.curves import stage_params
+		out = engine.bud_curve({"Colour break": 1.0, "Eye pop-up": 1.0}, stage_params(None), D, 1.0, D, 90)
+		self.assertAlmostEqual(sum(out[:15]), 0.99, places=2)
+		self.assertAlmostEqual(sum(out[30:]), 0.80, places=2)  # blurred ±10% of 55 days
+
 	def test_section_forecast_scales_by_plants_and_adds_regrowth(self):
 		stages = {"Rice": (10.0, 1.0, 1.0)}
 		f = engine.section_forecast(D, 21, 1000, {"date": D, "rates": {"Rice": 1.0}}, stages,
