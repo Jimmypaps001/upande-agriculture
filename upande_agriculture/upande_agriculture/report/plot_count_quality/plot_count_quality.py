@@ -19,7 +19,7 @@ def execute(filters=None):
 	if f.get("greenhouse"):
 		cond["greenhouse"] = f["greenhouse"]
 	# ponytail: today's active spots stand in for the spots active on each past day
-	spots = frappe.get_all("Sample Plot", filters=cond, fields=["name", "greenhouse", "section"])
+	spots = frappe.get_all("Sample Plot", filters=cond, fields=["name", "greenhouse", "section", "variety"])
 	counts = frappe.get_all("Bed Sample", order_by="sampling_date, creation",
 		filters={"sample_plot": ["in", [s.name for s in spots] or [""]],
 			"sampling_date": ["between", [add_days(from_date, -COUNT_INTERVAL_DAYS), to_date]]},
@@ -40,7 +40,7 @@ def execute(filters=None):
 			due = not before or (day - before[-1]).days >= COUNT_INTERVAL_DAYS
 			if not (due or today):
 				continue
-			g = groups.setdefault((s.greenhouse, s.section, day), {"due": 0, "counted": 0, "flagged": 0,
+			g = groups.setdefault((s.greenhouse, s.section, day), {"variety": s.variety, "due": 0, "counted": 0, "flagged": 0,
 				"flags": [], "counters": set(), "seconds": [], "recounts": []})
 			g["due"] += due
 			g["counted"] += bool(today)
@@ -65,7 +65,7 @@ def execute(filters=None):
 	rows = []
 	for (gh, section, day), g in sorted(groups.items(), key=lambda kv: (gh_names.get(kv[0][0], ""), kv[0][1], kv[0][2])):
 		if (gh, section) not in ratios:
-			ratios[(gh, section)] = service.section_ratio(gh, section, to_date)[0]
+			ratios[(gh, section)] = service.section_ratio(gh, section, g["variety"], to_date)[0]
 		r = ratios[(gh, section)]
 		rows.append({"greenhouse": gh_names.get(gh, gh), "section": section, "date": day, "due": g["due"],
 			"counted": g["counted"], "flagged": g["flagged"], "flags": " | ".join(g["flags"]),

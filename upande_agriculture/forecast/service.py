@@ -10,18 +10,26 @@ RATIO_WINDOW, RATIO_MIN_DAYS, RATIO_MIN_STEMS = 21, 10, 300
 RATIO_CLAMP, RATIO_OK = (0.5, 2.0), (0.8, 1.25)
 
 
-def section_ratio(greenhouse, section, as_of):
-	"""(R, days): actual ÷ forecast stems over the last RATIO_WINDOW days, from
-	snapshots made 0-2 days ahead, clamped. R is None until there are enough
+def section_ratio(greenhouse, section, variety, as_of):
+	"""(R, days): how far the section's picks ran from its forecast compared with
+	the whole variety's, over the last RATIO_WINDOW days of snapshots made 0-2
+	days ahead, clamped: (section actual ÷ forecast) ÷ (variety actual ÷ forecast).
+	The variety-wide error is the weekly calibration's job; leaving it out keeps
+	R from correcting it a second time after each refit, so R carries only how
+	(un)representative the section's spots are. None until there are enough
 	days and stems to trust it."""
 	since, until = add_days(as_of, -RATIO_WINDOW), add_days(as_of, -1)
-	fc = data.raw_snapshots(greenhouse, section, since, until)
-	actual = data.cuts(greenhouse, section, since, until)
-	f = sum(fc.values())
-	if len(fc) < RATIO_MIN_DAYS or f < RATIO_MIN_STEMS:
-		return None, len(fc)
-	r = sum(actual.get(d, 0.0) for d in fc) / f
-	return min(max(r, RATIO_CLAMP[0]), RATIO_CLAMP[1]), len(fc)
+	hist = data.variety_history(variety, since, until) if variety else {}
+	mine = hist.get((greenhouse, section), {})
+	f = sum(x[0] for x in mine.values())
+	if len(mine) < RATIO_MIN_DAYS or f < RATIO_MIN_STEMS:
+		return None, len(mine)
+	vf = sum(x[0] for days in hist.values() for x in days.values())
+	va = sum(x[1] for days in hist.values() for x in days.values())
+	if not va:
+		return None, len(mine)
+	r = (sum(x[1] for x in mine.values()) / f) / (va / vf)
+	return min(max(r, RATIO_CLAMP[0]), RATIO_CLAMP[1]), len(mine)
 
 
 def forecast_section(row, start=None, days=HORIZON, as_of=None):
@@ -34,7 +42,7 @@ def forecast_section(row, start=None, days=HORIZON, as_of=None):
 	tf = curves.temperature_factor(prm["ref_temp"], data.recent_temp(row.greenhouse, as_of))
 	history = data.cuts(row.greenhouse, row.section, add_days(as_of, -(prm["regrowth_days"] + 45)), as_of)
 	res = engine.section_forecast(start, days, plants, rnd, stages, history, prm, tf)
-	ratio, ratio_days = section_ratio(row.greenhouse, row.section, as_of)
+	ratio, ratio_days = section_ratio(row.greenhouse, row.section, row.variety, as_of)
 	m = ratio or 1.0
 	daily = []
 	for i, stems in enumerate(res["stems"]):

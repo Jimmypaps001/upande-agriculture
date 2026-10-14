@@ -6,7 +6,7 @@ from upande_agriculture.forecast import service
 
 FLAG_TEXT = {"no_plants": "Plants not set on the section (regrowth only)",
 	"no_count": "No plot count in 35 days (regrowth only)", "stale_count": "Last count over a week old",
-	"unrepresentative": "Spots unrepresentative: picks differ from the forecast by over 20% (corrected by the section ratio)"}
+	"unrepresentative": "Spots unrepresentative: picks run 20%+ off the forecast compared with the rest of the variety (corrected by the section ratio)"}
 
 
 def execute(filters=None):

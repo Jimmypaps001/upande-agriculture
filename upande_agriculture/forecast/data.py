@@ -83,17 +83,32 @@ def cuts(greenhouse, section, since, until):
 	return {getdate(r.d): float(r.q) for r in rows}
 
 
-def raw_snapshots(greenhouse, section, since, until, max_ahead=2):
-	"""{target day: stems} the snapshots made 0..max_ahead days before it
-	forecast, before any section ratio (averaged over those snapshots)."""
-	rows = frappe.db.sql(
-		"""SELECT target_date AS d, AVG(stems / IF(IFNULL(ratio, 0) > 0, ratio, 1)) AS f
+def variety_history(variety, since, until, max_ahead=2):
+	"""{(greenhouse, section): {day: (raw forecast, picked)}} for every day a
+	snapshot made 0..max_ahead days ahead forecast for one of the variety's
+	sections: the forecast before any section ratio (averaged over those
+	snapshots) and the stems actually picked."""
+	fc = frappe.db.sql(
+		"""SELECT greenhouse, section, target_date AS d, AVG(stems / IF(IFNULL(ratio, 0) > 0, ratio, 1)) AS f
 		   FROM `tabHarvest Forecast Snapshot`
-		   WHERE greenhouse = %s AND section = %s AND target_date BETWEEN %s AND %s
+		   WHERE variety = %s AND target_date BETWEEN %s AND %s
 		     AND DATEDIFF(target_date, made_on) BETWEEN 0 AND %s
-		   GROUP BY target_date""",
-		(greenhouse, section, getdate(since), getdate(until), max_ahead), as_dict=True)
-	return {getdate(r.d): float(r.f or 0) for r in rows}
+		   GROUP BY greenhouse, section, target_date""",
+		(variety, getdate(since), getdate(until), max_ahead), as_dict=True)
+	if not fc:
+		return {}
+	picked = {(r.g, r.s, getdate(r.d)): float(r.q) for r in frappe.db.sql(
+		"""SELECT se.custom_greenhouse AS g, se.custom_section AS s, se.posting_date AS d, SUM(sed.qty) AS q
+		   FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+		   WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting'
+		     AND se.custom_greenhouse IN %s AND se.posting_date BETWEEN %s AND %s
+		   GROUP BY se.custom_greenhouse, se.custom_section, se.posting_date""",
+		(tuple({r.greenhouse for r in fc}), getdate(since), getdate(until)), as_dict=True)}
+	out = {}
+	for r in fc:
+		d = getdate(r.d)
+		out.setdefault((r.greenhouse, r.section), {})[d] = (float(r.f or 0), picked.get((r.greenhouse, r.section, d), 0.0))
+	return out
 
 
 def recent_temp(greenhouse, as_of, days=7):
