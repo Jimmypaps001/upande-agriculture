@@ -6,7 +6,7 @@
  "module": "Upande Agriculture",
  "name": "Sample Plot",
  "owner": "Administrator",
- "modified": "2026-10-08 11:30:00",
+ "modified": "2026-10-14 12:00:00",
  "modified_by": "Administrator",
  "field_order": [
   "title",
@@ -15,6 +15,9 @@
   "plot_no",
   "column_break_1",
   "bed",
+  "position",
+  "set_up",
+  "started_on",
   "plants",
   "active",
   "variety"
@@ -61,10 +64,29 @@
    "description": "The bed the plot is on. Mark its first plant with a tag."
   },
   {
+   "fieldname": "position",
+   "fieldtype": "Select",
+   "label": "Position Along Bed",
+   "options": "\n¼\n½\n¾",
+   "description": "Where along the bed the spot starts. Skip the first 2 m of the bed."
+  },
+  {
+   "fieldname": "set_up",
+   "fieldtype": "Check",
+   "label": "Set Up",
+   "in_list_view": 1,
+   "description": "The bed was confirmed on the ground by the first scan of the tag."
+  },
+  {
+   "fieldname": "started_on",
+   "fieldtype": "Date",
+   "label": "Started On"
+  },
+  {
    "fieldname": "plants",
    "fieldtype": "Int",
    "label": "Plants in Plot",
-   "default": "10",
+   "default": "5",
    "reqd": 1,
    "non_negative": 1
   },

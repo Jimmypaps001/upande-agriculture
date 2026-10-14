@@ -6,8 +6,9 @@ class BedSample(Document):
 	def validate(self):
 		if not (self.sample_plot or self.crop_cycle):
 			frappe.throw("Pick the Sample Plot (or Crop Cycle) that was counted.")
-		if (self.plants_counted or 0) <= 0:
+		if (self.plants_counted or 0) <= 0 and not self.missing_plants:  # a spot whose plants all died counts 0
 			frappe.throw("Plants Counted must be at least 1.")
+		self.counted_by = self.counted_by or frappe.session.user
 		# validate() runs before link fetching on insert, so copy these here.
 		if self.sample_plot:
 			plot = frappe.db.get_value("Sample Plot", self.sample_plot,

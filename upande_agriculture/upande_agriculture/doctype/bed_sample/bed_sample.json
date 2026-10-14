@@ -21,10 +21,13 @@
   "bed",
   "bed_number",
   "plants_counted",
+  "missing_plants",
+  "blind_shoots",
   "suggested",
   "section_counts",
   "stages",
   "total_count",
+  "plant_counts",
   "section_photos",
   "photo_1",
   "column_break_photos",
@@ -32,8 +35,12 @@
   "section_meta",
   "sampling_date",
   "captured_at",
+  "counted_by",
+  "duration_seconds",
+  "is_recount",
   "column_break_meta",
   "notes",
+  "quality_flags",
   "client_uuid"
  ],
  "fields": [
@@ -118,10 +125,22 @@
    "fieldname": "plants_counted",
    "fieldtype": "Int",
    "label": "Plants Counted",
-   "default": "10",
+   "default": "5",
    "reqd": 1,
    "non_negative": 1,
    "description": "Plants in a row whose shoots were counted. Buds per plant x plants standing in the crop cycle = the greenhouse."
+  },
+  {
+   "fieldname": "missing_plants",
+   "fieldtype": "Int",
+   "label": "Missing or Dead Plants",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "blind_shoots",
+   "fieldtype": "Int",
+   "label": "Blind Shoots",
+   "non_negative": 1
   },
   {
    "fieldname": "suggested",
@@ -146,6 +165,13 @@
    "label": "Total Counted",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "plant_counts",
+   "fieldtype": "Long Text",
+   "label": "Counts per Plant",
+   "read_only": 1,
+   "description": "JSON from the phone: [{\"plant\": 1, \"counts\": {stage: n}}, ...]"
   },
   {
    "fieldname": "section_photos",
@@ -186,6 +212,27 @@
    "read_only": 1
   },
   {
+   "fieldname": "counted_by",
+   "fieldtype": "Link",
+   "label": "Counted By",
+   "options": "User",
+   "default": "__user",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "duration_seconds",
+   "fieldtype": "Int",
+   "label": "Seconds to Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "is_recount",
+   "fieldtype": "Check",
+   "label": "Recount",
+   "read_only": 1,
+   "description": "Someone else counted this spot the same day."
+  },
+  {
    "fieldname": "column_break_meta",
    "fieldtype": "Column Break"
   },
@@ -193,6 +240,12 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "quality_flags",
+   "fieldtype": "Small Text",
+   "label": "Quality Flags",
+   "read_only": 1
   },
   {
    "fieldname": "client_uuid",
@@ -204,7 +257,7 @@
   }
  ],
  "image_field": "photo_1",
- "modified": "2026-10-08 11:30:00",
+ "modified": "2026-10-14 12:00:00",
  "modified_by": "Administrator",
  "permissions": [
   {
