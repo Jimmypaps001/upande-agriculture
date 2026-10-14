@@ -50,3 +50,36 @@ class TestForecastReports(FrappeTestCase):
 		finally:
 			frappe.set_user("Administrator")
 		self.assertIn("result", out)
+
+
+class TestPlotCountQuality(FrappeTestCase):
+	def test_quality_report_rows(self):
+		import frappe
+		from frappe.desk.query_report import run
+
+		from upande_agriculture.forecast import api
+		from upande_agriculture.upande_agriculture.report.plot_count_quality.plot_count_quality import execute
+		make_variety()
+		gh = make_greenhouse("FC PCQ", (("S1", 1, 9, "FC-ROSE", 1000),))
+		plot = make_plot(gh, "S1")
+		api.submit_plot_count(client_uuid="fc-pcq-1", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 4}],
+			duration_seconds=8)
+		email = "fc-pcq@example.com"
+		if not frappe.db.exists("User", email):
+			frappe.get_doc({"doctype": "User", "email": email, "first_name": "FC PCQ", "send_welcome_email": 0,
+				"roles": [{"role": "Agriculture User"}]}).insert(ignore_permissions=True)
+		frappe.set_user(email)
+		try:
+			api.submit_plot_count(client_uuid="fc-pcq-2", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 6}],
+				duration_seconds=40)
+			out = run("Plot Count Quality", filters={"greenhouse": gh})
+		finally:
+			frappe.set_user("Administrator")
+		self.assertIn("result", out)
+		cols, rows = execute({"greenhouse": gh, "from_date": nowdate(), "to_date": nowdate()})
+		self.assertEqual(len(rows), 1)
+		r = rows[0]
+		self.assertEqual((r["due"], r["counted"], r["flagged"], r["seconds"]), (1, 1, 1, 24))
+		self.assertIn("fast: 8 s", r["flags"])
+		self.assertIn("4 vs 6 (2 apart)", r["recounts"])
+		self.assertEqual(r["counters"], "Administrator, FC PCQ")
