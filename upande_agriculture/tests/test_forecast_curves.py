@@ -70,7 +70,9 @@ class TestCurves(unittest.TestCase):
 		self.assertAlmostEqual(hi, 1.29)
 		self.assertEqual(curves.band(1, {"0-2": [0.9, 1.1, 0.05]}), (0.9, 1.1))
 		self.assertEqual(curves.band(5, {"0-2": [0.9, 1.1, 0.05]}), curves.default_band(5))
-		self.assertEqual(curves.bucket(30), "14-20")
+		self.assertEqual(curves.bucket(30), "21-34")
+		self.assertEqual(curves.bucket(70), "35-55")
+		self.assertEqual(curves.default_band(55), (0.4, 1.6))
 
 	def test_quantile(self):
 		self.assertEqual(curves.quantile([4, 1, 3, 2], 0.5), 2.5)

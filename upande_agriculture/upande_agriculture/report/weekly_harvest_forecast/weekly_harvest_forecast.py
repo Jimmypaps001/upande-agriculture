@@ -12,7 +12,7 @@ from upande_agriculture.weekcal import get_week_rule, week_key, week_start
 
 def execute(filters=None):
 	f = filters or {}
-	weeks = max(1, int(f.get("weeks") or 3))
+	weeks = max(1, int(f.get("weeks") or 8))
 	by_gh = f.get("group_by") == "Greenhouse"
 	today = getdate(nowdate())
 	rule = get_week_rule()

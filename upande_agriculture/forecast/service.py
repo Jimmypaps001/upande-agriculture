@@ -4,7 +4,7 @@ from frappe.utils import add_days, getdate, nowdate
 
 from upande_agriculture.forecast import curves, data, engine
 
-HORIZON = 21
+HORIZON = 56  # the counts see the whole regrowth cycle, eye pop-up ~55 days out
 STALE_DAYS = 7
 
 

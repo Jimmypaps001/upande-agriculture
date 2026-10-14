@@ -33,7 +33,7 @@ BLUR_FRACTION, MIN_BLUR = 0.1, 0.5
 DEFAULT_SURVIVAL = 0.9
 
 # Error bands are kept per horizon bucket (days ahead of the forecast date).
-BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20")]
+BUCKETS = [(0, 2, "0-2"), (3, 6, "3-6"), (7, 13, "7-13"), (14, 20, "14-20"), (21, 34, "21-34"), (35, 55, "35-55")]
 
 
 def stage_params(rows):
@@ -113,8 +113,8 @@ def bucket(h):
 
 
 def default_band(h):
-	"""Before calibration: ±15%, widening 1 point per day ahead."""
-	w = 0.15 + 0.01 * h
+	"""Before calibration: ±15%, widening 1 point per day ahead, at most ±60%."""
+	w = min(0.6, 0.15 + 0.01 * h)
 	return (round(max(0.0, 1 - w), 6), round(1 + w, 6))
 
 

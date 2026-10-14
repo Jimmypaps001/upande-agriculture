@@ -33,6 +33,10 @@ class TestForecastReports(FrappeTestCase):
 		self.assertEqual(ours[0]["actual"], 50 if monday < today else 0)
 		self.assertAlmostEqual(ours[0]["total"], ours[0]["actual"] + ours[0]["forecast"], delta=1)
 
+	def test_weekly_report_covers_eight_weeks_by_default(self):
+		cols, rows = weekly_report({})
+		self.assertEqual(len([r for r in rows if r["variety"] == "FC-ROSE"]), 8)
+
 	def test_sales_user_can_run_weekly_report(self):
 		import frappe
 		from frappe.desk.query_report import run
