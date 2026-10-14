@@ -8,16 +8,19 @@ import math
 
 BASE_TEMP = 5.3  # °C: roses do not develop below this
 
-# The farm's stages (Bilashaka, 2026-10-14): days from the stage to the knife,
-# with a fixed band each, and the share that reaches the knife. A bud shows as
-# an eye 8-10 days after the cut; a maroon shoot spans ~22-50 days out. Each
-# variety's Crop Protocol overrides these.
+# The farm's stages (Bilashaka, 2026-10-14). The farm manager gives the days
+# from ENTERING a stage to the knife (colour break -> cut in 7 days, bud -> 14,
+# pea -> 21), so a bud seen at a stage is anywhere in that stage's window:
+# colour break 0-7 days out, bud 7-14, pea 14-21, maroon shoot 21-56 (it lasts
+# ~5 weeks), eye pop-up ~8-10 days after the cut, i.e. ~56-59 days out. Each
+# stage is the middle of its window +- half of it. The share that reaches the
+# knife is per stage. Each variety's Crop Protocol overrides these.
 DEFAULT_STAGES = [
-	{"stage_name": "Eye pop-up", "days_to_harvest": 55, "spread_days": 5, "survival": 0.80},
-	{"stage_name": "Maroon shoot", "days_to_harvest": 36, "spread_days": 14, "survival": 0.85},
-	{"stage_name": "Pea", "days_to_harvest": 21, "spread_days": 3.5, "survival": 0.93},
-	{"stage_name": "Bud", "days_to_harvest": 14, "spread_days": 3.5, "survival": 0.97},
-	{"stage_name": "Colour break", "days_to_harvest": 7, "spread_days": 3.5, "survival": 0.99},
+	{"stage_name": "Eye pop-up", "days_to_harvest": 57.5, "spread_days": 1.5, "survival": 0.80},
+	{"stage_name": "Maroon shoot", "days_to_harvest": 38.5, "spread_days": 17.5, "survival": 0.85},
+	{"stage_name": "Pea", "days_to_harvest": 17.5, "spread_days": 3.5, "survival": 0.93},
+	{"stage_name": "Bud", "days_to_harvest": 10.5, "spread_days": 3.5, "survival": 0.97},
+	{"stage_name": "Colour break", "days_to_harvest": 3.5, "spread_days": 3.5, "survival": 0.99},
 ]
 # The first build's stages (Monroy, Pérez & Cure 2003, at ~18 °C): still
 # understood when a protocol or an old count names them.

@@ -62,7 +62,7 @@ class TestForecastApi(FrappeTestCase):
 		a, b = api.submit_plot_count(**args), api.submit_plot_count(**args)
 		self.assertEqual(a, b)
 		doc = frappe.get_doc("Bed Sample", a["name"])
-		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), ("S1", 7, 21))
+		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), ("S1", 7, 18))  # pea: 14-21 days out, middle 17.5
 		self.assertTrue(doc.photo_1)
 		p = [x for x in self._plots() if x["plot"] == plot][0]
 		self.assertFalse(p["due"])

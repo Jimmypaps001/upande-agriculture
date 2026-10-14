@@ -9,7 +9,8 @@ from upande_agriculture.forecast import curves
 
 ROUND_DAYS = 3        # counts within 3 days of a section's latest count are one round
 MAX_COUNT_AGE = 35    # older counts have all been cut by now
-DEFAULT_REGROWTH_DAYS, DEFAULT_REGROWTH_YIELD = 56, 0.8
+# Cut -> eye pop-up 8-10 d -> maroon ~35 d -> pea -> knife 21 d: ~65 days (Bilashaka farm manager).
+DEFAULT_REGROWTH_DAYS, DEFAULT_REGROWTH_YIELD = 65, 0.8
 MIN_MEASURED_STEMS = 500  # harvested stems before the measured length mix is trusted
 
 
