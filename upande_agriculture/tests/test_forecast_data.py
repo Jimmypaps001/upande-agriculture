@@ -31,7 +31,7 @@ class TestForecastData(FrappeTestCase):
 		self.assertEqual(r["rates"], {"Rice": 1.5, "Pea": 0.25, "Marble": 0.2})
 
 	def test_latest_round_none_when_too_old(self):
-		make_count(make_plot(self.gh, "S1", 1), add_days(self.today, -40), {"Rice": 10})
+		make_count(make_plot(self.gh, "S1", 1), add_days(self.today, -70), {"Rice": 10})
 		self.assertIsNone(data.latest_round(self.gh, "S1", self.today))
 
 	def test_cuts_by_section_and_day(self):

@@ -115,7 +115,7 @@ def get_plot_plan(farm=None):
 		plots.append({"plot": p.name, "title": p.title, "greenhouse": row.greenhouse,
 			"greenhouse_name": row.warehouse_name, "section": row.section, "variety": row.variety,
 			"plants": p.plants, "bed": p.bed, "plot_no": p.plot_no, "position": p.position or None,
-			"set_up": p.set_up, "route_no": route_no, "stages": stages, "last": lc,
+			"set_up": p.set_up, "route_no": route_no, "from_bed": row.from_bed, "to_bed": row.to_bed, "stages": stages, "last": lc,
 			"last_counted": lc["date"] if lc else None,
 			"due": not d or (today - d).days >= COUNT_INTERVAL_DAYS,
 			"mine": bool(me and row.employee == me)})

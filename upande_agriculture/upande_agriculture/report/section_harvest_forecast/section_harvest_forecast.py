@@ -5,7 +5,7 @@ from frappe.utils import add_days, getdate, nowdate
 from upande_agriculture.forecast import service
 
 FLAG_TEXT = {"no_plants": "Plants not set on the section (regrowth only)",
-	"no_count": "No plot count in 35 days (regrowth only)", "stale_count": "Last count over a week old",
+	"no_count": "No plot count in 60 days (regrowth only)", "stale_count": "Last count over a week old",
 	"unrepresentative": "Spots unrepresentative: picks run 20%+ off the forecast compared with the rest of the variety (corrected by the section ratio)"}
 
 

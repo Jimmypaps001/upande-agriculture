@@ -63,12 +63,13 @@ def _solve(B, G, A):
 	return min([(ab / bb if bb else 0.0, 0.0), (0.0, ag / gg if gg else 0.0)], key=err)
 
 
-def _curves(case, stages, k, R, tf):
+def _curves(case, stages, k, R, tf, buds=True):
+	"""(buds, regrowth) per day after the case's count; R None skips regrowth, buds=False skips buds."""
 	start, n = add_days(case["date"], 1), len(case["actual"])
 	first = max((v[0] for v in stages.values()), default=0.0)
 	b = [case["plants"] * x for x in
-		engine.bud_curve(case["round"]["rates"], stages, case["round"]["date"], k * tf, start, n)]
-	g = engine.regrowth_curve(case["cuts"], R, start, n, case["round"]["date"], k * tf, first)
+		engine.bud_curve(case["round"]["rates"], stages, case["round"]["date"], k * tf, start, n)] if buds else None
+	g = engine.regrowth_curve(case["cuts"], R, start, n, case["round"]["date"], k * tf, first) if R else None
 	return b, g
 
 
@@ -94,12 +95,10 @@ def calibrate(variety, today=None):
 
 	best = None
 	for k in K_GRID:
+		B = [x for c in cases for x in _sum3(_curves(c, stages, k, None, c["tf"])[0])]  # the bud part does not depend on R
 		for off in R_OFFSETS:
 			R = r0 + off
-			B, G = [], []
-			for c in cases:
-				b, g = _curves(c, stages, k, R, c["tf"])
-				B += _sum3(b); G += _sum3(g)
+			G = [x for c in cases for x in _sum3(_curves(c, stages, k, R, c["tf"], buds=False)[1])]
 			s, g = _solve(B, G, A)
 			err = sum(abs(a - s * b - g * x) for a, b, x in zip(A, B, G))
 			if best is None or err < best[0]:
