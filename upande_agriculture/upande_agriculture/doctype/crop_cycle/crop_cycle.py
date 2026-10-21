@@ -283,14 +283,22 @@ class CropCycle(Document):
         wanted, partial = parse_bed_range(self.bed_range)
         if not wanted:
             return
-        if not self.greenhouse:
-            frappe.throw(_("Set the Greenhouse before entering a bed range."))
+        # A cycle stands in a greenhouse or on a block, and the beds hang off
+        # whichever it is. Asking for a greenhouse regardless meant a block's
+        # cycle could never use a range at all, however many Bed records the
+        # block had -- the one field that would have answered was never read.
+        ground, field = (
+            (self.greenhouse, "greenhouse") if self.greenhouse
+            else (self.get("custom_block"), "custom_block")
+        )
+        if not ground:
+            frappe.throw(_("Set the Greenhouse or the Block before entering a bed range."))
 
         found = {
             int(b.bed): b
             for b in frappe.get_all(
                 "Bed",
-                filters={"greenhouse": self.greenhouse, "bed": ("in", wanted)},
+                filters={field: ground, "bed": ("in", wanted)},
                 fields=["name", "bed", "bed_length", "bed_width", f"{bed_area_field()} as bed_area"],
             )
         }
@@ -300,7 +308,7 @@ class CropCycle(Document):
                 _("{0} has no Bed record for: {1}.<br><br>"
                   "Create the beds first — a budget built on beds that don't "
                   "exist would be measuring nothing.").format(
-                    self.greenhouse, _compact(missing)),
+                    ground, _compact(missing)),
                 title=_("Beds not found"),
             )
 
