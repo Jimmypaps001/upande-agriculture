@@ -1,0 +1,171 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format:{asset_name} Bay {bay_number}",
+ "creation": "2026-10-07 22:52:52.804900",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "asset",
+  "asset_name",
+  "greenhouse",
+  "bay_number",
+  "col1",
+  "farm",
+  "company",
+  "sec_phys",
+  "structure",
+  "built_date",
+  "col2",
+  "is_active",
+  "notes"
+ ],
+ "fields": [
+  {
+   "description": "The greenhouse in the fixed asset register - polythene work rolls up here",
+   "fieldname": "asset",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Greenhouse Asset",
+   "link_filters": "[[\"Asset\",\"asset_category\",\"=\",\"Greenhouses\"]]",
+   "options": "Asset",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "asset.asset_name",
+   "fieldname": "asset_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Greenhouse",
+   "read_only": 1
+  },
+  {
+   "description": "Optional cross-reference to the agronomy record",
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Greenhouse (Agronomy)",
+   "options": "Greenhouse"
+  },
+  {
+   "fieldname": "bay_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Bay Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Fills from the agronomy greenhouse when one is linked",
+   "fetch_from": "greenhouse.farm",
+   "fetch_if_empty": 1,
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Farm",
+   "options": "Farm",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "asset.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_phys",
+   "fieldtype": "Section Break",
+   "label": "Structure"
+  },
+  {
+   "description": "Frame or house type, if it matters for sheet sizing",
+   "fieldname": "structure",
+   "fieldtype": "Data",
+   "label": "Structure Type"
+  },
+  {
+   "fieldname": "built_date",
+   "fieldtype": "Date",
+   "label": "Built On"
+  },
+  {
+   "fieldname": "col2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-07 23:02:53.149101",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Greenhouse Bay",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "greenhouse,bay_number,farm",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

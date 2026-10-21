@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format:{bay} {arc}",
+ "creation": "2026-10-07 22:52:07.190106",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "bay",
+  "arc",
+  "col1",
+  "greenhouse",
+  "farm",
+  "sec_spec",
+  "arc_length",
+  "arc_width",
+  "col2",
+  "expected_life_years",
+  "sec_cover",
+  "current_installation",
+  "last_replaced",
+  "col3",
+  "expires_on",
+  "cover_status",
+  "sec_misc",
+  "is_active",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "bay",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Bay",
+   "options": "Greenhouse Bay",
+   "reqd": 1
+  },
+  {
+   "fieldname": "arc",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Arc",
+   "options": "Long\nShort\nPorch\nCurtain",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "bay.greenhouse",
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Greenhouse",
+   "options": "Greenhouse",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "bay.farm",
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Farm",
+   "options": "Farm",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_spec",
+   "fieldtype": "Section Break",
+   "label": "Sheet Required"
+  },
+  {
+   "description": "e.g. 6.9m -- the long and short arc of one bay differ",
+   "fieldname": "arc_length",
+   "fieldtype": "Data",
+   "label": "Arc Length"
+  },
+  {
+   "fieldname": "arc_width",
+   "fieldtype": "Data",
+   "label": "Arc Width"
+  },
+  {
+   "fieldname": "col2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "3.3",
+   "description": "Tracker median: Long 3.22, Short 3.51",
+   "fieldname": "expected_life_years",
+   "fieldtype": "Float",
+   "label": "Expected Life (Years)",
+   "precision": "2"
+  },
+  {
+   "fieldname": "sec_cover",
+   "fieldtype": "Section Break",
+   "label": "Current Cover"
+  },
+  {
+   "fieldname": "last_replaced",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Last Replaced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "last_replaced + expected life",
+   "fieldname": "expires_on",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Due For Replacement",
+   "read_only": 1
+  },
+  {
+   "default": "Uncovered",
+   "fieldname": "cover_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Uncovered\nCovered\nDue\nOverdue",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_misc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "current_installation",
+   "fieldtype": "Link",
+   "label": "Current Installation",
+   "options": "Polythene Installation",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-07 23:01:14.327145",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Polythene Position",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Agriculture User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "bay,arc,farm,cover_status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
