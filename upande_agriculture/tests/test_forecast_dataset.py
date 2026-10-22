@@ -15,7 +15,7 @@ from upande_agriculture.tests.forecast_fixtures import make_greenhouse, make_var
 class TestForecastDataset(FrappeTestCase):
 	def test_export_has_images_and_labels(self):
 		make_variety()
-		gh = make_greenhouse("FC DS", (("S1", 1, 9, "FC-ROSE", 1000),))
+		gh = make_greenhouse("FC DS", (("FC-ROSE", 1000, "1-9"),))
 		plot = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh][0]["plot"]
 		im = io.BytesIO(); Image.new("RGB", (32, 32), (0, 200, 0)).save(im, "JPEG")
 		api.submit_plot_count("fc-ds-1", plot, '[{"stage_name": "Pea", "count": 4}]', 10,

@@ -4,30 +4,33 @@ import json
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
-from frappe.utils import add_days, nowdate
+from frappe.utils import add_days, getdate, nowdate
 from PIL import Image
 
 from upande_agriculture.forecast import api
-from upande_agriculture.tests.forecast_fixtures import make_greenhouse, make_plot, make_variety
+from upande_agriculture.tests.forecast_fixtures import (
+	make_count, make_greenhouse, make_harvest, make_plot, make_variety)
+
+V1, V2 = "FC-ROSE", "FC-ROSE-B"
 
 
 class TestForecastApi(FrappeTestCase):
 	def setUp(self):
-		make_variety()
-		self.gh = make_greenhouse(f"FC API {self._testMethodName[-8:]}", (("S1", 1, 9, "FC-ROSE", 1000), ("S2", 10, 10, "FC-ROSE", 500)))
+		make_variety(V1), make_variety(V2)
+		self.gh = make_greenhouse(f"FC API {self._testMethodName[-8:]}", ((V1, 1000, "1-9"), (V2, 500, "10")))
 
 	def _plots(self):
 		return [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == self.gh]
 
-	def test_plan_creates_eight_spots_of_five_plants_per_section(self):
+	def test_plan_creates_eight_spots_of_five_plants_per_unit(self):
 		plots = self._plots()
-		s1 = [p for p in plots if p["section"] == "S1"]
+		s1 = [p for p in plots if p["section"] == V1]
 		self.assertEqual(len(s1), 8)
 		self.assertTrue(all(2 <= p["bed"] <= 8 and p["plants"] == 5 and not p["set_up"] for p in s1))
 		self.assertEqual([p["bed"] for p in s1], sorted(p["bed"] for p in s1))
-		s2 = [(p["bed"], p["position"]) for p in plots if p["section"] == "S2"]
+		s2 = [(p["bed"], p["position"]) for p in plots if p["section"] == V2]
 		self.assertEqual(sorted(s2), [(10, "¼"), (10, "½"), (10, "¾")])  # a single bed: one spot per place
-		self.assertTrue(all(p["due"] for p in plots))
+		self.assertTrue(all(p["due"] and p["variety"] == p["section"] and p["shared_with"] == [] for p in plots))
 		self.assertEqual([s["stage_name"] for s in plots[0]["stages"]], ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
 		self.assertEqual(len(self._plots()), 11)  # second call creates nothing new
 
@@ -42,14 +45,14 @@ class TestForecastApi(FrappeTestCase):
 		self.assertEqual({b for b, _p in api.spot_layout("GH|A", None, None)}, {None})
 
 	def test_section_without_beds_gets_spots_awaiting_set_up(self):
-		gh = make_greenhouse(f"FC API NB {self._testMethodName[-6:]}", (("S9", None, None, "FC-ROSE", 300),))
+		gh = make_greenhouse(f"FC API NB {self._testMethodName[-6:]}", ((V1, 300, None),))
 		plots = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh]
 		self.assertEqual(len(plots), 8)
 		self.assertTrue(all(p["bed"] in (None, 0) and not p["set_up"] for p in plots))
 
 	def test_tops_up_old_plots_and_leaves_them_alone(self):
-		gh = make_greenhouse(f"FC API TOP {self._testMethodName[-6:]}", (("S1", 1, 21, "FC-ROSE", 1000),))
-		old = make_plot(gh, "S1", 1, plants=10)
+		gh = make_greenhouse(f"FC API TOP {self._testMethodName[-6:]}", ((V1, 1000, "1-21"),))
+		old = make_plot(gh, V1, 1, plants=10)
 		plots = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh]
 		self.assertEqual(len(plots), 8)
 		self.assertEqual(sorted(p["plot_no"] for p in plots), list(range(1, 9)))
@@ -63,14 +66,14 @@ class TestForecastApi(FrappeTestCase):
 		a, b = api.submit_plot_count(**args), api.submit_plot_count(**args)
 		self.assertEqual(a, b)
 		doc = frappe.get_doc("Bed Sample", a["name"])
-		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), ("S1", 7, 18))  # pea: 14-21 days out, middle 17.5
+		self.assertEqual((doc.section, doc.total_count, doc.stages[0].days_to_harvest), (V1, 7, 18))  # pea: 14-21 days out, middle 17.5
 		self.assertTrue(doc.photo_1)
 		p = [x for x in self._plots() if x["plot"] == plot][0]
 		self.assertFalse(p["due"])
 		self.assertEqual(p["last_counted"], nowdate())
 
 	def test_bay_forecast_shape(self):
-		f = api.get_bay_forecast(self.gh, "S1")
+		f = api.get_bay_forecast(self.gh, V1)
 		self.assertEqual(len(f["daily"]), 7)
 		self.assertTrue(f["flags"]["no_count"])
 		for k in ("today", "tomorrow", "next7", "low7", "high7"):
@@ -95,7 +98,7 @@ class TestForecastApi(FrappeTestCase):
 			api.submit_plot_count(client_uuid="fc-api-neg", sample_plot=plot, counts=[{"stage_name": "Rice", "count": -1}])
 
 	def test_days_clamped_to_60(self):
-		self.assertEqual(len(api.get_bay_forecast(self.gh, "S1", days=500)["daily"]), 60)
+		self.assertEqual(len(api.get_bay_forecast(self.gh, V1, days=500)["daily"]), 60)
 
 	def test_blank_client_uuid_refused(self):
 		plot = self._plots()[0]["plot"]
@@ -134,7 +137,7 @@ class TestForecastApi(FrappeTestCase):
 		self.assertEqual((p["position"], p["route_no"], p["plants"]), ("¼", 1, 5))
 
 	def test_plan_route_numbers_follow_the_beds(self):
-		s1 = sorted((p for p in self._plots() if p["section"] == "S1"), key=lambda p: p["route_no"])
+		s1 = sorted((p for p in self._plots() if p["section"] == V1), key=lambda p: p["route_no"])
 		self.assertEqual([p["route_no"] for p in s1], list(range(1, 9)))
 		self.assertEqual([p["bed"] for p in s1], sorted(p["bed"] for p in s1))
 
@@ -165,25 +168,39 @@ class TestForecastApi(FrappeTestCase):
 			self.assertEqual(api.confirm_plot_bed(plot, "7"), {"name": plot, "bed": 7, "set_up": 1})
 		doc = frappe.get_doc("Sample Plot", plot)
 		self.assertEqual((doc.bed, doc.set_up, str(doc.started_on)), (7, 1, nowdate()))
-		with self.assertRaises(frappe.ValidationError):
+		with self.assertRaisesRegex(frappe.ValidationError, r"Bed 40 is not one of this variety's beds \(1-9\)"):
 			api.confirm_plot_bed(plot, 40)
+
+	def test_confirm_plot_bed_without_a_range_uses_the_greenhouse_beds(self):
+		gh = make_greenhouse(f"FC API NR {self._testMethodName[-6:]}", ((V1, 300, None),))
+		plot = [p for p in api.get_plot_plan()["plots"] if p["greenhouse"] == gh][0]["plot"]
+		self.assertEqual(api.confirm_plot_bed(plot, 99)["bed"], 99)  # no bed count recorded: any bed
+		frappe.db.set_value("Warehouse", gh, "custom_number_of_beds", 40)
+		self.assertEqual(api.confirm_plot_bed(plot, 40)["bed"], 40)
+		with self.assertRaisesRegex(frappe.ValidationError, "greenhouse has 40 beds"):
+			api.confirm_plot_bed(plot, 41)
+		with self.assertRaises(frappe.ValidationError):
+			api.confirm_plot_bed(plot, 0)
 
 	def test_plot_tags_pdf(self):
 		self._plots()
-		html = api.plot_tags_html(self.gh, "S1")
+		html = api.plot_tags_html(self.gh, V1)
 		self.assertEqual(html.count('class="tag"'), 8)
-		self.assertIn("Spot 1 of 8 · plants 1–5", html)
+		self.assertIn("Bed 1 of 8 · plants 1–5", html)
+		self.assertIn(f"FC API {self._testMethodName[-8:]} {V1}", html)
+		self.assertNotIn("spot", html.lower())
 		self.assertIn("Skip the first 2 m of the bed.", html)
 		api.plot_tags_pdf(self.gh)
 		self.assertTrue(frappe.local.response.filecontent.startswith(b"%PDF"))
 		self.assertEqual(frappe.local.response.type, "pdf")
 
 	def test_ensure_plots_twice_leaves_eight(self):
-		gh = make_greenhouse(f"FC API TWICE {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		gh = make_greenhouse(f"FC API TWICE {self._testMethodName[-6:]}", ((V1, 1000, "1-30"),))
 		row = [r for r in api.data.sections(greenhouse=gh)][0]
 		self.assertTrue(api.ensure_plots(row))
+		self.assertEqual(set(frappe.get_all("Sample Plot", {"greenhouse": gh}, pluck="variety")), {V1})
 		self.assertFalse(api.ensure_plots(row))
-		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "section": "S1"}), 8)
+		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "section": V1}), 8)
 
 	def test_small_section_has_no_duplicate_spots(self):
 		layout = api.spot_layout("GH|S", 1, 4)
@@ -192,13 +209,13 @@ class TestForecastApi(FrappeTestCase):
 		self.assertEqual(len(api.spot_layout("GH|S", 5, 5)), 3)
 
 	def test_section_switched_off_stays_off(self):
-		gh = make_greenhouse(f"FC API OFF {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
-		frappe.db.set_value("Sample Plot", make_plot(gh, "S1", 1), "active", 0)
+		gh = make_greenhouse(f"FC API OFF {self._testMethodName[-6:]}", ((V1, 1000, "1-30"),))
+		frappe.db.set_value("Sample Plot", make_plot(gh, V1, 1), "active", 0)
 		row = [r for r in api.data.sections(greenhouse=gh)][0]
 		self.assertFalse(api.ensure_plots(row))
 
 	def test_read_only_user_does_not_create_spots(self):
-		gh = make_greenhouse(f"FC API RO {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		gh = make_greenhouse(f"FC API RO {self._testMethodName[-6:]}", ((V1, 1000, "1-30"),))
 		email = "fc-sales@example.com"
 		if not frappe.db.exists("User", email):
 			frappe.get_doc({"doctype": "User", "email": email, "first_name": "FC Sales",
@@ -212,6 +229,63 @@ class TestForecastApi(FrappeTestCase):
 
 	def test_migrate_patch_creates_the_spots(self):
 		from upande_agriculture.patches.v2_0 import create_sample_spots
-		gh = make_greenhouse(f"FC API PATCH {self._testMethodName[-6:]}", (("S1", 1, 30, "FC-ROSE", 1000),))
+		gh = make_greenhouse(f"FC API PATCH {self._testMethodName[-6:]}", ((V1, 1000, "1-30"),))
 		create_sample_spots.execute()
 		self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "active": 1}), 8)
+
+	def test_patch_switches_off_uncounted_section_spots_and_drops_their_snapshots(self):
+		from upande_agriculture.patches.v2_1 import units_replace_sections
+		gh = make_greenhouse(f"FC API P21 {self._testMethodName[-6:]}", ((V1, 1000, "1-30"),))
+		old, counted = make_plot(gh, "AB", 1, variety=V1), make_plot(gh, "AB", 2, variety=V1)
+		make_count(counted, nowdate(), {"Pea": 2})
+		for section in ("AB", V1):
+			frappe.get_doc({"doctype": "Harvest Forecast Snapshot", "made_on": nowdate(), "target_date": nowdate(),
+				"greenhouse": gh, "section": section, "variety": V1, "stems": 5}).insert()
+		for _ in range(2):  # idempotent
+			units_replace_sections.execute()
+			self.assertEqual(frappe.db.get_value("Sample Plot", old, "active"), 0)
+			self.assertEqual(frappe.db.get_value("Sample Plot", counted, "active"), 1)  # it has a count: kept
+			self.assertEqual(frappe.db.count("Sample Plot", {"greenhouse": gh, "section": V1, "active": 1}), 8)
+			self.assertEqual(frappe.get_all("Harvest Forecast Snapshot", {"greenhouse": gh}, pluck="section"), [V1])
+
+	def test_farm_forecast_shape(self):
+		v3 = make_variety("FC-ROSE-C")
+		farm = frappe.db.get_value("Warehouse", self.gh, "custom_farm")
+		make_count(make_plot(self.gh, V1), nowdate(), {"Colour break": 10})
+		f = api.get_farm_forecast(farm=farm, days=40)
+		self.assertEqual(len(f["dates"]), 28)  # clamped
+		f = api.get_farm_forecast(farm=farm)
+		self.assertEqual((f["start"], len(f["dates"]), f["dates"][1]), (nowdate(), 7, str(add_days(nowdate(), 1))))
+		self.assertEqual(f["total"], sum(g["total"] for g in f["greenhouses"]))
+		self.assertEqual(f["today"], sum(g["daily"][0] for g in f["greenhouses"]))
+		self.assertEqual([g["total"] for g in f["greenhouses"]], sorted((g["total"] for g in f["greenhouses"]), reverse=True))
+		gh = [g for g in f["greenhouses"] if g["greenhouse"] == self.gh][0]
+		self.assertEqual(set(gh), {"greenhouse", "greenhouse_name", "total", "daily", "last_count", "varieties"})
+		self.assertEqual([v["variety"] for v in gh["varieties"]], [V1, V2])  # biggest first
+		v = gh["varieties"][0]
+		self.assertEqual(set(v), {"variety", "plants", "total", "daily", "low", "high", "last_count", "counted",
+			"shared_with", "flags"})
+		self.assertEqual((v["plants"], v["counted"], v["last_count"], gh["last_count"]), (1000, True, nowdate(), nowdate()))
+		self.assertFalse(gh["varieties"][1]["counted"])
+		self.assertEqual(v["total"], sum(v["daily"]))
+		self.assertTrue(all(isinstance(x, int) for x in v["daily"] + [v["low"], v["high"], gh["total"]]))
+		self.assertGreater(v["total"], 0)
+		self.assertEqual(gh["daily"], [a + b for a, b in zip(*(x["daily"] for x in gh["varieties"]))])
+		self.assertNotIn(v3, [x["variety"] for g in f["greenhouses"] for x in g["varieties"]])
+
+	def test_farm_forecast_accuracy(self):
+		start = getdate(nowdate())
+		gh2 = make_greenhouse(f"FC API ACC2 {self._testMethodName[-6:]}", ((V1, 1000, "1-9"),))
+		self.assertIsNone(api._accuracy([self.gh, gh2], start))
+		for i in range(1, 7):
+			d = add_days(start, -i)
+			for gh in (self.gh, gh2):  # 2 x 60 forecast a day ahead per day, 100 picked
+				frappe.get_doc({"doctype": "Harvest Forecast Snapshot", "made_on": add_days(d, -1), "target_date": d,
+					"greenhouse": gh, "section": V1, "variety": V1, "stems": 60}).insert()
+				frappe.get_doc({"doctype": "Harvest Forecast Snapshot", "made_on": add_days(d, -3), "target_date": d,
+					"greenhouse": gh, "section": V1, "variety": V1, "stems": 999}).insert()  # 3 days ahead: ignored
+				make_harvest(gh, V1, V1, d, 50)
+		self.assertEqual(api._accuracy([self.gh, gh2], start), {"pct": 20.0, "days": 6, "stems": 600})
+		self.assertIsNone(api._accuracy([self.gh], start))  # 300 stems: too few to judge
+		farm = frappe.db.get_value("Warehouse", self.gh, "custom_farm")
+		self.assertIsNotNone(api.get_farm_forecast(farm=farm)["accuracy"])

@@ -12,8 +12,8 @@ from upande_agriculture.tests.forecast_fixtures import (
 class TestForecastJobs(FrappeTestCase):
 	def test_snapshot_writes_56_days_per_section_and_replaces_same_day(self):
 		make_variety()
-		gh = make_greenhouse("FC JOB", (("S1", 1, 9, "FC-ROSE", 1000),))
-		make_count(make_plot(gh, "S1"), nowdate(), {"Rice": 10})
+		gh = make_greenhouse("FC JOB", (("FC-ROSE", 1000, "1-9"),))
+		make_count(make_plot(gh, "FC-ROSE"), nowdate(), {"Rice": 10})
 		jobs.daily_snapshot()
 		jobs.daily_snapshot()
 		n = frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "made_on": nowdate()})
@@ -23,11 +23,11 @@ class TestForecastJobs(FrappeTestCase):
 	def test_accuracy_report_compares_snapshot_with_picks(self):
 		from upande_agriculture.upande_agriculture.report.harvest_forecast_accuracy.harvest_forecast_accuracy import execute
 		make_variety()
-		gh = make_greenhouse("FC ACC", (("S1", 1, 9, "FC-ROSE", 1000),))
+		gh = make_greenhouse("FC ACC", (("FC-ROSE", 1000, "1-9"),))
 		yday = add_days(getdate(nowdate()), -1)
 		frappe.get_doc({"doctype": "Harvest Forecast Snapshot", "made_on": add_days(yday, -1), "target_date": yday,
-			"greenhouse": gh, "section": "S1", "variety": "FC-ROSE", "stems": 100, "low": 80, "high": 120}).insert()
-		make_harvest(gh, "S1", "FC-ROSE", yday, 80)
+			"greenhouse": gh, "section": "FC-ROSE", "variety": "FC-ROSE", "stems": 100, "low": 80, "high": 120}).insert()
+		make_harvest(gh, "FC-ROSE", "FC-ROSE", yday, 80)
 		cols, rows = execute({"from_date": yday, "to_date": yday})
 		row = [r for r in rows if r["greenhouse"] == gh][0]
 		self.assertEqual((row["horizon"], row["forecast"], row["actual"]), ("0-2", 100, 80))
@@ -35,18 +35,18 @@ class TestForecastJobs(FrappeTestCase):
 
 	def test_snapshot_survives_one_failing_section(self):
 		from upande_agriculture.forecast import service
-		make_variety()
-		gh = make_greenhouse("FC JOB BAD", (("S1", 1, 9, "FC-ROSE", 1000), ("S2", 10, 18, "FC-ROSE", 500)))
+		make_variety(), make_variety("FC-ROSE-B")
+		gh = make_greenhouse("FC JOB BAD", (("FC-ROSE", 1000, "1-9"), ("FC-ROSE-B", 500, "10-18")))
 		real = service.forecast_section
 
 		def flaky(row, *a, **kw):
-			if row.greenhouse == gh and row.section == "S1":
+			if row.greenhouse == gh and row.section == "FC-ROSE":
 				raise ValueError("bad section")
 			return real(row, *a, **kw)
 		with mock.patch.object(service, "forecast_section", flaky), mock.patch.object(frappe, "log_error"):
 			jobs.daily_snapshot()
-		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "S1"}), 0)
-		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "S2"}), 63)
+		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "FC-ROSE"}), 0)
+		self.assertEqual(frappe.db.count("Harvest Forecast Snapshot", {"greenhouse": gh, "section": "FC-ROSE-B"}), 63)
 
 	def test_weekly_calibrate_commits_each_variety_and_rolls_back_a_failure(self):
 		rows = [frappe._dict(variety="FC-A"), frappe._dict(variety="FC-B")]

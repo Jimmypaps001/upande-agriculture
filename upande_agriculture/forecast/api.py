@@ -6,7 +6,7 @@ import json
 
 import frappe
 import qrcode
-from frappe.utils import getdate, nowdate
+from frappe.utils import add_days, getdate, nowdate
 from frappe.utils.pdf import get_pdf
 from PIL import Image
 
@@ -56,7 +56,7 @@ def ensure_plots(row):
 	for bed, position in layout:
 		n += 1
 		frappe.get_doc({"doctype": "Sample Plot", "greenhouse": row.greenhouse, "section": row.section,
-			"plot_no": n, "bed": bed, "position": position, "plants": SPOT_PLANTS, "set_up": 0,
+			"variety": row.variety, "plot_no": n, "bed": bed, "position": position, "plants": SPOT_PLANTS, "set_up": 0,
 		}).insert(ignore_permissions=True)
 	return True
 
@@ -116,6 +116,7 @@ def get_plot_plan(farm=None):
 			"greenhouse_name": row.warehouse_name, "section": row.section, "variety": row.variety,
 			"plants": p.plants, "bed": p.bed, "plot_no": p.plot_no, "position": p.position or None,
 			"set_up": p.set_up, "route_no": route_no, "from_bed": row.from_bed, "to_bed": row.to_bed, "stages": stages, "last": lc,
+			"shared_with": row.shared_with or [],
 			"last_counted": lc["date"] if lc else None,
 			"due": not d or (today - d).days >= COUNT_INTERVAL_DAYS,
 			"mine": bool(me and row.employee == me)})
@@ -248,10 +249,17 @@ def confirm_plot_bed(sample_plot, bed):
 	doc = frappe.get_doc("Sample Plot", sample_plot)
 	doc.check_permission("write")
 	bed = _whole(bed, "bed")
-	rng = frappe.db.get_value("Warehouse Section", {"parent": doc.greenhouse, "parenttype": "Warehouse",
-		"section": doc.section}, ["from_bed", "to_bed"], as_dict=True)
-	if not bed or (rng and rng.from_bed and rng.to_bed and not rng.from_bed <= bed <= rng.to_bed):
-		frappe.throw(f"Bed {bed} is not in section {doc.section}" + (f" (beds {rng.from_bed}-{rng.to_bed})." if rng and rng.from_bed else "."))
+	unit = next((r for r in data.sections(greenhouse=doc.greenhouse) if r.section == doc.section), None)
+	if unit and unit.from_bed and unit.to_bed:
+		if not unit.from_bed <= bed <= unit.to_bed:
+			frappe.throw(f"Bed {bed} is not one of this variety's beds ({unit.from_bed}-{unit.to_bed}).")
+	else:
+		beds = frappe.get_meta("Warehouse").has_field("custom_number_of_beds") and \
+			frappe.db.get_value("Warehouse", doc.greenhouse, "custom_number_of_beds")
+		if bed < 1:
+			frappe.throw(f"Bed {bed} is not a bed number.")
+		if beds and bed > beds:
+			frappe.throw(f"Bed {bed} is not in this greenhouse: the greenhouse has {beds} beds.")
 	if doc.bed != bed or not doc.set_up or not doc.started_on:
 		doc.update({"bed": bed, "set_up": 1, "started_on": doc.started_on or nowdate()})
 		doc.save()
@@ -282,7 +290,7 @@ def plot_tags_html(greenhouse, section=None):
 			where = f"Bed {p.bed}" if p.bed else "Bed ______"
 			tags.append(f"""<div class="qr"><img src="{_qr(p.name)}"></div><div class="text">
 <div class="big">{esc(gh)} {esc(sec)}</div><div class="mid">{where}{f" · {p.position} along" if p.position else ""}</div>
-<div class="small">Spot {n} of {len(rows)} · plants 1–{p.plants or SPOT_PLANTS}</div>
+<div class="small">Bed {n} of {len(rows)} · plants 1–{p.plants or SPOT_PLANTS}</div>
 <div class="note">Start at this plant. Skip the first 2 m of the bed.</div><div class="id">{p.name}</div></div>""")
 	tag_w, tag_h, cols, rows_, gap_x, gap_y = 86, 54, 2, 5, 6, 3
 	x0, y0 = (210 - (cols * tag_w + (cols - 1) * gap_x)) / 2, (297 - (rows_ * tag_h + (rows_ - 1) * gap_y)) / 2
@@ -331,7 +339,7 @@ def get_bay_forecast(greenhouse, section, days=7):
 		frappe.throw("days must be a whole number.")
 	row = next((r for r in data.sections(greenhouse=greenhouse) if r.section == section), None)
 	if not row:
-		frappe.throw(f"Section {section} is not in {greenhouse}.")
+		frappe.throw(f"{section} is not grown in {greenhouse}.")
 	f = service.forecast_section(row, days=days)
 	d = f["daily"]
 	week = d[:7]
@@ -342,6 +350,78 @@ def get_bay_forecast(greenhouse, section, days=7):
 		"daily": [{"date": str(x["date"]), "stems": round(x["stems"]), "low": round(x["low"]), "high": round(x["high"])} for x in d],
 		"flags": f["flags"], "last_count": str(f["last_count"]) if f["last_count"] else None,
 		"ratio": round(f["ratio"], 3) if f["ratio"] else None, "ratio_days": f["ratio_days"]}
+
+
+def _accuracy(greenhouses, start, days=14, min_days=5, min_stems=500):
+	"""How far the forecasts made one day ahead were from the picks over the
+	`days` before `start`, summed per variety and day across `greenhouses`:
+	{"pct": 100 * Σ|F-A| / ΣA, "days", "stems"}, or None on too little data."""
+	if not greenhouses:
+		return None
+	since, until = add_days(start, -days), add_days(start, -1)
+	fc = frappe.db.sql(
+		"""SELECT variety, target_date AS d, SUM(stems) AS f FROM `tabHarvest Forecast Snapshot`
+		   WHERE greenhouse IN %s AND section = variety AND target_date BETWEEN %s AND %s
+		     AND DATEDIFF(target_date, made_on) = 1
+		   GROUP BY variety, target_date""", (tuple(greenhouses), since, until), as_dict=True)
+	if not fc:
+		return None
+	picked = {(r.v, getdate(r.d)): float(r.q) for r in frappe.db.sql(
+		"""SELECT IF(IFNULL(i.variant_of, '') = '', i.name, i.variant_of) AS v, se.posting_date AS d, SUM(sed.qty) AS q
+		   FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+		   JOIN `tabItem` i ON i.name = sed.item_code
+		   WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting'
+		     AND se.custom_greenhouse IN %s AND se.posting_date BETWEEN %s AND %s
+		   GROUP BY v, se.posting_date""", (tuple(greenhouses), since, until), as_dict=True)}
+	err = actual = 0.0
+	for r in fc:
+		a = picked.get((r.variety, getdate(r.d)), 0.0)
+		err += abs(float(r.f or 0) - a)
+		actual += a
+	n = len({getdate(r.d) for r in fc})
+	if n < min_days or actual < min_stems:
+		return None
+	return {"pct": round(100 * err / actual, 1), "days": n, "stems": round(actual)}
+
+
+@frappe.whitelist()
+def get_farm_forecast(farm=None, start=None, days=7):
+	"""The phone's Forecast screen: stems per day for every greenhouse x variety
+	on the farm, greenhouses and varieties biggest first."""
+	frappe.has_permission("Sample Plot", "read", throw=True)
+	try:
+		days = min(max(int(days), 1), 28)
+	except (TypeError, ValueError):
+		frappe.throw("days must be a whole number.")
+	start = getdate(start or nowdate())
+	houses = {}
+	for row in data.sections(farm=farm or None):
+		try:
+			f = service.forecast_section(row, start, days)
+		except Exception:  # one bad unit must not sink the screen
+			frappe.log_error(title=f"Harvest forecast failed for {row.greenhouse} {row.section}",
+				message=frappe.get_traceback())
+			continue
+		daily = [round(x["stems"]) for x in f["daily"]]
+		last = str(f["last_count"]) if f["last_count"] else None
+		gh = houses.setdefault(row.greenhouse, {"greenhouse": row.greenhouse, "greenhouse_name": row.warehouse_name,
+			"total": 0, "daily": [0] * days, "last_count": None, "varieties": []})
+		gh["varieties"].append({"variety": row.variety, "plants": f["plants"], "total": sum(daily), "daily": daily,
+			"low": round(sum(x["low"] for x in f["daily"])), "high": round(sum(x["high"] for x in f["daily"])),
+			"last_count": last, "counted": last is not None, "shared_with": row.shared_with or [], "flags": f["flags"]})
+		gh["total"] += sum(daily)
+		gh["daily"] = [a + b for a, b in zip(gh["daily"], daily)]
+		gh["last_count"] = max(filter(None, [gh["last_count"], last]), default=None)
+	for gh in houses.values():
+		gh["varieties"].sort(key=lambda v: -v["total"])
+	greenhouses = sorted(houses.values(), key=lambda g: -g["total"])
+	cond = {"warehouse_type": "Greenhouse"}
+	if farm:
+		cond["custom_farm"] = farm
+	return {"start": str(start), "dates": [str(add_days(start, i)) for i in range(days)],
+		"total": sum(g["total"] for g in greenhouses), "today": sum(g["daily"][0] for g in greenhouses),
+		"accuracy": _accuracy(frappe.get_all("Warehouse", filters=cond, pluck="name"), start),
+		"greenhouses": greenhouses}
 
 
 @frappe.whitelist()

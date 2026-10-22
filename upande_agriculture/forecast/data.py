@@ -1,6 +1,7 @@
 """Database reads for the harvest forecast. Everything Frappe lives here, so
 curves.py and engine.py stay pure and testable without a site."""
 import json
+import re
 
 import frappe
 from frappe.utils import add_days, getdate
@@ -14,22 +15,93 @@ DEFAULT_REGROWTH_DAYS, DEFAULT_REGROWTH_YIELD = 65, 0.8
 MIN_MEASURED_STEMS = 500  # harvested stems before the measured length mix is trusted
 
 
+def _bed_span(spec):
+	"""(lowest, highest) bed in a range like "12-40" or "1-10, 15-20"; (None, None) if none."""
+	nums = [int(float(n)) for n in re.findall(r"\d+(?:\.\d+)?", spec or "")]
+	return (min(nums), max(nums)) if nums else (None, None)
+
+
+def _int(text):
+	try:
+		return int(float(str(text or "").replace(",", "").replace(" ", "") or 0))
+	except ValueError:
+		return 0
+
+
+def _table_units(rows):
+	"""[(variety, plants, shared_with)] from one greenhouse's Varieties per GH rows
+	(in idx order). The client's sheet had merged cells: consecutive rows with the
+	same (no_of_plants, size_m2) and different varieties are ONE block shared by
+	those varieties, so its plants are split equally between them."""
+	blocks = []
+	for r in rows:
+		key = (_int(r.no_of_plants), (r.size_m2 or "").replace(",", "").strip())
+		b = blocks[-1] if blocks else None
+		if r.variety and b and b["key"] == key and key[0] and r.variety not in b["varieties"]:
+			b["varieties"].append(r.variety)
+		else:  # a blank variety still breaks the run of merged rows
+			blocks.append({"key": key, "varieties": [r.variety] if r.variety else []})
+	out = []
+	for b in blocks:
+		vs, total = b["varieties"], b["key"][0]
+		for i, v in enumerate(vs):  # the odd stem goes to the last varieties: 161723 -> 80861, 80862
+			out.append((v, total // len(vs) + (1 if i >= len(vs) - total % len(vs) else 0), [x for x in vs if x != v]))
+	return out
+
+
 def sections(farm=None, greenhouse=None, variety=None):
-	"""Every greenhouse section (upande_core Warehouse Section) with its
-	variety, harvester and plants."""
-	cond = ["w.warehouse_type = 'Greenhouse'", "w.disabled = 0", "ws.parenttype = 'Warehouse'"]
-	args = {}
-	for key, col in (("farm", "w.custom_farm"), ("greenhouse", "w.name"), ("variety", "ws.custom_variety")):
-		if locals()[key]:
+	"""The forecast units: one per greenhouse x variety. `section` is the variety
+	(the unit key on Sample Plot, Bed Sample and Harvest Forecast Snapshot).
+	Plants come from the greenhouse's Active Crop Cycles, or when it has none
+	from its Varieties per GH table. Only rose-like varieties (Item templates
+	with length variants) are forecast."""
+	cond, args = ["warehouse_type = 'Greenhouse'", "disabled = 0"], {}
+	for key, col, val in (("farm", "custom_farm", farm), ("greenhouse", "name", greenhouse)):
+		if val:
 			cond.append(f"{col} = %({key})s")
-			args[key] = locals()[key]
-	return frappe.db.sql(
-		f"""SELECT ws.parent AS greenhouse, w.warehouse_name, w.custom_farm AS farm, ws.section,
-		       ws.from_bed, ws.to_bed, ws.custom_variety AS variety, ws.custom_employee AS employee,
-		       ws.custom_employee_name AS employee_name, ws.custom_plants AS plants
-		   FROM `tabWarehouse Section` ws JOIN `tabWarehouse` w ON w.name = ws.parent
-		   WHERE {" AND ".join(cond)} ORDER BY w.warehouse_name, ws.section""",
-		args, as_dict=True)
+			args[key] = val
+	houses = {w.name: w for w in frappe.db.sql(
+		f"SELECT name, warehouse_name, custom_farm AS farm FROM `tabWarehouse` WHERE {' AND '.join(cond)}",
+		args, as_dict=True)}
+	if not houses:
+		return []
+	units = {}
+
+	def add(gh, v, plants, beds, shared, source):
+		u = units.setdefault((gh, v), {"plants": 0, "beds": [], "shared_with": [], "source": source})
+		u["plants"] += plants
+		u["beds"] += [b for b in beds if b is not None]
+		u["shared_with"] += [x for x in shared if x not in u["shared_with"]]
+
+	for c in frappe.db.sql(
+			"""SELECT greenhouse, variety, plants_standing, qty_planted, bed_range FROM `tabCrop Cycle`
+			   WHERE status = 'Active' AND greenhouse IN %s""", (tuple(houses),), as_dict=True):
+		add(c.greenhouse, c.variety, int(c.plants_standing or c.qty_planted or 0), _bed_span(c.bed_range), [], "Crop Cycle")
+	if frappe.db.table_exists("Varieties per GH"):
+		done = {gh for gh, _v in units}
+		rows = {}
+		for r in frappe.db.sql(
+				"""SELECT parent, variety, no_of_plants, size_m2 FROM `tabVarieties per GH`
+				   WHERE parenttype = 'Warehouse' AND parentfield = 'custom_varieties_grown' AND parent IN %s
+				   ORDER BY parent, idx""", (tuple(houses),), as_dict=True):
+			if r.parent not in done:
+				rows.setdefault(r.parent, []).append(r)
+		for gh, rs in rows.items():
+			for v, plants, shared in _table_units(rs):
+				add(gh, v, plants, [], shared, "Greenhouse varieties")
+
+	roses = set(frappe.get_all("Item", pluck="name",
+		filters={"has_variants": 1, "name": ["in", list({v for _g, v in units} or [""])]}))
+	out = []
+	for (gh, v), u in units.items():
+		if v not in roses or (variety and v != variety):
+			continue
+		w = houses[gh]
+		out.append(frappe._dict(greenhouse=gh, warehouse_name=w.warehouse_name, farm=w.farm, section=v, variety=v,
+			plants=u["plants"], from_bed=min(u["beds"]) if u["beds"] else None,
+			to_bed=max(u["beds"]) if u["beds"] else None, employee=None, employee_name=None,
+			shared_with=u["shared_with"], source=u["source"]))
+	return sorted(out, key=lambda r: (r.warehouse_name or "", r.variety))
 
 
 def stages(variety):
@@ -71,39 +143,44 @@ def latest_round(greenhouse, section, as_of):
 
 
 def cuts(greenhouse, section, since, until):
-	"""{day: stems} cut in a section: its submitted Harvesting entries."""
+	"""{day: stems} cut in a unit (`section` is the variety): the greenhouse's
+	submitted Harvesting entries of the variety's length variants."""
 	rows = frappe.db.sql(
 		"""SELECT se.posting_date AS d, SUM(sed.qty) AS q
 		   FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+		   JOIN `tabItem` i ON i.name = sed.item_code
 		   WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting'
-		     AND se.custom_greenhouse = %s AND se.custom_section = %s
+		     AND se.custom_greenhouse = %s AND (i.variant_of = %s OR i.name = %s)
 		     AND se.posting_date BETWEEN %s AND %s
 		   GROUP BY se.posting_date""",
-		(greenhouse, section, getdate(since), getdate(until)), as_dict=True)
+		(greenhouse, section, section, getdate(since), getdate(until)), as_dict=True)
 	return {getdate(r.d): float(r.q) for r in rows}
 
 
 def variety_history(variety, since, until, max_ahead=2):
 	"""{(greenhouse, section): {day: (raw forecast, picked)}} for every day a
 	snapshot made 0..max_ahead days ahead forecast for one of the variety's
-	sections: the forecast before any section ratio (averaged over those
-	snapshots) and the stems actually picked."""
+	units (section = the variety; older section-keyed rows are left out): the
+	forecast before any section ratio (averaged over those snapshots) and the
+	stems actually picked."""
 	fc = frappe.db.sql(
 		"""SELECT greenhouse, section, target_date AS d, AVG(stems / IF(IFNULL(ratio, 0) > 0, ratio, 1)) AS f
 		   FROM `tabHarvest Forecast Snapshot`
-		   WHERE variety = %s AND target_date BETWEEN %s AND %s
+		   WHERE variety = %s AND section = variety AND target_date BETWEEN %s AND %s
 		     AND DATEDIFF(target_date, made_on) BETWEEN 0 AND %s
 		   GROUP BY greenhouse, section, target_date""",
 		(variety, getdate(since), getdate(until), max_ahead), as_dict=True)
 	if not fc:
 		return {}
-	picked = {(r.g, r.s, getdate(r.d)): float(r.q) for r in frappe.db.sql(
-		"""SELECT se.custom_greenhouse AS g, se.custom_section AS s, se.posting_date AS d, SUM(sed.qty) AS q
+	picked = {(r.g, variety, getdate(r.d)): float(r.q) for r in frappe.db.sql(
+		"""SELECT se.custom_greenhouse AS g, se.posting_date AS d, SUM(sed.qty) AS q
 		   FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+		   JOIN `tabItem` i ON i.name = sed.item_code
 		   WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting'
 		     AND se.custom_greenhouse IN %s AND se.posting_date BETWEEN %s AND %s
-		   GROUP BY se.custom_greenhouse, se.custom_section, se.posting_date""",
-		(tuple({r.greenhouse for r in fc}), getdate(since), getdate(until)), as_dict=True)}
+		     AND (i.variant_of = %s OR i.name = %s)
+		   GROUP BY se.custom_greenhouse, se.posting_date""",
+		(tuple({r.greenhouse for r in fc}), getdate(since), getdate(until), variety, variety), as_dict=True)}
 	out = {}
 	for r in fc:
 		d = getdate(r.d)

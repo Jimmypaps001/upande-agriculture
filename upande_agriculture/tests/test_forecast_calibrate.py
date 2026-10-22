@@ -51,21 +51,21 @@ def picks_on(t):
 class TestForecastCalibrate(FrappeTestCase):
 	def test_too_little_data_keeps_defaults(self):
 		make_variety("FC-THIN")
-		make_greenhouse("FC THIN", (("S1", 1, 9, "FC-THIN", 1000),))
+		make_greenhouse("FC THIN", (("FC-THIN", 1000, "1-9"),))
 		doc = calibrate.calibrate("FC-THIN")
 		self.assertFalse(doc.fitted_on)
 		self.assertIn("Not enough data", doc.status)
 
 	def test_recovers_timing_from_a_simulated_crop(self):
 		make_variety("FC-CAL")
-		gh = make_greenhouse("FC CAL", (("S1", 1, 9, "FC-CAL", PLANTS),))
-		plot = make_plot(gh, "S1")
+		gh = make_greenhouse("FC CAL", (("FC-CAL", PLANTS, "1-9"),))
+		plot = make_plot(gh, "FC-CAL")
 		today = getdate(nowdate())
 		for i in range(-90, 0):  # day index relative to today
 			day = add_days(today, i)
 			if i % 3 == 0:
 				make_count(plot, day, {k: round(v * PLOT) for k, v in counts_on(i).items()})
-			make_harvest(gh, "S1", "FC-CAL", day, max(1, round(picks_on(i))))
+			make_harvest(gh, "FC-CAL", "FC-CAL", day, max(1, round(picks_on(i))))
 		with mock.patch.object(data, "stages", return_value=stage_params(LEGACY_STAGES)):
 			doc = calibrate.calibrate("FC-CAL", today)
 		self.assertTrue(doc.fitted_on, doc.status)

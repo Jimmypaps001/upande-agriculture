@@ -12,8 +12,8 @@ from upande_agriculture.upande_agriculture.report.weekly_harvest_forecast.weekly
 class TestForecastReports(FrappeTestCase):
 	def setUp(self):
 		make_variety()
-		self.gh = make_greenhouse("FC REP", (("S1", 1, 9, "FC-ROSE", 1000),))
-		make_count(make_plot(self.gh, "S1"), nowdate(), {"Colour break": 10})
+		self.gh = make_greenhouse("FC REP", (("FC-ROSE", 1000, "1-9"),))
+		make_count(make_plot(self.gh, "FC-ROSE"), nowdate(), {"Colour break": 10})
 
 	def test_section_report_has_a_column_per_day(self):
 		cols, rows = section_report({"greenhouse": self.gh, "days": 14})
@@ -26,7 +26,7 @@ class TestForecastReports(FrappeTestCase):
 		today = getdate(nowdate())
 		monday = add_days(today, -today.weekday())
 		if monday < today:
-			make_harvest(self.gh, "S1", "FC-ROSE", monday, 50)
+			make_harvest(self.gh, "FC-ROSE", "FC-ROSE", monday, 50)
 		cols, rows = weekly_report({"weeks": 3})
 		ours = [r for r in rows if r["variety"] == "FC-ROSE"]
 		self.assertEqual(len(ours), 3)
@@ -60,8 +60,8 @@ class TestPlotCountQuality(FrappeTestCase):
 		from upande_agriculture.forecast import api
 		from upande_agriculture.upande_agriculture.report.plot_count_quality.plot_count_quality import execute
 		make_variety()
-		gh = make_greenhouse("FC PCQ", (("S1", 1, 9, "FC-ROSE", 1000),))
-		plot = make_plot(gh, "S1")
+		gh = make_greenhouse("FC PCQ", (("FC-ROSE", 1000, "1-9"),))
+		plot = make_plot(gh, "FC-ROSE")
 		api.submit_plot_count(client_uuid="fc-pcq-1", sample_plot=plot, counts=[{"stage_name": "Pea", "count": 4}],
 			duration_seconds=8)
 		email = "fc-pcq@example.com"
