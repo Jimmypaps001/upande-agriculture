@@ -148,7 +148,10 @@ app_license = "mit"
 
 # Runs after fixtures are synced: an older upande_harvest fixture can't bring
 # back the frappe.request.get_json() scripts that break on Frappe Cloud v16.
-after_migrate = ["upande_agriculture.server_script_guard.repair_server_scripts"]
+after_migrate = [
+	"upande_agriculture.server_script_guard.repair_server_scripts",
+	"upande_agriculture.bilashaka_deployment.apply",
+]
 
 doc_events = {
     "Crop Cycle": {
