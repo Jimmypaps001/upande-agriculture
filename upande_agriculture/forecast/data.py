@@ -29,24 +29,11 @@ def _int(text):
 
 
 def _table_units(rows):
-	"""[(variety, plants, shared_with)] from one greenhouse's Varieties per GH rows
-	(in idx order). The client's sheet had merged cells: consecutive rows with the
-	same (no_of_plants, size_m2) and different varieties are ONE block shared by
-	those varieties, so its plants are split equally between them."""
-	blocks = []
-	for r in rows:
-		key = (_int(r.no_of_plants), (r.size_m2 or "").replace(",", "").strip())
-		b = blocks[-1] if blocks else None
-		if r.variety and b and b["key"] == key and key[0] and r.variety not in b["varieties"]:
-			b["varieties"].append(r.variety)
-		else:  # a blank variety still breaks the run of merged rows
-			blocks.append({"key": key, "varieties": [r.variety] if r.variety else []})
-	out = []
-	for b in blocks:
-		vs, total = b["varieties"], b["key"][0]
-		for i, v in enumerate(vs):  # the odd stem goes to the last varieties: 161723 -> 80861, 80862
-			out.append((v, total // len(vs) + (1 if i >= len(vs) - total % len(vs) else 0), [x for x in vs if x != v]))
-	return out
+	"""[(variety, plants, shared_with)] from one greenhouse's Varieties per GH rows.
+	Every row is its own block: rows repeating the same plants and area turned out
+	to be separate sub-houses of the same size (B2 GH1 A and B, 161,723 plants
+	each), not one block shared by two varieties. shared_with stays for the API."""
+	return [(r.variety, _int(r.no_of_plants), []) for r in rows if r.variety]
 
 
 def sections(farm=None, greenhouse=None, variety=None):

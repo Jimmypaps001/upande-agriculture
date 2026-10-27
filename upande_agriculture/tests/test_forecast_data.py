@@ -87,23 +87,23 @@ class TestForecastData(FrappeTestCase):
 				"size_m2": size}).db_insert()
 		return gh
 
-	def test_units_from_greenhouse_varieties_split_shared_blocks(self):
+	def test_units_from_greenhouse_varieties(self):
 		if not frappe.db.table_exists("Varieties per GH"):
 			self.skipTest("no Varieties per GH on this site")
 		for v in ("FC-MADAM", "FC-TACAZZI", "FC-THIRD"):
 			make_variety(v)
 		make_variety("FC-CHRYS", has_variants=0)
 		gh = self._gh_table("FC GH TABLE", [
-			("FC-MADAM", "161,723", "21773"), ("FC-TACAZZI", "161723", "21773"),  # one merged block
+			("FC-MADAM", "161,723", "21773"), ("FC-TACAZZI", "161723", "21773"),  # equal sub-houses, not shared
 			("FC-MADAM", " 1 000 ", "50"),     # a second, small block of the same variety
 			(None, "5", "1"),                  # blank variety: skipped
-			("FC-THIRD", "5", "1"),            # same numbers as the blank row above: not shared with it
+			("FC-THIRD", "5", "1"),
 			("FC-CHRYS", "300", "10"),         # not a rose
 			("FC-THIRD", "abc", None)])        # unreadable plants count as 0
 		rows = {r.section: r for r in data.sections(greenhouse=gh)}
 		self.assertEqual(set(rows), {"FC-MADAM", "FC-TACAZZI", "FC-THIRD"})
-		self.assertEqual((rows["FC-MADAM"].plants, rows["FC-MADAM"].shared_with), (80861 + 1000, ["FC-TACAZZI"]))
-		self.assertEqual((rows["FC-TACAZZI"].plants, rows["FC-TACAZZI"].shared_with), (80862, ["FC-MADAM"]))
+		self.assertEqual((rows["FC-MADAM"].plants, rows["FC-MADAM"].shared_with), (161723 + 1000, []))
+		self.assertEqual((rows["FC-TACAZZI"].plants, rows["FC-TACAZZI"].shared_with), (161723, []))
 		self.assertEqual((rows["FC-THIRD"].plants, rows["FC-THIRD"].shared_with), (5, []))
 		self.assertTrue(all(r.source == "Greenhouse varieties" and r.from_bed is None for r in rows.values()))
 		make_cycle(gh, "FC-THIRD", 77)  # any active crop cycle replaces the table for the greenhouse
