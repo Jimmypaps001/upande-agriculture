@@ -9,38 +9,38 @@ import frappe
 
 
 def execute():
-    ws_name = "Agriculture"
+	ws_name = "Agriculture"
 
-    if frappe.db.exists("Workspace", ws_name):
-        # Just tag the module so fixtures export works; don't overwrite user content.
-        frappe.db.set_value(
-            "Workspace", ws_name, "module", "Upande Agriculture", update_modified=False
-        )
-        frappe.db.commit()
-        return
+	if frappe.db.exists("Workspace", ws_name):
+		# Just tag the module so fixtures export works; don't overwrite user content.
+		frappe.db.set_value("Workspace", ws_name, "module", "Upande Agriculture", update_modified=False)
+		frappe.db.commit()
+		return
 
-    # Create a minimal workspace if it doesn't exist at all.
-    shortcuts = [
-        {"label": "Crop Protocols", "link_to": "Crop Protocol",         "type": "DocType"},
-        {"label": "Greenhouses",    "link_to": "Greenhouse",            "type": "DocType"},
-        {"label": "Flower Trials",  "link_to": "Flower Trial",          "type": "DocType"},
-        {"label": "Budget",         "link_to": "Production Projection", "type": "DocType"},
-        {"label": "Forecast",       "link_to": "Production Forecast",   "type": "DocType"},
-        {"label": "Plans",          "link_to": "Production Plan Form",  "type": "DocType"},
-    ]
+	# Create a minimal workspace if it doesn't exist at all.
+	shortcuts = [
+		{"label": "Crop Protocols", "link_to": "Crop Protocol", "type": "DocType"},
+		{"label": "Greenhouses", "link_to": "Greenhouse", "type": "DocType"},
+		{"label": "Flower Trials", "link_to": "Flower Trial", "type": "DocType"},
+		{"label": "Budget", "link_to": "Production Projection", "type": "DocType"},
+		{"label": "Forecast", "link_to": "Production Forecast", "type": "DocType"},
+		{"label": "Plans", "link_to": "Production Plan Form", "type": "DocType"},
+	]
 
-    doc = frappe.get_doc({
-        "doctype": "Workspace",
-        "name": ws_name,
-        "label": "Agriculture",
-        "module": "Upande Agriculture",
-        "title": "Agriculture",
-        "type": "Workspace",
-        "public": 1,
-        "is_hidden": 0,
-        "icon": "leaf",
-        "content": "[]",
-        "shortcuts": shortcuts,
-    })
-    doc.insert(ignore_permissions=True)
-    frappe.db.commit()
+	doc = frappe.get_doc(
+		{
+			"doctype": "Workspace",
+			"name": ws_name,
+			"label": "Agriculture",
+			"module": "Upande Agriculture",
+			"title": "Agriculture",
+			"type": "Workspace",
+			"public": 1,
+			"is_hidden": 0,
+			"icon": "leaf",
+			"content": "[]",
+			"shortcuts": shortcuts,
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	frappe.db.commit()

@@ -22,8 +22,7 @@ class CropProtocol(Document):
 		total = sum(float(r.pct or 0) for r in (self.grade_mix or []))
 		if total > 100.0001:  # float slop from repeating decimals (33.33 x 3)
 			frappe.throw(
-				_("Grade Mix shares add up to {0}%, which is more than 100%.").format(
-					round(total, 2)),
+				_("Grade Mix shares add up to {0}%, which is more than 100%.").format(round(total, 2)),
 				title=_("Grade Mix over 100%"),
 			)
 

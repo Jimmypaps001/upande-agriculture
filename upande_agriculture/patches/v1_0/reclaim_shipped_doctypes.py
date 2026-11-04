@@ -16,5 +16,7 @@ def execute():
 			continue
 		name = frappe.parse_json(open(path).read()).get("name")
 		if name and frappe.db.get_value("DocType", name, "custom"):
-			frappe.db.set_value("DocType", name, {"custom": 0, "module": "Upande Agriculture"}, update_modified=False)
+			frappe.db.set_value(
+				"DocType", name, {"custom": 0, "module": "Upande Agriculture"}, update_modified=False
+			)
 			frappe.clear_cache(doctype=name)

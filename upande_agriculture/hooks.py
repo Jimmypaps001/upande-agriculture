@@ -1,7 +1,9 @@
 app_name = "upande_agriculture"
 app_title = "Upande Agriculture"
 app_publisher = "Upande"
-app_description = "Floriculture planning (Crop Protocol, Crop Cycle, Flower Trial, Budget/Forecast/Plan) for Mona Flowers"
+app_description = (
+	"Floriculture planning (Crop Protocol, Crop Cycle, Flower Trial, Budget/Forecast/Plan) for Mona Flowers"
+)
 app_email = "teddy@upande.com"
 app_license = "mit"
 
@@ -147,25 +149,25 @@ after_install = "upande_agriculture.greenhouse_audit_templates.seed"
 # }
 
 doc_events = {
-    "Crop Cycle": {
-        "on_update": "upande_agriculture.controllers.crop_cycle_on_update",
-        "on_trash":  "upande_agriculture.controllers.crop_cycle_on_trash",
-    },
-    "Greenhouse": {
-        "on_update": [
-            "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
-            "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_bed_master",
-        ],
-    },
-    "Stock Entry": {
-        "on_submit": "upande_agriculture.controllers.stock_entry_on_submit",
-        "on_cancel": "upande_agriculture.controllers.stock_entry_on_submit",
-    },
-    "Production Plan Form": {
-        "before_save": "upande_agriculture.controllers.production_plan_form_before_save",
-        "on_update":   "upande_agriculture.controllers.production_plan_form_on_update",
-        "on_trash":    "upande_agriculture.controllers.production_plan_form_on_trash",
-    },
+	"Crop Cycle": {
+		"on_update": "upande_agriculture.controllers.crop_cycle_on_update",
+		"on_trash": "upande_agriculture.controllers.crop_cycle_on_trash",
+	},
+	"Greenhouse": {
+		"on_update": [
+			"upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_logs_to_crop_cycles",
+			"upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.sync_bed_master",
+		],
+	},
+	"Stock Entry": {
+		"on_submit": "upande_agriculture.controllers.stock_entry_on_submit",
+		"on_cancel": "upande_agriculture.controllers.stock_entry_on_submit",
+	},
+	"Production Plan Form": {
+		"before_save": "upande_agriculture.controllers.production_plan_form_before_save",
+		"on_update": "upande_agriculture.controllers.production_plan_form_on_update",
+		"on_trash": "upande_agriculture.controllers.production_plan_form_on_trash",
+	},
 }
 
 # Scheduled Tasks
@@ -190,24 +192,33 @@ doc_events = {
 # }
 
 scheduler_events = {
-    "daily": [
-        "upande_agriculture.scheduled.rollup_actuals",
-        "upande_agriculture.scheduled.release_stale_buckets",
-    ],
+	"daily": [
+		"upande_agriculture.scheduled.rollup_actuals",
+		"upande_agriculture.scheduled.release_stale_buckets",
+	],
 }
 
 fixtures = [
-    {"dt": "Workspace", "filters": [["module", "=", "Upande Agriculture"]]},
-    {
-        "dt": "Custom HTML Block",
-        "filters": [["name", "in", ["Roses Production Navigation", "Crop Cycle Dashboard"]]],
-    },
-    # Per-farm scan-location routing createGradingStockEntry depends on for
-    # Standard Roses (Spray Roses graded in place, no mapping needed). Master
-    # data, not code, but without a fixture it silently doesn't exist on a
-    # fresh deploy -- exactly the gap that made Standard Roses grading fail
-    # outright on this bench until these were (re)created.
-    {"dt": "Scan Location Mapping", "filters": [["name", "in", ["Simotwo-MAP", "Chepsito-MAP", "Kapkolia-MAP", "Karen-MAP", "Torongo-MAP", "Kaptumbo-MAP"]]]},
+	{"dt": "Workspace", "filters": [["module", "=", "Upande Agriculture"]]},
+	{
+		"dt": "Custom HTML Block",
+		"filters": [["name", "in", ["Roses Production Navigation", "Crop Cycle Dashboard"]]],
+	},
+	# Per-farm scan-location routing createGradingStockEntry depends on for
+	# Standard Roses (Spray Roses graded in place, no mapping needed). Master
+	# data, not code, but without a fixture it silently doesn't exist on a
+	# fresh deploy -- exactly the gap that made Standard Roses grading fail
+	# outright on this bench until these were (re)created.
+	{
+		"dt": "Scan Location Mapping",
+		"filters": [
+			[
+				"name",
+				"in",
+				["Simotwo-MAP", "Chepsito-MAP", "Kapkolia-MAP", "Karen-MAP", "Torongo-MAP", "Kaptumbo-MAP"],
+			]
+		],
+	},
 ]
 
 # Testing
@@ -236,9 +247,7 @@ fixtures = [
 # override_doctype_dashboards = {
 # 	"Task": "upande_agriculture.task.get_dashboard_data"
 # }
-override_doctype_dashboards = {
-	"Stock Entry": "upande_agriculture.stock_entry_connections.get_dashboard_data"
-}
+override_doctype_dashboards = {"Stock Entry": "upande_agriculture.stock_entry_connections.get_dashboard_data"}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -301,4 +310,3 @@ override_doctype_dashboards = {
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

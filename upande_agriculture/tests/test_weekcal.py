@@ -16,16 +16,15 @@ class TestWeekCal(unittest.TestCase):
 		end = datetime.date(2032, 12, 31)
 		while d <= end:
 			self.assertEqual(
-				wc.week_key(d, "4day:mon"), d.isocalendar()[:2],
+				wc.week_key(d, "4day:mon"),
+				d.isocalendar()[:2],
 				f"generic week_key disagrees with ISO on {d}",
 			)
 			d += datetime.timedelta(days=1)
 
 	def test_weeks_in_year_matches_iso(self):
 		for y in range(2015, 2041):
-			self.assertEqual(
-				wc.weeks_in_year(y, "4day:mon"), wc.weeks_in_year(y, wc.ISO), f"year {y}"
-			)
+			self.assertEqual(wc.weeks_in_year(y, "4day:mon"), wc.weeks_in_year(y, wc.ISO), f"year {y}")
 
 	def test_2026_has_53_weeks(self):
 		# A budget loop stopping at 52 silently drops a week of stems.
@@ -52,7 +51,8 @@ class TestWeekCal(unittest.TestCase):
 				for w in range(1, wc.weeks_in_year(y, rule) + 1):
 					start = wc.week_start(y, w, rule)
 					self.assertEqual(
-						wc.week_key(start, rule), (y, w),
+						wc.week_key(start, rule),
+						(y, w),
 						f"round trip failed for {rule} {y}-W{w}",
 					)
 

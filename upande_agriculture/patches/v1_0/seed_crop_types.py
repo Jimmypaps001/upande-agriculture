@@ -9,8 +9,11 @@ CROP_TYPES = ("Rose", "Spray Rose", "Summer Flower", "Other")
 
 
 def execute():
-    for name in CROP_TYPES:
-        if not frappe.db.exists("Crop Type", name):
-            frappe.get_doc({
-                "doctype": "Crop Type", "crop_type_name": name,
-            }).insert(ignore_permissions=True)
+	for name in CROP_TYPES:
+		if not frappe.db.exists("Crop Type", name):
+			frappe.get_doc(
+				{
+					"doctype": "Crop Type",
+					"crop_type_name": name,
+				}
+			).insert(ignore_permissions=True)

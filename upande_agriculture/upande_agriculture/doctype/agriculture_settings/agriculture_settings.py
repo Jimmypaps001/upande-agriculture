@@ -18,9 +18,7 @@ class AgricultureSettings(Document):
 		a planner who flips this setting needs to know their existing budgets did
 		not move — otherwise they will trust a number that means something else.
 		"""
-		if not self.has_value_changed("week_one_rule") and not self.has_value_changed(
-			"week_start_day"
-		):
+		if not self.has_value_changed("week_one_rule") and not self.has_value_changed("week_start_day"):
 			return
 
 		rule = weekcal.get_week_rule()
@@ -32,9 +30,7 @@ class AgricultureSettings(Document):
 			for r in frappe.get_all("Production Projection", pluck="week_rule")
 			if (r or weekcal.ISO) != rule
 		)
-		msg = _("New projections and forecasts will use {0}.").format(
-			f"<b>{weekcal.rule_label(rule)}</b>"
-		)
+		msg = _("New projections and forecasts will use {0}.").format(f"<b>{weekcal.rule_label(rule)}</b>")
 		if stamped:
 			msg += " " + _(
 				"{0} existing projection(s) stay on the rule they were generated with. "

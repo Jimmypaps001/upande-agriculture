@@ -12,10 +12,10 @@ OPTIONS = "Empty\nPlanted\nProducing\nHarvesting\nTransplanted\nPartially Uproot
 
 
 def execute():
-    if not frappe.db.exists("Custom Field", "Bed-status"):
-        return
-    current = frappe.db.get_value("Custom Field", "Bed-status", "options") or ""
-    if "Partially Uprooted" in current:
-        return
-    frappe.db.set_value("Custom Field", "Bed-status", "options", OPTIONS)
-    frappe.clear_cache(doctype="Bed")
+	if not frappe.db.exists("Custom Field", "Bed-status"):
+		return
+	current = frappe.db.get_value("Custom Field", "Bed-status", "options") or ""
+	if "Partially Uprooted" in current:
+		return
+	frappe.db.set_value("Custom Field", "Bed-status", "options", OPTIONS)
+	frappe.clear_cache(doctype="Bed")
