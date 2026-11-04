@@ -86,7 +86,7 @@ app_license = "mit"
 # ------------
 
 # before_install = "upande_agriculture.install.before_install"
-# after_install = "upande_agriculture.install.after_install"
+after_install = "upande_agriculture.greenhouse_audit_templates.seed"
 
 # Uninstallation
 # ------------

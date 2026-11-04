@@ -131,7 +131,7 @@ def _rollup_plan_tasks() -> int:
         SELECT t.name, t.greenhouse, t.variety, p.plan_year, p.plan_week
         FROM `tabProduction Plan Task` t
         JOIN `tabProduction Plan Form` p ON p.name = t.parent
-        WHERE t.operation = 'Harvest' AND t.variety IS NOT NULL AND t.variety != ''
+        WHERE p.docstatus = 0 AND t.operation = 'Harvest' AND t.variety IS NOT NULL AND t.variety != ''
           AND t.greenhouse IS NOT NULL AND t.greenhouse != ''
         """,
         as_dict=True,

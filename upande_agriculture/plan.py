@@ -16,6 +16,7 @@ from frappe import _
 from frappe.utils import cint, getdate, now_datetime
 
 from upande_agriculture.farm_map import house
+from upande_agriculture.upande_agriculture.doctype.production_plan_form.production_plan_form import ensure_plan_editable
 from upande_agriculture.projection_calc import iso_weeks_in_year
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -75,7 +76,7 @@ def _plan_rows(year: int, week: int, greenhouse: str | None = None) -> list:
                t.started_at, t.completed_at, t.completion_note
         FROM `tabProduction Plan Form` pp
         JOIN `tabProduction Plan Task` t ON t.parent = pp.name
-        WHERE pp.plan_year = %(y)s AND pp.plan_week = %(w)s{cond}
+        WHERE pp.plan_year = %(y)s AND pp.plan_week = %(w)s AND pp.docstatus < 2{cond}
         ORDER BY t.due_date, pp.greenhouse, t.idx
         """,
         args, as_dict=True,
@@ -313,6 +314,7 @@ def set_task_status(task: str, status: str, note: str | None = None) -> dict:
         frappe.throw(_("Task {0} not found.").format(task))
 
     doc = frappe.get_doc("Production Plan Form", parent)
+    ensure_plan_editable(doc)
     for row in doc.tasks:
         if row.name != task:
             continue
@@ -357,6 +359,7 @@ def update_task(task: str, due_day: str | None = None, task_name: str | None = N
         frappe.throw(_("No employee {0}.").format(assigned_to))
 
     doc = frappe.get_doc("Production Plan Form", parent)
+    ensure_plan_editable(doc)
     for row in doc.tasks:
         if row.name != task:
             continue
@@ -389,6 +392,7 @@ def delete_task(task: str) -> dict:
     if not parent:
         frappe.throw(_("Task {0} not found.").format(task))
     doc = frappe.get_doc("Production Plan Form", parent)
+    ensure_plan_editable(doc)
     doc.tasks = [r for r in doc.tasks if r.name != task]
     for i, r in enumerate(doc.tasks, 1):
         r.idx = i
@@ -426,9 +430,10 @@ def add_task(greenhouse: str, task_name: str, operation: str = "Other",
     due_day = due_day if due_day in DAYS else DAYS[tdow - 1]
 
     name = frappe.db.get_value("Production Plan Form", {
-        "greenhouse": greenhouse, "plan_year": year, "plan_week": week}, "name")
+        "greenhouse": greenhouse, "plan_year": year, "plan_week": week, "docstatus": ("<", 2)}, "name")
     if name:
         doc = frappe.get_doc("Production Plan Form", name)
+        ensure_plan_editable(doc)
     else:
         doc = frappe.new_doc("Production Plan Form")
         doc.update({

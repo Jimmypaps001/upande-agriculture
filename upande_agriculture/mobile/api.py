@@ -6,9 +6,13 @@
 # version-controlled whitelisted methods. Bodies keep frappe.form_dict /
 # frappe.response exactly as the live scripts used them.
 
+import datetime
+
 import frappe
 from frappe import _
 import json
+
+from upande_agriculture.upande_agriculture.doctype.production_plan_form.production_plan_form import ensure_plan_editable
 
 
 def resolve_item_group_stem_limit(item_code):
@@ -1216,6 +1220,30 @@ def getGreenhouseData():
         frappe.throw(_("Error fetching greenhouse data: ") + str(e))
 
 
+def _forecast_window(year):
+    """First and last week a new Production Forecast for `year` covers."""
+    iso = frappe.utils.getdate(frappe.utils.nowdate()).isocalendar()
+    lastweek = frappe.utils.getdate(str(year) + "-12-28").isocalendar()[1]
+    startweek = iso[1] if iso[0] == year else 1
+    return startweek, lastweek
+
+
+def _new_production_forecast(greenhouse, variety, year):
+    startweek, lastweek = _forecast_window(year)
+    window = lastweek - startweek + 1
+    if window < 1:
+        window = 1
+    fdoc = frappe.new_doc("Production Forecast")
+    fdoc.greenhouse = greenhouse
+    fdoc.variety = variety
+    fdoc.forecast_year = year
+    fdoc.start_week = startweek
+    fdoc.window_weeks = window
+    fdoc.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return fdoc.name
+
+
 @frappe.whitelist()
 def getProductionProjection():
     greenhouse = frappe.form_dict.get("greenhouse")
@@ -1242,31 +1270,12 @@ def getProductionProjection():
         filters={"greenhouse": greenhouse, "variety": variety,
                  "forecast_year": year, "status": "Active"},
         order_by="revision desc", limit=1, pluck="name")
-    fcname = fc[0] if fc else None
-    if not fcname:
-        today = frappe.utils.getdate(frappe.utils.nowdate())
-        iso = today.isocalendar()
-        lastweek = frappe.utils.getdate(str(year) + "-12-28").isocalendar()[1]
-        startweek = 1
-        if iso[0] == year:
-            startweek = iso[1]
-        window = lastweek - startweek + 1
-        if window < 1:
-            window = 1
-        fdoc = frappe.new_doc("Production Forecast")
-        fdoc.greenhouse = greenhouse
-        fdoc.variety = variety
-        fdoc.forecast_year = year
-        fdoc.start_week = startweek
-        fdoc.window_weeks = window
-        fdoc.insert(ignore_permissions=True)
-        frappe.db.commit()
-        fcname = fdoc.name
+    fcname = fc[0] if fc else _new_production_forecast(greenhouse, variety, year)
 
     fcrows = {}
     for r in frappe.get_all("Production Forecast Week",
             filters={"parent": fcname, "grade": "all"},
-            fields=["name", "week_number", "budget_stems",
+            fields=["name", "week_number", "budget_stems", "manual_budget_stems",
                     "revised_forecast_stems", "actual_stems", "note"]):
         fcrows[int(r.get("week_number") or 0)] = r
 
@@ -1279,9 +1288,10 @@ def getProductionProjection():
           AND se.stock_entry_type = 'Harvesting'
           AND (se.custom_greenhouse = %(greenhouse)s OR sed.t_warehouse = %(greenhouse)s)
           AND sed.item_code = %(variety)s
-          AND YEAR(se.posting_date) = %(year)s
+          AND se.posting_date BETWEEN %(first)s AND %(last)s
         GROUP BY WEEK(se.posting_date, 3)
-    """, {"greenhouse": greenhouse, "variety": variety, "year": year}, as_dict=True)
+    """, {"greenhouse": greenhouse, "variety": variety,
+          "first": str(year) + "-01-01", "last": str(year) + "-12-31"}, as_dict=True)
     actuals_map = {}
     for row in actuals:
         actuals_map[int(row.week_no)] = int(row.total_stems)
@@ -1304,7 +1314,8 @@ def getProductionProjection():
             # skipped if the app tries to save them.
             "name": fr.get("name") if fr else "week-" + str(wk),
             "week_no": wk,
-            "projected_qty": budget.get(wk, int(fr.get("budget_stems") or 0) if fr else 0),
+            "projected_qty": (fr and int(fr.get("manual_budget_stems") or 0))
+                or budget.get(wk, int(fr.get("budget_stems") or 0) if fr else 0),
             "actual_harvest": actuals_map.get(wk, int(fr.get("actual_stems") or 0) if fr else 0),
             "revised_forecast": int(fr.get("revised_forecast_stems") or 0) if fr else 0,
             "custom_comment": (fr.get("note") or "") if fr else "",
@@ -1417,7 +1428,10 @@ def productionCreateCropCycle():
                                 created_beds = created_beds + 1
                             n = n + 1
 
+                from upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle import prepare_bed_range
+
                 names = []
+                replaced = []
                 for variety in order:
                     g = groups[variety]
                     parts = []
@@ -1426,6 +1440,14 @@ def productionCreateCropCycle():
                             parts.append(str(rng[0]))
                         else:
                             parts.append(str(rng[0]) + "-" + str(rng[1]))
+                    # Planting over beds another cycle still holds replaces it
+                    # there: same as the desk's preflight, the old cycle gets an
+                    # uproot logged on those beds (and ends if nothing's left).
+                    prep = prepare_bed_range(greenhouse, ", ".join(parts), variety,
+                        planting_date=g["planting_date"] or None,
+                        bed_length=g["bed_length"] or None, bed_width=g["bed_width"] or None)
+                    for u in prep.get("uprooted") or []:
+                        replaced.append(u["cycle"] + " (" + (u["variety"] or "") + ") beds " + u["beds"])
                     doc = frappe.new_doc("Crop Cycle")
                     doc.greenhouse = greenhouse
                     if farm and frappe.db.exists("Farm", farm):
@@ -1455,7 +1477,9 @@ def productionCreateCropCycle():
                     "status": "success",
                     "name": names[0],
                     "names": names,
-                    "message": str(len(names)) + " crop cycle(s) created: " + ", ".join(names),
+                    "message": str(len(names)) + " crop cycle(s) created: " + ", ".join(names)
+                        + (". Replaced " + "; ".join(replaced) if replaced else ""),
+                    "replaced": replaced,
                     "beds": created_beds,
                     "varieties": len(names),
                 }
@@ -1616,6 +1640,12 @@ def productionGetPlanForm():
                 tasks.append({
                     'name': t.name,
                     'task_name': t.task_name or '',
+                    'assigned_task': t.assigned_task or '',
+                    'day': t.day or '',
+                    'purpose': t.purpose or '',
+                    'actual': t.actual or 0,
+                    'achievement': t.achievement or 0,
+                    'supervisors_remarks': t.supervisors_remarks or '',
                     'operation': t.operation or '',
                     'greenhouse': t.greenhouse or '',
                     'variety': t.variety or '',
@@ -1638,9 +1668,14 @@ def productionGetPlanForm():
                     'budget_stems': v.budget_stems or 0,
                     'notes': v.notes or '',
                 })
-            farm = frappe.db.get_value('Warehouse', doc.greenhouse, 'custom_farm') or '' if doc.greenhouse else ''
+            farm = doc.farm or (frappe.db.get_value('Warehouse', doc.greenhouse, 'custom_farm') or '' if doc.greenhouse else '')
+            supervisor_name = frappe.db.get_value('Employee', doc.supervisor, 'employee_name') or doc.supervisor if doc.supervisor else ''
             frappe.response['data'] = {
                 'name': doc.name,
+                'docstatus': doc.docstatus or 0,
+                'company': doc.company or '',
+                'supervisor': doc.supervisor or '',
+                'supervisor_name': supervisor_name or '',
                 'greenhouse': doc.greenhouse or '',
                 'farm': farm,
                 'plan_year': doc.plan_year or 0,
@@ -1658,8 +1693,13 @@ def productionGetPlanForm():
 def productionHarvestReport():
     data = frappe.request.get_json() or {}
     date = (data.get("date") or "").strip()
+    # A range (from_date..to_date, inclusive) or the single `date`.
+    from_date = (data.get("from_date") or date).strip()
+    to_date = (data.get("to_date") or from_date).strip()
+    if from_date and to_date and to_date < from_date:
+        from_date, to_date = to_date, from_date
     farm_filter = (data.get("farm") or "").strip()
-    if not date:
+    if not from_date:
         frappe.response["data"] = {"error": "date is required."}
     else:
         try:
@@ -1686,7 +1726,11 @@ def productionHarvestReport():
                 return out
 
             def aggregate(entry_type):
-                se_filters = {"stock_entry_type": entry_type, "docstatus": 1, "posting_date": date}
+                se_filters = {
+                    "stock_entry_type": entry_type,
+                    "docstatus": 1,
+                    "posting_date": ["between", [from_date, to_date]],
+                }
                 if farm_filter:
                     se_filters["farm"] = farm_filter
                 entries = frappe.get_all("Stock Entry", filters=se_filters,
@@ -1737,7 +1781,9 @@ def productionHarvestReport():
             harvested = aggregate("Harvesting")
             received = aggregate("Receiving")
             frappe.response["data"] = {
-                "date": date,
+                "date": from_date,
+                "from_date": from_date,
+                "to_date": to_date,
                 "total_stems": harvested["total"],
                 "farms": harvested["farms"],
                 "greenhouses": harvested["greenhouses"],
@@ -1931,14 +1977,14 @@ def productionListFarms():
         rows = frappe.get_all(
             "Farm",
             filters=filters,
-            fields=["name"],
+            fields=["name", "company"],
             order_by="name asc",
             limit=limit,
         )
         farms = []
         for r in rows:
             nm = r.get("name") or ""
-            farms.append({"name": nm, "label": nm})
+            farms.append({"name": nm, "label": nm, "company": r.get("company") or ""})
         frappe.response["data"] = {"count": len(farms), "farms": farms}
     except Exception as e:
         frappe.log_error("productionListFarms error: " + str(e))
@@ -2055,21 +2101,30 @@ def productionListGrowerCandidates():
 def productionListPlanForms():
     data = frappe.request.get_json() or {}
     greenhouse = (data.get('greenhouse') or '').strip()
+    greenhouses = [g for g in (data.get('greenhouses') or []) if g]
+    farm = (data.get('farm') or '').strip()
     plan_year = data.get('plan_year')
     plan_week = data.get('plan_week')
     limit = int(data.get('limit') or 200)
     if limit > 500:
         limit = 500
     try:
-        filters = {}
+        filters = {'docstatus': ['<', 2]}
         if greenhouse:
-            filters['greenhouse'] = greenhouse
+            greenhouses.append(greenhouse)
+        if greenhouses:
+            filters['greenhouse'] = ['in', greenhouses]
+        or_filters = None
+        if farm:
+            # Older plans have no farm of their own; match them by greenhouse.
+            farm_houses = frappe.get_all('Warehouse', filters={'custom_farm': farm}, pluck='name')
+            or_filters = {'farm': farm, 'greenhouse': ['in', farm_houses or ['']]}
         if plan_year:
             filters['plan_year'] = int(plan_year)
         if plan_week:
             filters['plan_week'] = int(plan_week)
-        rows = frappe.get_all('Production Plan Form', filters=filters,
-            fields=['name', 'greenhouse', 'plan_year', 'plan_week', 'plan_period'],
+        rows = frappe.get_all('Production Plan Form', filters=filters, or_filters=or_filters,
+            fields=['name', 'docstatus', 'greenhouse', 'farm', 'company', 'supervisor', 'plan_year', 'plan_week', 'plan_period'],
             order_by='plan_year desc, plan_week desc, modified desc', limit=limit)
         names = []
         for r in rows:
@@ -2098,7 +2153,10 @@ def productionListPlanForms():
             out.append({
                 'name': r.get('name') or '',
                 'greenhouse': gh,
-                'farm': farms.get(gh, ''),
+                'farm': r.get('farm') or farms.get(gh, ''),
+                'company': r.get('company') or '',
+                'supervisor': r.get('supervisor') or '',
+                'docstatus': r.get('docstatus') or 0,
                 'plan_year': r.get('plan_year') or 0,
                 'plan_week': r.get('plan_week') or 0,
                 'plan_period': r.get('plan_period') or '',
@@ -2180,18 +2238,80 @@ def productionListRejectionReasons():
 
     try:
         rows = frappe.get_all(
-            "Field Rejection Reason",
-            fields=["name"],
-            order_by="name asc",
+            "QC Parameters",
+            fields=["name", "parameter"],
+            order_by="parameter asc",
             limit=limit,
         )
         reasons = []
         for r in rows:
             nm = r.get("name") or ""
-            reasons.append({"name": nm, "label": nm})
+            reasons.append({"name": nm, "label": r.get("parameter") or nm})
         frappe.response["data"] = {"count": len(reasons), "reasons": reasons}
     except Exception as e:
         frappe.log_error("productionListRejectionReasons error: " + str(e))
+        frappe.response["data"] = {"error": str(e)}
+
+
+@frappe.whitelist()
+def productionListFieldRejects():
+    """Submitted Field Rejects entries, newest first, one row per item."""
+    data = frappe.request.get_json() or {}
+    farm = (data.get("farm") or "").strip()
+    greenhouse = (data.get("greenhouse") or "").strip()
+    start = max(frappe.utils.cint(data.get("start")), 0)
+    page_length = min(max(frappe.utils.cint(data.get("page_length")) or 30, 1), 200)
+
+    conds = ["se.docstatus = 1", "se.stock_entry_type = 'Field Rejects'"]
+    values = {"start": start, "page_length": page_length}
+    if farm:
+        conds.append("COALESCE(NULLIF(se.farm, ''), w.custom_farm) = %(farm)s")
+        values["farm"] = farm
+    if greenhouse:
+        conds.append("sed.s_warehouse = %(greenhouse)s")
+        values["greenhouse"] = greenhouse
+    where = " AND ".join(conds)
+
+    try:
+        total = frappe.db.sql("""
+            SELECT COUNT(*), COALESCE(SUM(sed.qty), 0)
+            FROM `tabStock Entry` se
+            JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+            LEFT JOIN `tabWarehouse` w ON w.name = sed.s_warehouse
+            WHERE """ + where, values)[0]
+        rows = frappe.db.sql("""
+            SELECT se.name, se.posting_date, se.posting_time,
+                   COALESCE(NULLIF(se.farm, ''), w.custom_farm) AS farm,
+                   sed.s_warehouse AS greenhouse, sed.item_code AS variety, sed.qty,
+                   sed.custom_rejection_reason AS reason, u.full_name AS recorded_by
+            FROM `tabStock Entry` se
+            JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+            LEFT JOIN `tabWarehouse` w ON w.name = sed.s_warehouse
+            LEFT JOIN `tabUser` u ON u.name = se.owner
+            WHERE """ + where + """
+            ORDER BY se.posting_date DESC, se.posting_time DESC, se.name DESC
+            LIMIT %(start)s, %(page_length)s
+        """, values, as_dict=True)
+        entries = []
+        for r in rows:
+            entries.append({
+                "name": r.name,
+                "date": str(r.posting_date or ""),
+                "time": frappe.utils.get_time(r.posting_time).strftime("%H:%M") if r.posting_time else "",
+                "farm": r.farm or "",
+                "greenhouse": r.greenhouse or "",
+                "variety": r.variety or "",
+                "stems": frappe.utils.flt(r.qty),
+                "reason": r.reason or "",
+                "recorded_by": r.recorded_by or "",
+            })
+        frappe.response["data"] = {
+            "total": frappe.utils.cint(total[0]),
+            "total_stems": frappe.utils.flt(total[1]),
+            "entries": entries,
+        }
+    except Exception as e:
+        frappe.log_error("productionListFieldRejects error: " + str(e))
         frappe.response["data"] = {"error": str(e)}
 
 
@@ -2512,6 +2632,9 @@ def productionSavePlanForm():
     greenhouse = (data.get('greenhouse') or '').strip()
     plan_year = data.get('plan_year')
     plan_week = data.get('plan_week')
+    company = (data.get('company') or '').strip()
+    farm = (data.get('farm') or '').strip()
+    supervisor = (data.get('supervisor') or '').strip()
     tasks = data.get('tasks') or []
     varieties = data.get('varieties') or []
 
@@ -2528,7 +2651,7 @@ def productionSavePlanForm():
                 greenhouse = None
             if greenhouse:
                 existing = frappe.get_all('Production Plan Form',
-                    filters={'greenhouse': greenhouse, 'plan_year': int(plan_year), 'plan_week': int(plan_week)},
+                    filters={'greenhouse': greenhouse, 'plan_year': int(plan_year), 'plan_week': int(plan_week), 'docstatus': ['<', 2]},
                     limit=1, pluck='name')
                 if existing:
                     doc = frappe.get_doc('Production Plan Form', existing[0])
@@ -2539,9 +2662,16 @@ def productionSavePlanForm():
                     doc.plan_year = int(plan_year)
                     doc.plan_week = int(plan_week)
                     doc.plan_period = 'W' + str(int(plan_week)) + ' ' + str(int(plan_year))
-                    doc.company = frappe.db.get_single_value('Global Defaults', 'default_company')
+                    doc.company = company or frappe.db.get_single_value('Global Defaults', 'default_company')
                     created = 1
         if greenhouse is not None or name:
+            ensure_plan_editable(doc)
+            if company:
+                doc.company = company
+            if farm:
+                doc.farm = farm
+            if supervisor:
+                doc.supervisor = supervisor
             # Rows with a 'name' update that row; rows without append. Nothing
             # is ever deleted from here — removing planned work is a desk job.
             taskmap = {}
@@ -2551,11 +2681,15 @@ def productionSavePlanForm():
                 row = taskmap.get(entry.get('name'))
                 if not row:
                     row = doc.append('tasks', {})
-                for f in ['task_name', 'operation', 'variety', 'beds', 'due_date', 'assigned_to', 'status', 'completion_note']:
+                if entry.get('day') is None and entry.get('day_of_week') is not None:
+                    entry['day'] = entry.get('day_of_week')
+                for f in ['task_name', 'assigned_task', 'day', 'purpose', 'supervisors_remarks', 'operation', 'variety', 'beds', 'due_date', 'assigned_to', 'status', 'completion_note']:
                     if entry.get(f) is not None:
                         row.set(f, entry.get(f))
                 if entry.get('target') is not None:
                     row.target = int(entry.get('target') or 0)
+                if entry.get('actual') is not None:
+                    row.actual = int(entry.get('actual') or 0)
                 if not row.greenhouse:
                     row.greenhouse = doc.greenhouse
                 if not row.status:
@@ -2641,6 +2775,9 @@ def productionUpdatePlanTask():
     task = (data.get('task') or '').strip()
     status = (data.get('status') or '').strip()
     completion_note = (data.get('completion_note') or '').strip()
+    supervisors_remarks = data.get('supervisors_remarks')
+    actual = data.get('actual')
+    submit = bool(data.get('submit'))
 
     if not plan:
         frappe.response['data'] = {'error': 'plan is required.'}
@@ -2658,6 +2795,7 @@ def productionUpdatePlanTask():
             if not row:
                 frappe.response['data'] = {'error': 'Task ' + task + ' not found on ' + plan + '.'}
             else:
+                ensure_plan_editable(doc)
                 row.status = status
                 now = frappe.utils.now()
                 if status == 'In Progress' and not row.started_at:
@@ -2668,13 +2806,20 @@ def productionUpdatePlanTask():
                     row.completed_at = None
                 if completion_note:
                     row.completion_note = completion_note
+                if supervisors_remarks is not None:
+                    row.supervisors_remarks = supervisors_remarks
+                if actual is not None and actual != '':
+                    row.actual = int(actual or 0)
                 doc.save(ignore_permissions=True)
+                if submit:
+                    doc.submit()
                 frappe.db.commit()
                 frappe.response['data'] = {
                     'status': 'success',
                     'name': plan,
                     'task': task,
-                    'message': (row.task_name or 'Task') + ' marked ' + status + '.',
+                    'docstatus': doc.docstatus,
+                    'message': (row.task_name or 'Task') + ' marked ' + status + '.' + (' Plan ' + plan + ' submitted.' if submit else ''),
                 }
         except Exception as e:
             frappe.db.rollback()
@@ -2736,20 +2881,27 @@ def submitFieldRejects():
     if qty <= 0:
         frappe.throw("Number of stems must be greater than 0")
 
+    cost_center = frappe.db.get_value("Warehouse", greenhouse, "custom_cost_center") or frappe.db.get_value(
+        "Company", "Karen Roses", "cost_center")
+    if not cost_center:
+        frappe.throw("Set a Cost Center on warehouse " + greenhouse + ".")
+
     doc = frappe.get_doc({
         "doctype": "Stock Entry",
         "stock_entry_type": "Field Rejects",
         "posting_date": frappe.utils.today(),
         "posting_time": frappe.utils.nowtime(),
         "company": "Karen Roses",
-        "custom_farm": farm,
+        "farm": farm,
         "items": [
             {
                 "s_warehouse": greenhouse,
                 "t_warehouse": "Rejects - KR",
+                "farm": farm,
                 "item_code": variety,
                 "qty": qty,
                 "custom_rejection_reason": rejection_reason,
+                "cost_center": cost_center,
             }
         ]
     })
@@ -2761,6 +2913,155 @@ def submitFieldRejects():
         "status": "success",
         "name": doc.name,
         "message": "Field rejection recorded successfully"
+    }
+
+
+@frappe.whitelist()
+def getWeekForecast():
+    """One page of greenhouse x variety rows for a single week: budget, actual,
+    revised and note. Rows that need a comment (last week, off budget by 10% or
+    more) come first; a page's missing Active forecasts are created on the way out."""
+    data = frappe.request.get_json() or {}
+    greenhouses = [g for g in (data.get("greenhouses") or []) if g]
+    year = frappe.utils.cint(data.get("year"))
+    week = frappe.utils.cint(data.get("week"))
+    current_week = frappe.utils.cint(data.get("current_week"))
+    search = (data.get("search") or "").strip().lower()
+    off_budget = bool(data.get("off_budget"))
+    start = max(frappe.utils.cint(data.get("start")), 0)
+    page_length = min(max(frappe.utils.cint(data.get("page_length")) or 50, 1), 200)
+
+    if not year or not week:
+        frappe.throw("Missing required fields: year, week")
+
+    empty = {"status": "success", "total": 0, "start": start, "filled": 0, "rows": []}
+    if not greenhouses:
+        frappe.response["message"] = empty
+        return
+
+    pairs = []
+    seen = set()
+    for r in frappe.get_all(
+        "Greenhouse Variety",
+        filters={"parent": ["in", greenhouses], "parenttype": "Greenhouse", "parentfield": "varieties_grown"},
+        fields=["parent", "variety"],
+        order_by="area_m2 desc",
+    ):
+        key = (r.parent, r.variety)
+        if r.variety and key not in seen:
+            seen.add(key)
+            pairs.append(key)
+    order = {g: i for i, g in enumerate(greenhouses)}
+    pairs.sort(key=lambda p: order.get(p[0], len(order)))
+    if search:
+        pairs = [p for p in pairs if search in p[0].lower() or search in p[1].lower()]
+    if not pairs:
+        frappe.response["message"] = empty
+        return
+
+    gh_list = sorted({p[0] for p in pairs})
+    var_list = sorted({p[1] for p in pairs})
+
+    budget = {}
+    for r in frappe.db.sql("""
+        SELECT pp.greenhouse, pp.variety, pw.projected_stems
+        FROM `tabProduction Projection` pp
+        JOIN `tabProjection Week` pw ON pw.parent = pp.name
+        WHERE pp.projection_year = %(year)s AND pw.week = %(week)s
+          AND pp.greenhouse IN %(ghs)s AND pp.variety IN %(vars)s
+    """, {"year": year, "week": week, "ghs": gh_list, "vars": var_list}, as_dict=True):
+        budget[(r.greenhouse, r.variety)] = frappe.utils.cint(r.projected_stems)
+
+    forecasts = {}
+    for r in frappe.get_all(
+        "Production Forecast",
+        filters={"greenhouse": ["in", gh_list], "variety": ["in", var_list],
+                 "forecast_year": year, "status": "Active"},
+        fields=["name", "greenhouse", "variety"],
+        order_by="revision asc",
+    ):
+        forecasts[(r.greenhouse, r.variety)] = r.name
+
+    fcrows = {}
+    if forecasts:
+        for r in frappe.get_all(
+            "Production Forecast Week",
+            filters={"parent": ["in", list(forecasts.values())], "grade": "all", "week_number": week},
+            fields=["parent", "name", "budget_stems", "manual_budget_stems", "revised_forecast_stems",
+                    "actual_stems", "note"],
+        ):
+            fcrows[r.parent] = r
+
+    monday = datetime.date.fromisocalendar(year, week, 1)
+    actual = {}
+    for r in frappe.db.sql("""
+        SELECT se.custom_greenhouse, sed.t_warehouse, sed.item_code, SUM(sed.qty) AS stems
+        FROM `tabStock Entry` se
+        JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+        WHERE se.docstatus = 1
+          AND se.stock_entry_type = 'Harvesting'
+          AND (se.custom_greenhouse IN %(ghs)s OR sed.t_warehouse IN %(ghs)s)
+          AND sed.item_code IN %(vars)s
+          AND se.posting_date BETWEEN %(monday)s AND %(sunday)s
+        GROUP BY se.custom_greenhouse, sed.t_warehouse, sed.item_code
+    """, {"monday": monday, "sunday": monday + datetime.timedelta(days=6),
+          "ghs": gh_list, "vars": var_list}, as_dict=True):
+        for gh in {r.custom_greenhouse, r.t_warehouse}:
+            if gh:
+                key = (gh, r.item_code)
+                actual[key] = actual.get(key, 0) + frappe.utils.flt(r.stems)
+
+    startweek, lastweek = _forecast_window(year)
+    comment_week = week == current_week - 1
+    rows = []
+    for key in pairs:
+        fcname = forecasts.get(key)
+        fr = fcrows.get(fcname) if fcname else None
+        if key not in budget and not fr and (fcname or not startweek <= week <= lastweek):
+            continue
+        projected = (fr and frappe.utils.cint(fr.manual_budget_stems)) or budget.get(
+            key, frappe.utils.cint(fr.budget_stems) if fr else 0)
+        harvested = int(actual[key]) if key in actual else (frappe.utils.cint(fr.actual_stems) if fr else 0)
+        if off_budget and not (week <= current_week and harvested != projected):
+            continue
+        flagged = comment_week and projected > 0 and abs(harvested - projected) * 10 >= projected
+        rows.append({
+            "greenhouse": key[0],
+            "variety": key[1],
+            "projection_name": fcname,
+            "flagged": flagged,
+            "week": {
+                "name": fr.name if fr else None,
+                "week_no": week,
+                "projected_qty": projected,
+                "actual_harvest": harvested,
+                "revised_forecast": frappe.utils.cint(fr.revised_forecast_stems) if fr else 0,
+                "custom_comment": (fr.note or "") if fr else "",
+            },
+        })
+    rows.sort(key=lambda r: 0 if r["flagged"] else 1)
+
+    page = rows[start:start + page_length]
+    for row in page:
+        if row["projection_name"]:
+            if not row["week"]["name"]:
+                row["week"]["name"] = "week-" + str(week)
+            continue
+        row["projection_name"] = _new_production_forecast(row["greenhouse"], row["variety"], year)
+        fr = frappe.db.get_value(
+            "Production Forecast Week",
+            {"parent": row["projection_name"], "grade": "all", "week_number": week},
+            ["name", "revised_forecast_stems", "note"],
+            as_dict=True,
+        )
+        row["week"]["name"] = fr.name if fr else "week-" + str(week)
+
+    frappe.response["message"] = {
+        "status": "success",
+        "total": len(rows),
+        "start": start,
+        "filled": sum(1 for r in rows if r["week"]["revised_forecast"] > 0),
+        "rows": page,
     }
 
 
@@ -2810,3 +3111,229 @@ def updateRevisedForecast():
     if skipped:
         msg = msg + " (" + str(skipped) + " outside the forecast window were skipped)"
     frappe.response["message"] = {"status": "success", "updated": updated, "message": msg}
+
+
+@frappe.whitelist()
+def productionListCompanies():
+    data = frappe.request.get_json() or {}
+    search = (data.get('search') or '').strip()
+    limit = int(data.get('limit') or 200)
+    if limit > 500:
+        limit = 500
+    try:
+        filters = {}
+        if search:
+            filters['name'] = ['like', '%' + search + '%']
+        rows = frappe.get_all('Company', filters=filters, fields=['name'], order_by='name asc', limit=limit)
+        out = []
+        for r in rows:
+            out.append({'name': r.get('name'), 'label': r.get('name')})
+        frappe.response['data'] = {'count': len(out), 'companies': out}
+    except Exception as e:
+        frappe.log_error('productionListCompanies error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}
+
+
+@frappe.whitelist()
+def productionListEmployees():
+    data = frappe.request.get_json() or {}
+    search = (data.get('search') or '').strip()
+    company = (data.get('company') or '').strip()
+    limit = int(data.get('limit') or 500)
+    if limit > 5000:
+        limit = 5000
+    try:
+        filters = {'status': 'Active'}
+        if company:
+            filters['company'] = company
+        or_filters = None
+        if search:
+            or_filters = {'employee_name': ['like', '%' + search + '%'], 'name': ['like', '%' + search + '%']}
+        rows = frappe.get_all('Employee', filters=filters, or_filters=or_filters,
+            fields=['name', 'employee_name', 'designation'], order_by='employee_name asc', limit=limit)
+        out = []
+        for r in rows:
+            out.append({'name': r.get('name'), 'label': r.get('employee_name') or r.get('name'),
+                'designation': r.get('designation') or ''})
+        me = frappe.db.get_value('Employee', {'user_id': frappe.session.user, 'status': 'Active'}, 'name') or ''
+        my_company = (frappe.db.get_value('Employee', me, 'company') if me else None) \
+            or frappe.defaults.get_user_default('Company') \
+            or frappe.db.get_single_value('Global Defaults', 'default_company') or ''
+        frappe.response['data'] = {'count': len(out), 'employees': out, 'me': me, 'my_company': my_company}
+    except Exception as e:
+        frappe.log_error('productionListEmployees error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}
+
+
+@frappe.whitelist()
+def productionListTasks():
+    data = frappe.request.get_json() or {}
+    search = (data.get('search') or '').strip()
+    limit = int(data.get('limit') or 500)
+    if limit > 5000:
+        limit = 5000
+    try:
+        filters = {'status': ['not in', ['Cancelled', 'Template']]}
+        or_filters = None
+        if search:
+            or_filters = {'subject': ['like', '%' + search + '%'], 'name': ['like', '%' + search + '%']}
+        rows = frappe.get_all('Task', filters=filters, or_filters=or_filters,
+            fields=['name', 'subject', 'project'], order_by='subject asc', limit=limit)
+        out = []
+        for r in rows:
+            out.append({'name': r.get('name'), 'label': r.get('subject') or r.get('name'),
+                'project': r.get('project') or ''})
+        frappe.response['data'] = {'count': len(out), 'tasks': out}
+    except Exception as e:
+        frappe.log_error('productionListTasks error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}
+
+
+# --- Greenhouse 5S / DMS audits ------------------------------------------
+# audit_type is "5S" or "DMS"; each maps to its own doctype with one
+# checklist table per section (see greenhouse_audit_templates.AUDIT_TYPES).
+
+AUDIT_HEADER_FIELDS = ['audit_date', 'farm', 'greenhouse', 'zone', 'zone_leader', 'auditor', 'auditee']
+
+
+def audit_doctype_sections(audit_type):
+    from upande_agriculture.greenhouse_audit_templates import AUDIT_TYPES
+    if audit_type not in AUDIT_TYPES:
+        frappe.throw('audit_type must be one of: ' + ', '.join(AUDIT_TYPES.keys()))
+    return AUDIT_TYPES[audit_type]
+
+
+def audit_payload(doc, sections):
+    out_sections = []
+    for section, table in sections.items():
+        rows = []
+        for r in (doc.get(table) or []):
+            rows.append({
+                'name': r.name or '',
+                'look_at': r.look_at or '',
+                'look_for': r.look_for or '',
+                'observation': r.observation or '',
+                'max_score': r.max_score or 0,
+                'score': '' if r.score in (None, '') else str(r.score),
+                'comments': r.comments or '',
+            })
+        out_sections.append({'section': section, 'table': table, 'rows': rows})
+    out = {
+        'name': doc.name if not doc.is_new() else '',
+        'docstatus': doc.docstatus or 0,
+        'audit_template': doc.audit_template or '',
+        'total_score': doc.total_score or 0,
+        'max_score': doc.max_score or 0,
+        'percentage': doc.percentage or 0,
+        'sections': out_sections,
+    }
+    for f in AUDIT_HEADER_FIELDS:
+        out[f] = str(doc.get(f) or '')
+    for f in ['zone_leader', 'auditor', 'auditee']:
+        out[f + '_name'] = doc.get(f + '_name') or ''
+    out['scores'] = frappe.get_all('Greenhouse Audit Score', pluck='name', order_by='score asc')
+    return out
+
+
+@frappe.whitelist()
+def productionListAudits():
+    data = frappe.request.get_json() or {}
+    audit_type = (data.get('audit_type') or '').strip()
+    greenhouse = (data.get('greenhouse') or '').strip()
+    limit = int(data.get('limit') or 100)
+    if limit > 500:
+        limit = 500
+    try:
+        doctype = audit_doctype_sections(audit_type)[0]
+        filters = {'docstatus': ['<', 2]}
+        if greenhouse:
+            filters['greenhouse'] = greenhouse
+        rows = frappe.get_all(doctype, filters=filters,
+            fields=['name', 'audit_date', 'farm', 'greenhouse', 'zone', 'auditor_name',
+                'total_score', 'max_score', 'percentage', 'docstatus'],
+            order_by='audit_date desc, creation desc', limit=limit)
+        out = []
+        for r in rows:
+            out.append({
+                'name': r.get('name'), 'audit_date': str(r.get('audit_date') or ''),
+                'farm': r.get('farm') or '', 'greenhouse': r.get('greenhouse') or '',
+                'zone': r.get('zone') or '', 'auditor_name': r.get('auditor_name') or '',
+                'total_score': r.get('total_score') or 0, 'max_score': r.get('max_score') or 0,
+                'percentage': r.get('percentage') or 0, 'docstatus': r.get('docstatus') or 0,
+            })
+        frappe.response['data'] = {'count': len(out), 'audits': out}
+    except Exception as e:
+        frappe.log_error('productionListAudits error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}
+
+
+@frappe.whitelist()
+def productionGetAudit():
+    # With a name: that audit. Without: a blank audit with the checklist
+    # already loaded from the type's default template, for a new entry.
+    data = frappe.request.get_json() or {}
+    audit_type = (data.get('audit_type') or '').strip()
+    name = (data.get('name') or '').strip()
+    try:
+        doctype, sections = audit_doctype_sections(audit_type)
+        if name:
+            doc = frappe.get_doc(doctype, name)
+        else:
+            from upande_agriculture.greenhouse_audit import default_template
+            doc = frappe.new_doc(doctype)
+            doc.audit_template = default_template(audit_type)
+            if not doc.audit_template:
+                frappe.throw('No enabled ' + audit_type + ' Greenhouse Audit Template.')
+            doc.audit_date = frappe.utils.today()
+            doc.auditor = frappe.db.get_value('Employee', {'user_id': frappe.session.user, 'status': 'Active'}, 'name')
+            if doc.auditor:
+                doc.auditor_name = frappe.db.get_value('Employee', doc.auditor, 'employee_name')
+            doc.load_checklist()
+            doc.compute_scores()
+        frappe.response['data'] = audit_payload(doc, sections)
+    except Exception as e:
+        frappe.log_error('productionGetAudit error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}
+
+
+@frappe.whitelist()
+def productionSaveAudit():
+    # sections: {table fieldname: [{score, comments}, ...]} in checklist order.
+    data = frappe.request.get_json() or {}
+    audit_type = (data.get('audit_type') or '').strip()
+    name = (data.get('name') or '').strip()
+    sections_in = data.get('sections') or {}
+    submit = bool(data.get('submit'))
+    try:
+        doctype, sections = audit_doctype_sections(audit_type)
+        if name:
+            doc = frappe.get_doc(doctype, name)
+            if doc.docstatus != 0:
+                frappe.throw(name + ' is already submitted.')
+        else:
+            doc = frappe.new_doc(doctype)
+        for f in AUDIT_HEADER_FIELDS:
+            if data.get(f) is not None:
+                doc.set(f, data.get(f) or None)
+        if doc.is_new():
+            doc.run_method('before_validate')
+        for table in sections.values():
+            rows = doc.get(table) or []
+            entries = sections_in.get(table) or []
+            for i in range(min(len(rows), len(entries))):
+                entry = entries[i] or {}
+                if entry.get('score') is not None:
+                    rows[i].score = str(entry.get('score')) if entry.get('score') != '' else None
+                if entry.get('comments') is not None:
+                    rows[i].comments = entry.get('comments')
+        doc.save(ignore_permissions=True)
+        if submit:
+            doc.submit()
+        frappe.db.commit()
+        out = audit_payload(doc, sections)
+        out['message'] = doc.name + (' submitted' if submit else ' saved') + ' - ' + str(doc.total_score) + '/' + str(doc.max_score) + ' (' + str(doc.percentage) + '%).'
+        frappe.response['data'] = out
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error('productionSaveAudit error: ' + str(e))
+        frappe.response['data'] = {'error': str(e)}

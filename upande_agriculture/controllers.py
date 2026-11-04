@@ -316,9 +316,8 @@ def production_plan_form_on_trash(doc, method=None):
 def production_plan_form_on_update(doc, method=None):
     """Create one ToDo per task row, idempotent.
 
-    Production Plan Form is not submittable (plan stays editable; a banner
-    flags past-week plans). We use on_update so re-saves keep the ToDos in
-    sync via the idempotent (reference, tag) upsert.
+    Drafts are re-saved as tasks change, so on_update keeps the ToDos in sync
+    via the idempotent (reference, tag) upsert. A submitted plan is locked.
 
     Known v1 limitation: removing a task row does not auto-delete its
     previously-created ToDo. Supervisor closes obsolete ToDos manually.

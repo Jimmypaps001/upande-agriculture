@@ -1,0 +1,266 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-11-03 11:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "audit_template",
+  "audit_date",
+  "farm",
+  "greenhouse",
+  "zone",
+  "column_break_people",
+  "zone_leader",
+  "zone_leader_name",
+  "auditor",
+  "auditor_name",
+  "auditee",
+  "auditee_name",
+  "daily_work_management_section",
+  "daily_work_management",
+  "team_performance_section",
+  "team_performance",
+  "gh_safety_section",
+  "gh_safety",
+  "score_section",
+  "section_scores",
+  "total_score",
+  "column_break_score",
+  "max_score",
+  "percentage",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "GHDMS-.YYYY.-",
+   "default": "GHDMS-.YYYY.-",
+   "hidden": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "audit_template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Greenhouse Audit Template",
+   "reqd": 1,
+   "link_filters": "[[\"Greenhouse Audit Template\", \"audit_type\", \"=\", \"DMS\"], [\"Greenhouse Audit Template\", \"disabled\", \"=\", 0]]",
+   "read_only": 1
+  },
+  {
+   "fieldname": "audit_date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "default": "Today",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "farm",
+   "fieldtype": "Link",
+   "label": "Farm",
+   "options": "Farm",
+   "fetch_from": "greenhouse.custom_farm",
+   "fetch_if_empty": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "greenhouse",
+   "fieldtype": "Link",
+   "label": "Greenhouse",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "zone",
+   "fieldtype": "Data",
+   "label": "Zone",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_people",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "zone_leader",
+   "fieldtype": "Link",
+   "label": "Zone Leader",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "zone_leader_name",
+   "fieldtype": "Data",
+   "label": "Zone Leader Name",
+   "fetch_from": "zone_leader.employee_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auditor",
+   "fieldtype": "Link",
+   "label": "Auditor",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "auditor_name",
+   "fieldtype": "Data",
+   "label": "Auditor Name",
+   "fetch_from": "auditor.employee_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "auditee",
+   "fieldtype": "Link",
+   "label": "Auditee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "auditee_name",
+   "fieldtype": "Data",
+   "label": "Auditee Name",
+   "fetch_from": "auditee.employee_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "daily_work_management_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "daily_work_management",
+   "fieldtype": "Table",
+   "label": "Daily Work Management",
+   "options": "Greenhouse Audit Item"
+  },
+  {
+   "fieldname": "team_performance_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "team_performance",
+   "fieldtype": "Table",
+   "label": "Team Performance (KPI)",
+   "options": "Greenhouse Audit Item"
+  },
+  {
+   "fieldname": "gh_safety_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "gh_safety",
+   "fieldtype": "Table",
+   "label": "GH Safety",
+   "options": "Greenhouse Audit Item"
+  },
+  {
+   "fieldname": "score_section",
+   "fieldtype": "Section Break",
+   "label": "Score"
+  },
+  {
+   "fieldname": "section_scores",
+   "fieldtype": "Table",
+   "label": "Section Scores",
+   "options": "Greenhouse Audit Section Score",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_score",
+   "fieldtype": "Int",
+   "label": "Total Score",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_score",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_score",
+   "fieldtype": "Int",
+   "label": "Out Of",
+   "read_only": 1
+  },
+  {
+   "fieldname": "percentage",
+   "fieldtype": "Percent",
+   "label": "Percentage",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Greenhouse DMS Audit",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "search_index": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-11-03 17:00:00",
+ "modified_by": "Administrator",
+ "module": "Upande Agriculture",
+ "name": "Greenhouse DMS Audit",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1,
+   "delete": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "Agriculture Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1,
+   "delete": 1,
+   "cancel": 1,
+   "amend": 1
+  },
+  {
+   "role": "Agriculture User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "submit": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "greenhouse",
+ "track_changes": 1
+}

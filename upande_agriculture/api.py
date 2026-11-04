@@ -4,7 +4,7 @@ Schema corrections applied vs. brief:
 - Projection Week: uses field `week` (not `week_number`).
 - Production Forecast Week: uses `week_number` (confirmed correct).
 - regenerate_projection: iterates proj.weeks rows using row.week (not row.week_number).
-- submit_production_plan: uses insert() only — Production Plan Form is not submittable.
+- submit_production_plan: uses insert() only — the plan stays a draft; submitting it is a separate step.
 - promote_trial_to_cycle: Flower Trial has no varieties child table on mona2.
   Uses scalar field `variety_yield` instead of `varieties_tested[0].variety`.
 """
@@ -265,8 +265,7 @@ def regenerate_projection(projection_name: str) -> dict:
 def submit_production_plan(payload: str | dict) -> dict:
     """Insert a Production Plan Form from a JSON payload.
 
-    Note: Production Plan Form is NOT submittable (docstatus never set to 1).
-    We use insert() only; the on_update hook creates ToDos automatically.
+    Inserts a draft (docstatus 0); the on_update hook creates ToDos automatically.
     """
     if isinstance(payload, str):
         payload = json.loads(payload)

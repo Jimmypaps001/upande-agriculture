@@ -75,6 +75,13 @@ def bed_area_field() -> str:
     return "bed_area" if frappe.get_meta("Bed").has_field("bed_area") else "bed__area"
 
 
+def bed_area_of(b) -> float:
+    """A Bed's area, falling back to length x width when the declared area
+    field is empty -- kaitet's upande_scp Bed has bed__area at 0 on every
+    record, the real figures left in a column the doctype no longer declares."""
+    return float(b.get("bed_area") or 0) or round(float(b.get("bed_length") or 0) * float(b.get("bed_width") or 0), 4)
+
+
 def uprooted_bed_numbers(cycle_name: str) -> set[int]:
     """Bed numbers already logged as removed from this cycle via its own
     Uproot Log.
@@ -105,6 +112,25 @@ def _compact(numbers: list[int]) -> str:
     return ", ".join(out)
 
 
+_own_range_cache: dict[tuple[str, str], set[int]] = {}
+
+
+def in_own_range(cycle: str, bed_range: str | None, bed: int) -> bool:
+    """Whether a bed row really belongs to its cycle's planting.
+
+    Cycles carried over from the old greenhouse-shaped Crop Cycle hold a bed
+    row for every bed in the house (e.g. 1-264) while their bed_range says
+    what was actually planted (1-18). The rows outside it aren't standing
+    under that cycle, and its own save drops them -- counting them as
+    occupied blocks every planting next door.
+    """
+    key = (cycle, bed_range or "")
+    if key not in _own_range_cache:
+        _own_range_cache[key] = set(parse_bed_range(bed_range)[0]) if bed_range else set()
+    own = _own_range_cache[key]
+    return not own or bed in own
+
+
 def _range_conflicts(greenhouse: str, wanted: list[int], exclude_cycle: str | None) -> list[dict]:
     """Active cycles still standing on any of these beds, with what's standing.
 
@@ -115,7 +141,7 @@ def _range_conflicts(greenhouse: str, wanted: list[int], exclude_cycle: str | No
         return []
     rows = frappe.db.sql(
         """
-        SELECT cc.name, cc.variety, b.bed, ccb.plants, ccb.status
+        SELECT cc.name, cc.variety, cc.bed_range, b.bed, ccb.plants, ccb.status
         FROM `tabCrop Cycle Bed` ccb
         JOIN `tabBed` b ON b.name = ccb.bed
         JOIN `tabCrop Cycle` cc ON cc.name = ccb.parent
@@ -131,7 +157,7 @@ def _range_conflicts(greenhouse: str, wanted: list[int], exclude_cycle: str | No
     uprooted_cache: dict[str, set[int]] = {}
     for r in rows:
         n = int(r.bed)
-        if r.status == "Uprooted":
+        if r.status == "Uprooted" or not in_own_range(r.name, r.bed_range, n):
             continue
         removed = uprooted_cache.setdefault(r.name, uprooted_bed_numbers(r.name))
         if n in removed:
@@ -318,7 +344,7 @@ class CropCycle(Document):
                 "bed": b.name,
                 "bed_length": b.bed_length,
                 "bed_width": b.bed_width,
-                "bed_area": b.bed_area,
+                "bed_area": bed_area_of(b),
                 "fraction_planted": partial.get(n, 1.0),
                 "plants": existing_plants.get(b.name),
             })
@@ -346,7 +372,7 @@ class CropCycle(Document):
 
         conflicts = frappe.db.sql(
             """
-            SELECT cc.name, cc.variety, b.bed
+            SELECT cc.name, cc.variety, cc.bed_range, b.bed
             FROM `tabCrop Cycle Bed` ccb
             JOIN `tabBed` b ON b.name = ccb.bed
             JOIN `tabCrop Cycle` cc ON cc.name = ccb.parent
@@ -368,7 +394,9 @@ class CropCycle(Document):
         }
         # int-cast: upande_scp's Bed stores the number as Data, and the
         # uprooted sets hold ints -- without it every freed bed still conflicts.
-        real = [row for row in conflicts if int(row.bed) not in uprooted_by_cycle.get(row.name, set())]
+        real = [row for row in conflicts
+                if int(row.bed) not in uprooted_by_cycle.get(row.name, set())
+                and in_own_range(row.name, row.bed_range, int(row.bed))]
         if not real:
             return
         c = real[0]
@@ -391,9 +419,10 @@ class CropCycle(Document):
         full_areas = {}
         if bed_names:
             full_areas = {
-                b.name: float(b.bed_area or 0)
+                b.name: bed_area_of(b)
                 for b in frappe.get_all(
-                    "Bed", filters={"name": ("in", bed_names)}, fields=["name", f"{bed_area_field()} as bed_area"]
+                    "Bed", filters={"name": ("in", bed_names)},
+                    fields=["name", "bed_length", "bed_width", f"{bed_area_field()} as bed_area"],
                 )
             }
 
