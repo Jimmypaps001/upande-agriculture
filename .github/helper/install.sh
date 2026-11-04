@@ -67,6 +67,16 @@ bench start &>> ~/frappe-bench/bench_start.log &
 CI=Yes bench build --app frappe &
 bench --site test_site reinstall --yes
 
+# Seed ERPNext's shared test fixtures (_Test Customer, _Test Company, ...)
+# BEFORE the Upande apps land. This app's FrappeTestCase suites make the runner
+# preload test records for every doctype, which walks Link fields into
+# Warehouse and imports erpnext.tests.utils -> BootStrapTestData. Packhouse
+# makes Customer.default_price_list mandatory, so those fixture inserts fail
+# once it is installed. BootStrapTestData skips records that already exist, so
+# seeding them here makes the later bootstrap a no-op.
+bench --verbose --site test_site install-app erpnext
+bench --site test_site execute erpnext.tests.utils.BootStrapTestData
+
 # Order matters: core (masters) -> packhouse -> agriculture, because
 # agriculture Links at packhouse's Bucket QR Code.
 bench --verbose --site test_site install-app upande_core
