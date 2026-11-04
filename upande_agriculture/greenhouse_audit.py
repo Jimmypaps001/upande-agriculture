@@ -88,7 +88,7 @@ def default_template(audit_type):
 
 
 @frappe.whitelist()
-def get_checklist(audit_template):
+def get_checklist(audit_template: str):
 	"""{table fieldname: [rows]} for the form to load when the template changes."""
 	template = frappe.get_doc("Greenhouse Audit Template", audit_template)
 	template.check_permission("read")
@@ -100,5 +100,5 @@ def get_checklist(audit_template):
 
 
 @frappe.whitelist()
-def get_default_template(audit_type):
+def get_default_template(audit_type: str):
 	return default_template(audit_type)

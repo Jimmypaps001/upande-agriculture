@@ -457,7 +457,7 @@ def _forecast_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
 	if not codes:
 		return [0] * MAX_ISO_WEEK
 	placeholders = ", ".join(["%s"] * len(codes))
-	rows = frappe.db.sql(
+	rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         SELECT fw.week_number, SUM(
             CASE WHEN fw.revised_forecast_stems > 0
@@ -488,7 +488,7 @@ def _plan_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
 	if not codes:
 		return [0] * MAX_ISO_WEEK
 	placeholders = ", ".join(["%s"] * len(codes))
-	rows = frappe.db.sql(
+	rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         SELECT pf.plan_week, SUM(pv.planned_stems) AS s
         FROM `tabProduction Plan Form` pf
@@ -537,7 +537,7 @@ def _actual_week_array(greenhouse: str, variety: str, year: int) -> list[int]:
 	if not codes:
 		return [0] * MAX_ISO_WEEK
 	placeholders = ", ".join(["%s"] * len(codes))
-	rows = frappe.db.sql(
+	rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         SELECT WEEK(se.posting_date, 3) AS w, SUM(sed.qty) AS s
         FROM `tabStock Entry` se

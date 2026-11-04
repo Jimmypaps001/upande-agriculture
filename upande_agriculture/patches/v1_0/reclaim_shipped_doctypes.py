@@ -14,6 +14,7 @@ def execute():
 		path = os.path.join(doctype_dir, folder, folder + ".json")
 		if not os.path.exists(path):
 			continue
+		# nosemgrep: frappe-security-file-traversal -- path is built from this app's own doctype folder
 		name = frappe.parse_json(open(path).read()).get("name")
 		if name and frappe.db.get_value("DocType", name, "custom"):
 			frappe.db.set_value(

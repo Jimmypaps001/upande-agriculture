@@ -69,7 +69,7 @@ def _plan_rows(year: int, week: int, greenhouse: str | None = None) -> list:
 	if greenhouse:
 		cond = " AND pp.greenhouse = %(gh)s"
 		args["gh"] = greenhouse
-	rows = frappe.db.sql(
+	rows = frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         SELECT pp.name AS plan, pp.greenhouse AS plan_house, pp.plan_year, pp.plan_week,
                t.name AS task, t.idx, t.task_name, t.operation, t.greenhouse,
@@ -390,7 +390,7 @@ def update_task(
 	due_day: str | None = None,
 	task_name: str | None = None,
 	operation: str | None = None,
-	target=None,
+	target: int | str | None = None,
 	assigned_to: str | None = None,
 	beds: str | None = None,
 ) -> dict:

@@ -5,8 +5,7 @@ frappe.ui.form.on("Production Projection", {
 		frm.add_custom_button(__("Rebuild from Crop Cycles"), () => {
 			frappe.confirm(
 				__(
-					"Rebuild all 52 weeks from the crop cycles in {0}?<br><br>" +
-						"Locked and hand-edited weeks are left alone.",
+					"Rebuild all 52 weeks from the crop cycles in {0}?<br><br>Locked and hand-edited weeks are left alone.",
 					[frm.doc.greenhouse]
 				),
 				() =>
@@ -68,8 +67,7 @@ function show_grades(r) {
 	if (!lengths.length) {
 		frappe.msgprint(
 			__(
-				"This variety's Crop Protocol has no grade mix. " +
-					"Run <b>Calibrate from Actuals</b> on the protocol to build one."
+				"This variety's Crop Protocol has no grade mix. Run <b>Calibrate from Actuals</b> on the protocol to build one."
 			)
 		);
 		return;

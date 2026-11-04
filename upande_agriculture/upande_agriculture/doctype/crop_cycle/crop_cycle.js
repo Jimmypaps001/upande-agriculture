@@ -171,7 +171,7 @@ function show_preflight_dialog(frm, r) {
 							__("{0} uprooted on {1}{2}", [
 								u.cycle,
 								u.beds,
-								u.ended ? __(" (cycle ended)") : "",
+								u.ended ? " " + __("(cycle ended)") : "",
 							])
 						);
 					}
@@ -230,8 +230,7 @@ function bed_range_hint(frm) {
 		frm.set_df_property(
 			"bed_range",
 			"description",
-			"Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. " +
-				"The table below fills itself on save."
+			"Type the beds: <b>1-50</b>, or <b>1-20, 31-40</b> for split blocks. The table below fills itself on save."
 		);
 		return;
 	}
@@ -255,8 +254,7 @@ function bed_range_hint(frm) {
 		frm.set_df_property(
 			"bed_range",
 			"description",
-			"<span style='color:var(--red-500)'>Can't read that. Use <b>1-50</b> " +
-				"or <b>1-20, 31-40</b>.</span>"
+			"<span style='color:var(--red-500)'>Can't read that. Use <b>1-50</b> or <b>1-20, 31-40</b>.</span>"
 		);
 		return;
 	}
@@ -450,8 +448,7 @@ function run_budget(frm, values) {
 				title: __("Budget built"),
 				indicator: "green",
 				message: __(
-					"<b>{0}</b> stems across {1} week(s), from {2} crop cycle(s)." +
-						"<br><br><a href='/app/production-projection/{3}'>{3}</a>{4}",
+					"<b>{0}</b> stems across {1} week(s), from {2} crop cycle(s).<br><br><a href='/app/production-projection/{3}'>{3}</a>{4}",
 					[
 						frappe.format(r.total_stems, { fieldtype: "Int" }),
 						r.weeks_written,

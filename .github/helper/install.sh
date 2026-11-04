@@ -73,9 +73,23 @@ bench --site test_site reinstall --yes
 # Warehouse and imports erpnext.tests.utils -> BootStrapTestData. Packhouse
 # makes Customer.default_price_list mandatory, so those fixture inserts fail
 # once it is installed. BootStrapTestData skips records that already exist, so
-# seeding them here makes the later bootstrap a no-op.
+# seeding them here makes the later bootstrap a no-op. Test mode must be on, as
+# under run-tests, or the fixture users fail the password-strength check.
 bench --verbose --site test_site install-app erpnext
-bench --site test_site execute erpnext.tests.utils.BootStrapTestData
+(cd ~/frappe-bench/sites && ../env/bin/python - <<'PY'
+import frappe
+
+frappe.init("test_site", sites_path=".")
+frappe.connect()
+from frappe.tests.utils import toggle_test_mode
+
+toggle_test_mode(True)
+import erpnext.tests.utils  # module import runs BootStrapTestData()
+
+frappe.db.commit()
+frappe.destroy()
+PY
+)
 
 # Order matters: core (masters) -> packhouse -> agriculture, because
 # agriculture Links at packhouse's Bucket QR Code.

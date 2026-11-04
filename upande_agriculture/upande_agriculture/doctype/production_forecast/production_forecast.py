@@ -228,7 +228,7 @@ def refresh_actuals(forecast: str) -> dict:
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def variety_query(doctype, txt, searchfield, start, page_len, filters):
+def variety_query(doctype: str, txt: str, searchfield: str, start: int, page_len: int, filters: dict | None):
 	"""Link query for Variety on this form: only varieties this greenhouse
 	has actually grown, via its Crop Cycles -- a full Item list is useless
 	when the whole point is "what's in this house"."""

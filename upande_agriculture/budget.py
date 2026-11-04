@@ -397,7 +397,7 @@ def _harvest_rows(variety: str, greenhouse: str | None):
 	if greenhouse:
 		conds.append("sed.t_warehouse = %s")
 		args.append(greenhouse)
-	return frappe.db.sql(
+	return frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         SELECT sed.item_code, sed.qty, se.posting_date
         FROM `tabStock Entry` se
@@ -484,10 +484,10 @@ def week_span(sy: int, sw: int, ey: int, ew: int) -> list:
 @frappe.whitelist()
 def grid_payload(
 	year: int | None = None,
-	start_year=None,
-	start_week=None,
-	end_year=None,
-	end_week=None,
+	start_year: int | None = None,
+	start_week: int | None = None,
+	end_year: int | None = None,
+	end_week: int | None = None,
 	mode: str | None = None,
 ) -> dict:
 	"""Everything the Production Budget page draws in one round trip.
@@ -893,7 +893,10 @@ def set_forecast_cell(
 
 @frappe.whitelist()
 def revise_blocks(
-	blocks, year: int | None = None, start_week: int | None = None, window_weeks: int | None = None
+	blocks: str | list,
+	year: int | None = None,
+	start_week: int | None = None,
+	window_weeks: int | None = None,
 ) -> dict:
 	"""Open a fresh revision for each block, superseding its live one.
 

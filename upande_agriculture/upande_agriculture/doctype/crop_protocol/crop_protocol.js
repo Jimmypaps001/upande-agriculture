@@ -9,8 +9,7 @@ frappe.ui.form.on("Crop Protocol", {
 		if (frm.doc.stems_per_cut > 1 && !frm.doc.max_stems_per_plant_per_cut) {
 			frm.dashboard.set_headline(
 				__(
-					"Set <b>Max Stems Per Plant Per Cut</b> — without it the " +
-						"{0}× multiplier compounds forever and no budget can be built.",
+					"Set <b>Max Stems Per Plant Per Cut</b> — without it the {0}× multiplier compounds forever and no budget can be built.",
 					[frm.doc.stems_per_cut]
 				),
 				"orange"
@@ -21,8 +20,7 @@ frappe.ui.form.on("Crop Protocol", {
 				(1 - (frm.doc.reject_pct || 0) / 100);
 			frm.dashboard.set_headline(
 				__(
-					"At full production this variety yields about <b>{0}</b> stems " +
-						"per week per 1,000 plants.",
+					"At full production this variety yields about <b>{0}</b> stems per week per 1,000 plants.",
 					[Math.round(per_1000).toLocaleString()]
 				)
 			);
@@ -31,8 +29,7 @@ frappe.ui.form.on("Crop Protocol", {
 				1000 * frm.doc.total_stems_per_plant_life * (1 - (frm.doc.reject_pct || 0) / 100);
 			frm.dashboard.set_headline(
 				__(
-					"Across its {0} flushes, this variety yields about <b>{1}</b> " +
-						"stems per 1,000 plants each year.",
+					"Across its {0} flushes, this variety yields about <b>{1}</b> stems per 1,000 plants each year.",
 					[frm.doc.total_flushes, Math.round(per_1000).toLocaleString()]
 				)
 			);

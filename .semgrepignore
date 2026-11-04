@@ -20,3 +20,6 @@ frappe-semgrep-rules/
 
 # local-only dev scripts (docs/bucket-journey/jtest_*), never deployed
 docs/
+
+# one-off maintenance scripts run by hand against a named site, not app code
+scripts/

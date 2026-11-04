@@ -3281,7 +3281,7 @@ def submitFieldRejects():
 		"Company", "Karen Roses", "cost_center"
 	)
 	if not cost_center:
-		frappe.throw("Set a Cost Center on warehouse " + greenhouse + ".")
+		frappe.throw(_("Set a Cost Center on warehouse {0}.").format(greenhouse))
 
 	doc = frappe.get_doc(
 		{
@@ -3331,7 +3331,7 @@ def getWeekForecast():
 	page_length = min(max(frappe.utils.cint(data.get("page_length")) or 50, 1), 200)
 
 	if not year or not week:
-		frappe.throw("Missing required fields: year, week")
+		frappe.throw(_("Missing required fields: year, week"))
 
 	empty = {"status": "success", "total": 0, "start": start, "filled": 0, "rows": []}
 	if not greenhouses:
@@ -3648,7 +3648,7 @@ def audit_doctype_sections(audit_type):
 	from upande_agriculture.greenhouse_audit_templates import AUDIT_TYPES
 
 	if audit_type not in AUDIT_TYPES:
-		frappe.throw("audit_type must be one of: " + ", ".join(AUDIT_TYPES.keys()))
+		frappe.throw(_("audit_type must be one of: {0}").format(", ".join(AUDIT_TYPES.keys())))
 	return AUDIT_TYPES[audit_type]
 
 
@@ -3756,7 +3756,7 @@ def productionGetAudit():
 			doc = frappe.new_doc(doctype)
 			doc.audit_template = default_template(audit_type)
 			if not doc.audit_template:
-				frappe.throw("No enabled " + audit_type + " Greenhouse Audit Template.")
+				frappe.throw(_("No enabled {0} Greenhouse Audit Template.").format(audit_type))
 			doc.audit_date = frappe.utils.today()
 			doc.auditor = frappe.db.get_value(
 				"Employee", {"user_id": frappe.session.user, "status": "Active"}, "name"

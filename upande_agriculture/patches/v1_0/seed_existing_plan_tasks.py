@@ -11,7 +11,7 @@ def execute():
 	if not frappe.db.has_table("tabProduction Plan Task"):
 		return
 	placeholders = ", ".join(["%s"] * len(VALID_STATUSES))
-	frappe.db.sql(
+	frappe.db.sql(  # nosemgrep: frappe-sql-format-injection -- f-string only inserts %s placeholders / fixed conditions; values are parameterised
 		f"""
         UPDATE `tabProduction Plan Task`
         SET status = 'Open'
