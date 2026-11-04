@@ -24,7 +24,7 @@
   },
   {
    "fieldname": "days_to_harvest",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Days to Harvest",
    "in_list_view": 1
   },
@@ -48,7 +48,7 @@
    "label": "Description"
   }
  ],
- "modified": "2026-10-08 11:30:00",
+ "modified": "2026-11-04 10:00:00",
  "modified_by": "Administrator",
  "permissions": [],
  "sort_field": "modified",

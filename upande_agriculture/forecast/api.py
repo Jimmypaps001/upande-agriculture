@@ -102,7 +102,7 @@ def get_plot_plan(farm=None):
 			continue
 		if can_create:
 			created = ensure_plots(row) or created
-		stages = [{"stage_name": n, "days_to_harvest": round(v[0])} for n, v in data.stages(row.variety).items()]
+		stages = [{"stage_name": n, "days_to_harvest": round(v[0])} for n, v in data.stages(row.variety, row.greenhouse).items()]
 		spots = frappe.get_all("Sample Plot", filters={"greenhouse": row.greenhouse, "section": row.section, "active": 1},
 			fields=["name", "title", "plot_no", "bed", "position", "plants", "set_up"])
 		spots.sort(key=lambda p: (not p.bed, p.bed or 0, p.plot_no))
@@ -191,7 +191,7 @@ def submit_plot_count(client_uuid, sample_plot, counts, plants_counted=None, not
 	plot = frappe.get_doc("Sample Plot", sample_plot)
 	if plants_counted in (None, ""):
 		plants_counted = max(0, (plot.plants or SPOT_PLANTS) - missing_plants)
-	params = data.stages(plot.variety)
+	params = data.stages(plot.variety, plot.greenhouse)
 	days = {n: round(v[0]) for n, v in params.items()}
 	day = getdate(captured_at) if captured_at else getdate(nowdate())
 	totals = {}

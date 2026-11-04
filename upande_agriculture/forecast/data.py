@@ -54,16 +54,18 @@ def sections(farm=None, greenhouse=None, variety=None):
 		return []
 	units = {}
 
-	def add(gh, v, plants, beds, shared, source):
-		u = units.setdefault((gh, v), {"plants": 0, "beds": [], "shared_with": [], "source": source})
+	def add(gh, v, plants, beds, shared, source, protocol=None):
+		u = units.setdefault((gh, v), {"plants": 0, "beds": [], "shared_with": [], "source": source, "protocol": None})
+		u["protocol"] = u["protocol"] or protocol
 		u["plants"] += plants
 		u["beds"] += [b for b in beds if b is not None]
 		u["shared_with"] += [x for x in shared if x not in u["shared_with"]]
 
 	for c in frappe.db.sql(
-			"""SELECT greenhouse, variety, plants_standing, qty_planted, bed_range FROM `tabCrop Cycle`
+			"""SELECT greenhouse, variety, plants_standing, qty_planted, bed_range, crop_protocol FROM `tabCrop Cycle`
 			   WHERE status = 'Active' AND greenhouse IN %s""", (tuple(houses),), as_dict=True):
-		add(c.greenhouse, c.variety, int(c.plants_standing or c.qty_planted or 0), _bed_span(c.bed_range), [], "Crop Cycle")
+		add(c.greenhouse, c.variety, int(c.plants_standing or c.qty_planted or 0), _bed_span(c.bed_range), [], "Crop Cycle",
+			c.crop_protocol)
 	if frappe.db.table_exists("Varieties per GH"):
 		done = {gh for gh, _v in units}
 		rows = {}
@@ -87,12 +89,28 @@ def sections(farm=None, greenhouse=None, variety=None):
 		out.append(frappe._dict(greenhouse=gh, warehouse_name=w.warehouse_name, farm=w.farm, section=v, variety=v,
 			plants=u["plants"], from_bed=min(u["beds"]) if u["beds"] else None,
 			to_bed=max(u["beds"]) if u["beds"] else None, employee=None, employee_name=None,
-			shared_with=u["shared_with"], source=u["source"]))
+			shared_with=u["shared_with"], source=u["source"], protocol=u["protocol"]))
 	return sorted(out, key=lambda r: (r.warehouse_name or "", r.variety))
 
 
-def stages(variety):
-	protocol = variety and frappe.db.get_value("Crop Protocol", {"variety_item": variety})
+def default_protocol(variety):
+	"""The variety's own Crop Protocol: the one named like the variety, else the oldest."""
+	names = variety and frappe.get_all("Crop Protocol", filters={"variety_item": variety}, pluck="name",
+		order_by="creation asc")
+	if not names:
+		return None
+	return variety if variety in names else names[0]
+
+
+def protocol_for(variety, greenhouse=None):
+	"""The protocol timing a greenhouse's crop: its Active cycle's, else the variety's default."""
+	cycle_protocol = greenhouse and variety and frappe.db.get_value("Crop Cycle",
+		{"greenhouse": greenhouse, "variety": variety, "status": "Active"}, "crop_protocol")
+	return cycle_protocol or default_protocol(variety)
+
+
+def stages(variety, greenhouse=None):
+	protocol = protocol_for(variety, greenhouse)
 	rows = protocol and frappe.get_all("Crop Protocol Growth Stage",
 		filters={"parent": protocol, "parenttype": "Crop Protocol"},
 		fields=["stage_name", "days_to_harvest", "spread_days", "survival"], order_by="idx")
@@ -190,7 +208,8 @@ def mean_temp(greenhouses, since, until):
 
 
 def default_regrowth_days(variety):
-	weeks = frappe.db.get_value("Crop Protocol", {"variety_item": variety}, "weeks_between_cuts")
+	protocol = default_protocol(variety)
+	weeks = protocol and frappe.db.get_value("Crop Protocol", protocol, "weeks_between_cuts")
 	return int(weeks * 7) if weeks else DEFAULT_REGROWTH_DAYS
 
 
@@ -232,7 +251,7 @@ def length_mix(variety, as_of):
 	total = sum(r.qty for r in rows)
 	if total >= MIN_MEASURED_STEMS:
 		return {r.length: float(r.qty / total) for r in rows}, f"Harvested, last 4 weeks ({int(total)} stems)"
-	protocol = frappe.db.get_value("Crop Protocol", {"variety_item": variety})
+	protocol = default_protocol(variety)
 	mix = protocol and frappe.get_all("Crop Protocol Grade Mix",
 		filters={"parent": protocol, "parenttype": "Crop Protocol"}, fields=["length_cm", "pct"])
 	if mix:

@@ -13,3 +13,4 @@ upande_agriculture.patches.v1_0.add_bed_partially_uprooted_status
 upande_agriculture.patches.v1_0.seed_crop_types
 upande_agriculture.patches.v2_0.create_sample_spots
 upande_agriculture.patches.v2_1.units_replace_sections
+upande_agriculture.patches.v2_2.cycles_from_greenhouse_varieties

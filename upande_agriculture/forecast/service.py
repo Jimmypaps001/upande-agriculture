@@ -35,7 +35,7 @@ def section_ratio(greenhouse, section, variety, as_of):
 def forecast_section(row, start=None, days=HORIZON, as_of=None):
 	start = getdate(start or nowdate())
 	as_of = getdate(as_of or start)
-	stages = data.stages(row.variety)
+	stages = data.stages(row.variety, row.greenhouse)
 	prm = data.params(row.variety)
 	rnd = data.latest_round(row.greenhouse, row.section, as_of)
 	plants = int(row.plants or 0)

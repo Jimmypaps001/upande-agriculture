@@ -86,7 +86,7 @@ def calibrate(variety, today=None):
 		doc.save(ignore_permissions=True)
 		return doc
 
-	stages = data.stages(variety)
+	stages = {gh: data.stages(variety, gh) for gh in {c["greenhouse"] for c in cases}}  # each house's own protocol
 	r0 = data.default_regrowth_days(variety)
 	ref = data.mean_temp(sorted({c["greenhouse"] for c in cases}), add_days(today, -WINDOW_DAYS), today)
 	for c in cases:
@@ -95,10 +95,10 @@ def calibrate(variety, today=None):
 
 	best = None
 	for k in K_GRID:
-		B = [x for c in cases for x in _sum3(_curves(c, stages, k, None, c["tf"])[0])]  # the bud part does not depend on R
+		B = [x for c in cases for x in _sum3(_curves(c, stages[c["greenhouse"]], k, None, c["tf"])[0])]  # the bud part does not depend on R
 		for off in R_OFFSETS:
 			R = r0 + off
-			G = [x for c in cases for x in _sum3(_curves(c, stages, k, R, c["tf"], buds=False)[1])]
+			G = [x for c in cases for x in _sum3(_curves(c, stages[c["greenhouse"]], k, R, c["tf"], buds=False)[1])]
 			s, g = _solve(B, G, A)
 			err = sum(abs(a - s * b - g * x) for a, b, x in zip(A, B, G))
 			if best is None or err < best[0]:
@@ -107,7 +107,7 @@ def calibrate(variety, today=None):
 
 	ratios, errs = {}, {}
 	for c in cases:
-		b, gr = _curves(c, stages, k, R, c["tf"])
+		b, gr = _curves(c, stages[c["greenhouse"]], k, R, c["tf"])
 		f = [s * x + g * y for x, y in zip(b, gr)]
 		for i in range(0, len(f), 3):
 			fa, aa = sum(f[i:i + 3]), sum(c["actual"][i:i + 3])
