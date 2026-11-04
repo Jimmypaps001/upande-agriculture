@@ -521,6 +521,11 @@ class TestCropCycle(CropCycleFixtures):
 		)
 
 	def _invoice(self, item, qty, rate, supplier=None):
+		pi = self._draft_invoice(item, qty, rate, supplier)
+		pi.submit()
+		return pi
+
+	def _draft_invoice(self, item, qty, rate, supplier=None):
 		supplier = supplier or self._supplier()
 		company = default_company()
 		currency = frappe.get_cached_value("Company", company, "default_currency")
@@ -547,7 +552,6 @@ class TestCropCycle(CropCycleFixtures):
 				"items": [{"item_code": item, "qty": qty, "rate": rate}],
 			}
 		).insert(ignore_permissions=True, ignore_mandatory=True)
-		pi.submit()
 		return pi
 
 	def test_invoice_fills_breeder_and_unit_cost(self):
@@ -575,14 +579,7 @@ class TestCropCycle(CropCycleFixtures):
 
 	def test_draft_invoice_is_refused(self):
 		house = make_warehouse("TEST GH DRAFT")
-		pi = frappe.get_doc(
-			{
-				"doctype": "Purchase Invoice",
-				"supplier": self._supplier(),
-				"company": default_company(),
-				"items": [{"item_code": self._item(), "qty": 10, "rate": 1}],
-			}
-		).insert(ignore_permissions=True, ignore_mandatory=True)
+		pi = self._draft_invoice(self._item(), qty=10, rate=1)
 		with self.assertRaises(frappe.ValidationError):
 			self._cycle(house, purchase_invoice=pi.name)
 

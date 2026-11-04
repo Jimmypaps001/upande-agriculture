@@ -10,9 +10,14 @@ from upande_agriculture import budget
 from upande_agriculture.tests import default_uom, ensure_farm_type, make_warehouse
 
 
-class TestBudget(FrappeTestCase):
+class BudgetFixtures(FrappeTestCase):
+	"""One greenhouse block (item, protocol, active cycle) to budget against.
+
+	Holds no tests, so suites can share it without re-running each other."""
+
 	HOUSE = "TEST GH BUDGET"
 	VARIETY = "TEST-BUDGET-VARIETY"
+	PROTO = "TEST-BUDGET-PROTO"
 
 	def setUp(self):
 		self.house = make_warehouse(self.HOUSE)
@@ -29,7 +34,8 @@ class TestBudget(FrappeTestCase):
 		self.proto = self._protocol()
 		self._cycle()
 
-	def _protocol(self, name="TEST-BUDGET-PROTO"):
+	def _protocol(self, name=None):
+		name = name or self.PROTO
 		values = {
 			"variety_item": self.VARIETY,
 			"weeks_to_first_bending": 5,
@@ -77,6 +83,8 @@ class TestBudget(FrappeTestCase):
 			}
 		).insert(ignore_permissions=True)
 
+
+class TestBudget(BudgetFixtures):
 	def test_generates_a_mature_year_at_the_steady_rate(self):
 		res = budget.generate_budget(self.house, self.VARIETY, 2028)
 		self.assertEqual(res["cycles_used"], 1)
@@ -678,45 +686,52 @@ class TestForecastRoundTrip(FrappeTestCase):
 				frappe.delete_doc("Production Forecast", n, force=1, ignore_permissions=True)
 
 
-class TestBudgetOverrides(FrappeTestCase):
+class TestBudgetOverrides(BudgetFixtures):
 	"""A month typed on the Budget view must read back as the same number,
 	in the same month. It used to round-drift and straddle two months."""
 
+	HOUSE = "TEST GH OVERRIDE"
+	VARIETY = "TEST-OVERRIDE-VARIETY"
+	PROTO = "TEST-OVERRIDE-PROTO"
+	# set_budget_cell picks the year from today on a Sep-Aug season, so pin
+	# today: Sep and Dec land in 2026, Feb in 2027.
+	TODAY = "2026-11-04"
+
 	def setUp(self):
-		# Pick a block that already has a budget — set_budget_cell overrides a
-		# Production Projection, so one has to exist. Which cycle sorts first
-		# depends on the site's data, so do not rely on it.
-		name = frappe.db.sql("""
-            SELECT cc.name FROM `tabCrop Cycle` cc
-            JOIN `tabProduction Projection` pp
-              ON pp.greenhouse = cc.greenhouse AND pp.variety = cc.variety
-            WHERE cc.status != 'Ended' LIMIT 1""")
-		if not name:
-			self.skipTest("no crop cycle with a generated budget on this site")
-		self.cycle = frappe.db.get_value(
-			"Crop Cycle", name[0][0], ["name", "greenhouse", "variety"], as_dict=True
+		super().setUp()
+		self.cycle = self._cycle()
+		# set_budget_cell overrides an existing Production Projection.
+		self.projections = [
+			budget.generate_budget(self.house, self.VARIETY, year)["projection"] for year in (2026, 2027)
+		]
+		self._clear_overrides()
+
+	def _clear_overrides(self):
+		frappe.db.sql(
+			"UPDATE `tabProjection Week` SET manual_override = 0 WHERE parent IN %(p)s",
+			{"p": self.projections},
 		)
-		frappe.db.sql("UPDATE `tabProjection Week` SET manual_override = 0")
 
-	def tearDown(self):
-		frappe.db.sql("UPDATE `tabProjection Week` SET manual_override = 0")
-		frappe.db.commit()
+	def _set(self, month, value):
+		with patch("frappe.utils.nowdate", return_value=self.TODAY):
+			res = budget.set_budget_cell(self.cycle.name, month, value)
+		return frappe.db.get_value("Production Projection", res["projection"], "projection_year")
 
-	def _read(self):
-		got = budget.manual_month_overrides([(self.cycle.greenhouse, self.cycle.variety, 2026)])
-		return got.get((self.cycle.greenhouse, self.cycle.variety), {})
+	def _read(self, year):
+		got = budget.manual_month_overrides([(self.house, self.VARIETY, year)])
+		return got.get((self.house, self.VARIETY), {})
 
 	def test_month_reads_back_exactly(self):
 		# 54321 over 5 weeks is not divisible; naive rounding returned 54325.
 		for month, value in (("Dec", 54321), ("Feb", 99999), ("Sep", 7)):
 			with self.subTest(month=month):
-				budget.set_budget_cell(self.cycle.name, month, value)
-				self.assertEqual(self._read().get(month), value)
-				frappe.db.sql("UPDATE `tabProjection Week` SET manual_override = 0")
+				year = self._set(month, value)
+				self.assertEqual(self._read(year).get(month), value)
+				self._clear_overrides()
 
 	def test_month_does_not_bleed_into_its_neighbour(self):
-		budget.set_budget_cell(self.cycle.name, "Dec", 54321)
-		got = self._read()
+		year = self._set("Dec", 54321)
+		got = self._read(year)
 		self.assertEqual(list(got), ["Dec"], f"override leaked across months: {got}")
 
 	def test_weeks_are_assigned_by_their_thursday(self):

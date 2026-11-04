@@ -231,6 +231,19 @@ def live_operations(year: int | None = None, week: int | None = None) -> dict:
 			year, week = int(last[0]["plan_year"]), int(last[0]["plan_week"])
 			stale = True
 
+	# Work planned for a week that hasn't started yet can't be under way,
+	# whatever its status says.
+	if (year, week) > (ty, tw):
+		return {
+			"year": year,
+			"week": week,
+			"today": today,
+			"houses": {},
+			"stale": stale,
+			"current_week": tw,
+			"current_year": ty,
+		}
+
 	out: dict[str, dict] = {}
 	for r in _plan_rows(year, week):
 		gh = r["greenhouse"] or r["plan_house"]
