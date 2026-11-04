@@ -8,7 +8,8 @@ from frappe.tests import IntegrationTestCase
 # link-field test record dependencies are recursively loaded
 # Use these module variables to add/remove to/from that list
 EXTRA_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
-IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
+# Warehouse pulls in ERPNext's _Test fixtures, which packhouse's mandatory fields reject.
+IGNORE_TEST_RECORD_DEPENDENCIES = ["Farm", "Warehouse"]
 
 
 class IntegrationTestScanLocationMapping(IntegrationTestCase):

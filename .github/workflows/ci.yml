@@ -86,4 +86,8 @@ jobs:
 
       - name: Run app tests
         working-directory: /home/runner/frappe-bench
-        run: bench --site test_site run-tests --app upande_agriculture
+        # --lightmode skips the legacy FrappeTestCase preload, which builds ERPNext's
+        # _Test fixtures (Sales Order, Customer, ...) and trips over the mandatory
+        # custom fields packhouse adds. These suites build their own data, and this
+        # app has no before_tests hook or global test dependencies to lose.
+        run: bench --site test_site run-tests --app upande_agriculture --lightmode
