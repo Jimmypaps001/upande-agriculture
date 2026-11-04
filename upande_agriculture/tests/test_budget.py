@@ -1,6 +1,7 @@
 """Budget generation, forecast revisions and calibration against the DB."""
 
 import datetime
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -585,7 +586,10 @@ class TestFarmMapGeometry(FrappeTestCase):
 	def test_bundled_survey_is_present_and_well_formed(self):
 		from upande_agriculture import farm_map
 
-		geom = farm_map._bundled_geometry()
+		# The survey is opt-in per site (site_config), so turn it on here rather
+		# than depending on how the test site happens to be configured.
+		with patch.object(farm_map, "_bundled_survey_enabled", return_value=True):
+			geom = farm_map._bundled_geometry()
 		self.assertTrue(geom, "bundled greenhouse geometry is missing")
 		for name, polys in geom.items():
 			for poly in polys:

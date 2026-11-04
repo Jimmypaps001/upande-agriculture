@@ -59,8 +59,33 @@ def farm_with_beds() -> str | None:
 	"""
 	import frappe
 
+	if not frappe.db.exists("DocType", "Farm"):
+		return None
 	row = frappe.db.get_value("Farm Type Item", {"parenttype": "Farm", "farm_type": "Has Beds"}, "parent")
-	return row or frappe.db.get_value("Farm", {}, "name")
+	if row:
+		return row
+	# A fresh CI site has no Farm at all, and Warehouse.custom_farm is mandatory,
+	# so build one rather than handing make_warehouse an empty value.
+	if not frappe.db.exists("Farm Type", "Has Beds"):
+		frappe.get_doc({"doctype": "Farm Type", "farm_type_name": "Has Beds"}).insert(ignore_permissions=True)
+	if frappe.db.exists("Farm", "_Test Bed Farm"):
+		farm = frappe.get_doc("Farm", "_Test Bed Farm")
+		farm.append("farm_type", {"farm_type": "Has Beds"})
+		farm.save(ignore_permissions=True)
+		return farm.name
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Farm",
+				"farm_name": "_Test Bed Farm",
+				"abbreviation": "TBF",
+				"company": default_company(),
+				"farm_type": [{"farm_type": "Has Beds"}],
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def default_employee(user: str = "Administrator") -> str:
