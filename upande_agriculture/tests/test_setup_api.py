@@ -66,6 +66,18 @@ class TestSetupApi(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			setup_api.save_sections(gh, json.dumps([{"from_bed": 9, "to_bed": 3}]))
 
+	def test_section_with_several_varieties(self):
+		gh = make_greenhouse("SU GH MULTI", ())
+		other = make_variety("SU-ROSE-B")
+		rows = json.dumps([{"from_bed": 1, "to_bed": 10, "varieties": [V, other, V]}])
+		if not setup_api._has_more():
+			with self.assertRaisesRegex(frappe.ValidationError, "latest Upande Harvest"):
+				setup_api.save_sections(gh, rows)
+			return
+		out = setup_api.save_sections(gh, rows)
+		self.assertEqual((out[0]["variety"], out[0]["varieties"]), (V, [V, other]))
+		self.assertEqual(frappe.db.get_value("Warehouse Section", {"parent": gh}, "custom_more_varieties"), other)
+
 	def test_save_crop_creates_cycle_and_collapses_duplicate_rows(self):
 		gh = make_greenhouse("SU GH CROP", ())
 		_vpg(gh, (V, "100", "10"), (V, "200", "20.5"))

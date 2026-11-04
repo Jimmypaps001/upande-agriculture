@@ -136,15 +136,28 @@ def _crops(houses):
 	return {h: sorted(v.values(), key=lambda c: c["variety"]) for h, v in out.items()}
 
 
+def _has_more():
+	"""upande_harvest's More Varieties field (a harvester cutting several varieties on the same beds)."""
+	return frappe.get_meta("Warehouse Section").has_field("custom_more_varieties")
+
+
+def _split(more):
+	return [v.strip() for v in (more or "").replace("/", ",").split(",") if v.strip()]
+
+
 def _sections(houses):
 	out = {h: [] for h in houses}
+	more = _has_more()
 	if houses:
 		for r in frappe.get_all("Warehouse Section", fields=["parent", "idx", "section", "from_bed", "to_bed",
-				"custom_employee", "custom_employee_name", "custom_variety"],
+				"custom_employee", "custom_employee_name", "custom_variety"] + (["custom_more_varieties"] if more else []),
 				filters={"parenttype": "Warehouse", "parentfield": "custom_sections", "parent": ["in", list(houses)]},
 				order_by="parent, idx"):
+			varieties = [r.custom_variety] if r.custom_variety else []
+			varieties += [v for v in _split(r.get("custom_more_varieties")) if v not in varieties]
 			out[r.parent].append({"row": r.idx, "section": r.section, "from_bed": r.from_bed, "to_bed": r.to_bed,
-				"employee": r.custom_employee, "employee_name": r.custom_employee_name, "variety": r.custom_variety})
+				"employee": r.custom_employee, "employee_name": r.custom_employee_name, "variety": r.custom_variety,
+				"varieties": varieties})
 	return out
 
 
@@ -194,6 +207,7 @@ def save_sections(greenhouse, sections):
 	frappe.only_for(WRITE_ROLES)
 	_greenhouse(greenhouse)
 	rows = []
+	more = _has_more()
 	for s in frappe.parse_json(sections) or []:
 		lo, hi = cint(s.get("from_bed")), cint(s.get("to_bed"))
 		if lo < 1 or hi < 1:
@@ -203,12 +217,19 @@ def save_sections(greenhouse, sections):
 		employee = s.get("employee") or None
 		if employee and not frappe.db.exists("Employee", employee):
 			frappe.throw(f"No employee {employee}.")
-		variety = s.get("variety") or None
-		if variety:
-			_variety(variety)
-		rows.append({"section": (s.get("section") or "").strip() or f"Beds {lo}-{hi}", "from_bed": lo, "to_bed": hi,
-			"custom_employee": employee, "custom_variety": variety,
-			"custom_employee_name": employee and frappe.db.get_value("Employee", employee, "employee_name")})
+		# varieties: every variety cut on these beds, main first; a lone variety still works.
+		varieties = []
+		for v in s.get("varieties") or [s.get("variety")]:
+			if v and v not in varieties:
+				varieties.append(_variety(v))
+		if len(varieties) > 1 and not more:
+			frappe.throw("More than one variety per section needs the latest Upande Harvest update.")
+		row = {"section": (s.get("section") or "").strip() or f"Beds {lo}-{hi}", "from_bed": lo, "to_bed": hi,
+			"custom_employee": employee, "custom_variety": varieties[0] if varieties else None,
+			"custom_employee_name": employee and frappe.db.get_value("Employee", employee, "employee_name")}
+		if more:
+			row["custom_more_varieties"] = ", ".join(varieties[1:]) or None
+		rows.append(row)
 	ordered = sorted(rows, key=lambda r: (r["from_bed"], r["to_bed"]))
 	for a, b in zip(ordered, ordered[1:]):
 		if b["from_bed"] <= a["to_bed"]:
