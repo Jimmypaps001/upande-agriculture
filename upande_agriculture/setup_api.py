@@ -8,8 +8,8 @@ from upande_agriculture.forecast import curves, data
 
 WRITE_ROLES = ("System Manager", "Agriculture Manager", "Farm Manager")
 READ_ROLES = WRITE_ROLES + ("Stock Manager",)
-PLACEHOLDER_DATE = "2026-01-01"
-PLACEHOLDER_NOTE = "Planting date unknown — placeholder set by Setup, please correct."
+MIGRATED_DATE = "2021-01-01"  # crops already standing when Setup arrived: planted before records began
+MIGRATED_NOTE = "Planting date assumed (existing crop at Setup migration)."
 
 
 def _can_edit():
@@ -95,7 +95,7 @@ def _set_vpg(greenhouse, variety, plants):
 	wh.save(ignore_permissions=True)
 
 
-def _upsert_cycle(greenhouse, variety, plants, planting_date=None, bed_range=None, protocol=None):
+def _upsert_cycle(greenhouse, variety, plants, planting_date=None, bed_range=None, protocol=None, note=None):
 	name = _active_cycle(greenhouse, variety)
 	doc = frappe.get_doc("Crop Cycle", name) if name else frappe.get_doc({"doctype": "Crop Cycle",
 		"greenhouse": greenhouse, "variety": variety, "status": "Active",
@@ -106,15 +106,10 @@ def _upsert_cycle(greenhouse, variety, plants, planting_date=None, bed_range=Non
 	if bed_range is not None:
 		doc.bed_range = bed_range or None
 	doc.crop_protocol = protocol or doc.crop_protocol or ensure_default_protocol(variety)
-	notes = (doc.notes or "").replace(PLACEHOLDER_NOTE, "").strip()
-	if planting_date:
-		doc.planting_date = getdate(planting_date)
-	elif not doc.planting_date:
-		doc.planting_date = getdate(PLACEHOLDER_DATE)
-		notes = f"{notes}\n{PLACEHOLDER_NOTE}".strip()
-	elif PLACEHOLDER_NOTE in (doc.notes or ""):
-		notes = f"{notes}\n{PLACEHOLDER_NOTE}".strip()
-	doc.notes = notes or None
+	# A new crop is planted today unless the grower says otherwise.
+	doc.planting_date = getdate(planting_date or doc.planting_date or nowdate())
+	if note and note not in (doc.notes or ""):
+		doc.notes = f"{doc.notes or ''}\n{note}".strip()
 	doc.save(ignore_permissions=True)
 	return doc
 
@@ -130,14 +125,14 @@ def _crops(houses):
 				   WHERE parenttype = 'Warehouse' AND parentfield = 'custom_varieties_grown' AND parent IN %s
 				     AND IFNULL(variety, '') != '' ORDER BY parent, idx""", (tuple(houses),), as_dict=True):
 			c = out[r.parent].setdefault(r.variety, {"variety": r.variety, "plants": 0, "cycle": None,
-				"protocol": None, "planting_date": None, "bed_range": None, "notes_placeholder_date": False})
+				"protocol": None, "planting_date": None, "bed_range": None})
 			c["plants"] += data._int(r.no_of_plants)
 	for r in frappe.get_all("Crop Cycle", filters={"status": "Active", "greenhouse": ["in", list(houses)]},
 			fields=["name", "greenhouse", "variety", "plants_standing", "qty_planted", "crop_protocol",
 				"planting_date", "bed_range", "notes"], order_by="creation asc"):
 		out[r.greenhouse][r.variety] = {"variety": r.variety, "plants": cint(r.plants_standing or r.qty_planted),
 			"cycle": r.name, "protocol": r.crop_protocol, "planting_date": str(r.planting_date) if r.planting_date else None,
-			"bed_range": r.bed_range, "notes_placeholder_date": PLACEHOLDER_NOTE in (r.notes or "")}
+			"bed_range": r.bed_range}
 	return {h: sorted(v.values(), key=lambda c: c["variety"]) for h, v in out.items()}
 
 

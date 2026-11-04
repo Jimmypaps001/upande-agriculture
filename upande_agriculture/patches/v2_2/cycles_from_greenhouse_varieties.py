@@ -1,7 +1,7 @@
 """Give every greenhouse variety listed in Varieties per GH an Active Crop Cycle
 (and the variety a default Crop Protocol), so Setup and the forecast read one
-source. Rose varieties only; rows with no plants are skipped. Placeholder
-planting date, flagged in the notes. Safe to re-run."""
+source. Rose varieties only; rows with no plants are skipped. These crops were
+planted before records began: planting date 2021-01-01, noted. Safe to re-run."""
 import frappe
 
 from upande_agriculture import setup_api
@@ -32,7 +32,8 @@ def execute():
 				elif plants <= 0:
 					skipped_empty += 1
 				else:
-					setup_api._upsert_cycle(gh, variety, plants)
+					setup_api._upsert_cycle(gh, variety, plants, planting_date=setup_api.MIGRATED_DATE,
+						note=setup_api.MIGRATED_NOTE)
 					made += 1
 		except Exception:  # one bad greenhouse must not abort migrate
 			frappe.db.rollback(save_point="cycles_from_vpg")

@@ -46,8 +46,8 @@ class TestSetupApi(FrappeTestCase):
 		house = next(h for g in out["greenhouses"] for h in g["houses"] if h["name"] == gh)
 		self.assertEqual(set(house), {"name", "warehouse_name", "beds", "sections", "crops"})
 		crop = house["crops"][0]
-		self.assertEqual((crop["variety"], crop["plants"], crop["protocol"], crop["notes_placeholder_date"]),
-			(V, 500, V, True))
+		self.assertEqual((crop["variety"], crop["plants"], crop["protocol"], crop["planting_date"]),
+			(V, 500, V, frappe.utils.nowdate()))
 		self.assertTrue(any(p["name"] == V and len(p["stages"]) == 5 for p in out["protocols"]))
 
 	def test_save_sections_replaces_and_refuses_overlap(self):
@@ -73,20 +73,19 @@ class TestSetupApi(FrappeTestCase):
 		cc = _cycle(gh)
 		self.assertEqual((cc.qty_planted, cc.plants_standing, str(cc.planting_date), cc.crop_protocol),
 			(1200, 1200, "2025-03-01", V))
-		self.assertFalse(crop["notes_placeholder_date"])
 		self.assertEqual(_vpg_rows(gh), [(V, "1200", "30.5")])
 		setup_api.save_crop(gh, V, 900)  # an update keeps the cycle and its date
 		self.assertEqual((_cycle(gh).name, _cycle(gh).plants_standing, str(_cycle(gh).planting_date)),
 			(cc.name, 900, "2025-03-01"))
 
-	def test_placeholder_date_note(self):
+	def test_new_crop_planted_today_unless_given(self):
 		gh = make_greenhouse("SU GH PH", ())
 		setup_api.save_crop(gh, V, 300)
-		cc = _cycle(gh)
-		self.assertEqual(str(cc.planting_date), setup_api.PLACEHOLDER_DATE)
-		self.assertIn(setup_api.PLACEHOLDER_NOTE, cc.notes)
+		self.assertEqual(str(_cycle(gh).planting_date), frappe.utils.nowdate())
 		setup_api.save_crop(gh, V, 300, planting_date="2024-06-01")
-		self.assertNotIn(setup_api.PLACEHOLDER_NOTE, _cycle(gh).notes or "")
+		self.assertEqual(str(_cycle(gh).planting_date), "2024-06-01")
+		setup_api.save_crop(gh, V, 350)  # an edit without a date keeps it
+		self.assertEqual(str(_cycle(gh).planting_date), "2024-06-01")
 
 	def test_save_stages_default_vs_greenhouse(self):
 		gh1, gh2 = make_greenhouse("SU GH ST1", ()), make_greenhouse("SU GH ST2", ())
@@ -144,6 +143,7 @@ class TestSetupApi(FrappeTestCase):
 		self.assertEqual(frappe.db.count("Crop Cycle", {"greenhouse": gh, "status": "Active"}), 1)
 		cc = _cycle(gh)
 		self.assertEqual((cc.plants_standing, cc.crop_protocol), (500, V))
-		self.assertIn(setup_api.PLACEHOLDER_NOTE, cc.notes)
+		self.assertEqual(str(cc.planting_date), setup_api.MIGRATED_DATE)
+		self.assertIn(setup_api.MIGRATED_NOTE, cc.notes)
 		self.assertIsNone(_cycle(gh, other))  # no plants
 		self.assertIsNone(_cycle(gh, plain))  # not a rose
