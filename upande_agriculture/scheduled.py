@@ -1,155 +1,152 @@
 """Nightly job: read Actual Harvest, fill actual_stems on Projection Week."""
 
 import datetime
+
 import frappe
 from frappe.utils import getdate
 
 
 def rollup_actuals() -> int:
-    """Returns count of Projection Week rows updated.
+	"""Returns count of Projection Week rows updated.
 
-    Walks every Production Projection, finds matching Actual Harvest rows
-    for each week window, then writes actual_stems + variance back to the
-    Projection Week child row.
+	Walks every Production Projection, finds matching Actual Harvest rows
+	for each week window, then writes actual_stems + variance back to the
+	Projection Week child row.
 
-    Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
-    """
-    if not frappe.db.has_table("tabActual Harvest"):
-        # Forecasts read actuals from Harvesting Stock Entries as a fallback,
-        # so they refresh even on sites without the Actual Harvest doctype.
-        n = _refresh_forecast_actuals()
-        frappe.db.commit()
-        return n
+	Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
+	"""
+	if not frappe.db.has_table("tabActual Harvest"):
+		# Forecasts read actuals from Harvesting Stock Entries as a fallback,
+		# so they refresh even on sites without the Actual Harvest doctype.
+		n = _refresh_forecast_actuals()
+		frappe.db.commit()
+		return n
 
-    projections = frappe.get_all(
-        "Production Projection",
-        fields=["name", "greenhouse", "variety", "projection_year", "planting_date"],
-    )
-    updated = 0
-    for p in projections:
-        pdate = getdate(p["planting_date"]) if p.get("planting_date") else None
-        if not pdate:
-            continue
+	projections = frappe.get_all(
+		"Production Projection",
+		fields=["name", "greenhouse", "variety", "projection_year", "planting_date"],
+	)
+	updated = 0
+	for p in projections:
+		pdate = getdate(p["planting_date"]) if p.get("planting_date") else None
+		if not pdate:
+			continue
 
-        weeks = frappe.get_all(
-            "Projection Week",
-            filters={"parent": p["name"]},
-            fields=["name", "week"],
-            order_by="week asc",
-        )
-        for w in weeks:
-            start = pdate + datetime.timedelta(weeks=int(w["week"]) - 1)
-            end = start + datetime.timedelta(days=6)
-            actual = frappe.db.sql(
-                """
+		weeks = frappe.get_all(
+			"Projection Week",
+			filters={"parent": p["name"]},
+			fields=["name", "week"],
+			order_by="week asc",
+		)
+		for w in weeks:
+			start = pdate + datetime.timedelta(weeks=int(w["week"]) - 1)
+			end = start + datetime.timedelta(days=6)
+			actual = frappe.db.sql(
+				"""
                 SELECT COALESCE(SUM(quantity), 0)
                 FROM `tabActual Harvest`
                 WHERE greenhouse=%s AND variety=%s
                   AND harvest_date BETWEEN %s AND %s
                 """,
-                (p["greenhouse"], p["variety"], start, end),
-            )[0][0]
-            projected = frappe.db.get_value(
-                "Projection Week", w["name"], "projected_stems"
-            )
-            variance = (actual or 0) - (projected or 0)
-            frappe.db.set_value(
-                "Projection Week",
-                w["name"],
-                {"actual_stems": actual, "variance": variance},
-                update_modified=False,
-            )
-            updated += 1
+				(p["greenhouse"], p["variety"], start, end),
+			)[0][0]
+			projected = frappe.db.get_value("Projection Week", w["name"], "projected_stems")
+			variance = (actual or 0) - (projected or 0)
+			frappe.db.set_value(
+				"Projection Week",
+				w["name"],
+				{"actual_stems": actual, "variance": variance},
+				update_modified=False,
+			)
+			updated += 1
 
-    updated += _rollup_plan_tasks()
-    updated += _refresh_forecast_actuals()
-    frappe.db.commit()
-    return updated
+	updated += _rollup_plan_tasks()
+	updated += _refresh_forecast_actuals()
+	frappe.db.commit()
+	return updated
 
 
 def _refresh_forecast_actuals() -> int:
-    """Keep every open Production Forecast's actuals and variances current,
-    so the morning review reads yesterday's harvest without anyone pressing
-    Refresh. Closed forecasts are history and stay as scored."""
-    updated = 0
-    for name in frappe.get_all("Production Forecast",
-                               filters={"status": ("!=", "Closed")}, pluck="name"):
-        try:
-            doc = frappe.get_doc("Production Forecast", name)
-            doc.pull_actuals(persist=True)
-            updated += 1
-        except Exception:
-            frappe.log_error(title=f"Forecast actuals refresh failed for {name}")
-    return updated
+	"""Keep every open Production Forecast's actuals and variances current,
+	so the morning review reads yesterday's harvest without anyone pressing
+	Refresh. Closed forecasts are history and stay as scored."""
+	updated = 0
+	for name in frappe.get_all("Production Forecast", filters={"status": ("!=", "Closed")}, pluck="name"):
+		try:
+			doc = frappe.get_doc("Production Forecast", name)
+			doc.pull_actuals(persist=True)
+			updated += 1
+		except Exception:
+			frappe.log_error(title=f"Forecast actuals refresh failed for {name}")
+	return updated
 
 
 def release_stale_buckets() -> int:
-    """Nightly cleanup: a bucket left "In Use" from a day that's already
-    ended never got received in time, so it's stuck until someone manually
-    frees it -- exactly the backlog that piled up before 2026-09-05 and had
-    to be cleared by hand. Anything not touched since before today is
-    assumed abandoned and released back to Available for reuse; a bucket
-    genuinely mid-harvest right now was modified today and is left alone.
+	"""Nightly cleanup: a bucket left "In Use" from a day that's already
+	ended never got received in time, so it's stuck until someone manually
+	frees it -- exactly the backlog that piled up before 2026-09-05 and had
+	to be cleared by hand. Anything not touched since before today is
+	assumed abandoned and released back to Available for reuse; a bucket
+	genuinely mid-harvest right now was modified today and is left alone.
 
-    Returns count of buckets released.
-    """
-    cutoff = frappe.utils.today()
-    stuck = frappe.get_all(
-        "Bucket QR Code",
-        filters={"status": "In Use", "modified": ["<", cutoff]},
-        pluck="name",
-    )
-    if not stuck:
-        return 0
-    frappe.db.set_value(
-        "Bucket QR Code",
-        {"name": ["in", stuck]},
-        {"status": "Available", "last_stock_entry": None, "current_journey_start": None},
-        update_modified=False,
-    )
-    frappe.db.commit()
-    frappe.log_error(
-        title="Released {0} stale bucket(s)".format(len(stuck)),
-        message=", ".join(stuck[:200]),
-    )
-    return len(stuck)
+	Returns count of buckets released.
+	"""
+	cutoff = frappe.utils.today()
+	stuck = frappe.get_all(
+		"Bucket QR Code",
+		filters={"status": "In Use", "modified": ["<", cutoff]},
+		pluck="name",
+	)
+	if not stuck:
+		return 0
+	frappe.db.set_value(
+		"Bucket QR Code",
+		{"name": ["in", stuck]},
+		{"status": "Available", "last_stock_entry": None, "current_journey_start": None},
+		update_modified=False,
+	)
+	frappe.db.commit()
+	frappe.log_error(
+		title="Released {0} stale bucket(s)".format(len(stuck)),
+		message=", ".join(stuck[:200]),
+	)
+	return len(stuck)
 
 
 def _rollup_plan_tasks() -> int:
-    """Same idea for Production Plan Task: a Harvest-operation task with a
-    variety set gets its actual weekly total filled in, so the plan shows
-    target vs. what was actually picked without anyone opening Actual
-    Harvest by hand.
+	"""Same idea for Production Plan Task: a Harvest-operation task with a
+	variety set gets its actual weekly total filled in, so the plan shows
+	target vs. what was actually picked without anyone opening Actual
+	Harvest by hand.
 
-    Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
-    """
-    if not frappe.db.has_table("tabActual Harvest"):
-        return 0
+	Soft-fails (returns 0) if tabActual Harvest does not exist on this site.
+	"""
+	if not frappe.db.has_table("tabActual Harvest"):
+		return 0
 
-    tasks = frappe.db.sql(
-        """
+	tasks = frappe.db.sql(
+		"""
         SELECT t.name, t.greenhouse, t.variety, p.plan_year, p.plan_week
         FROM `tabProduction Plan Task` t
         JOIN `tabProduction Plan Form` p ON p.name = t.parent
-        WHERE t.operation = 'Harvest' AND t.variety IS NOT NULL AND t.variety != ''
+        WHERE p.docstatus = 0 AND t.operation = 'Harvest' AND t.variety IS NOT NULL AND t.variety != ''
           AND t.greenhouse IS NOT NULL AND t.greenhouse != ''
         """,
-        as_dict=True,
-    )
-    updated = 0
-    for t in tasks:
-        monday = datetime.date.fromisocalendar(int(t.plan_year), int(t.plan_week), 1)
-        sunday = monday + datetime.timedelta(days=6)
-        harvested = frappe.db.sql(
-            """
+		as_dict=True,
+	)
+	updated = 0
+	for t in tasks:
+		monday = datetime.date.fromisocalendar(int(t.plan_year), int(t.plan_week), 1)
+		sunday = monday + datetime.timedelta(days=6)
+		harvested = frappe.db.sql(
+			"""
             SELECT COALESCE(SUM(quantity), 0)
             FROM `tabActual Harvest`
             WHERE greenhouse=%s AND variety=%s
               AND harvest_date BETWEEN %s AND %s
             """,
-            (t.greenhouse, t.variety, monday, sunday),
-        )[0][0]
-        frappe.db.set_value("Production Plan Task", t.name, "harvested", harvested,
-                            update_modified=False)
-        updated += 1
-    return updated
+			(t.greenhouse, t.variety, monday, sunday),
+		)[0][0]
+		frappe.db.set_value("Production Plan Task", t.name, "harvested", harvested, update_modified=False)
+		updated += 1
+	return updated

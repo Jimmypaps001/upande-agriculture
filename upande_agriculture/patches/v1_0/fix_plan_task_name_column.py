@@ -9,12 +9,10 @@ import frappe
 
 
 def execute():
-    if not frappe.db.has_table("Production Plan Task"):
-        return
-    coltype = frappe.db.sql("SHOW COLUMNS FROM `tabProduction Plan Task` LIKE 'name'")
-    if not coltype or "int" not in (coltype[0][1] or "").lower():
-        return
-    frappe.db.sql_ddl(
-        "ALTER TABLE `tabProduction Plan Task` MODIFY `name` varchar(140) NOT NULL"
-    )
-    frappe.reload_doc("upande_agriculture", "doctype", "production_plan_task")
+	if not frappe.db.has_table("Production Plan Task"):
+		return
+	coltype = frappe.db.sql("SHOW COLUMNS FROM `tabProduction Plan Task` LIKE 'name'")
+	if not coltype or "int" not in (coltype[0][1] or "").lower():
+		return
+	frappe.db.sql_ddl("ALTER TABLE `tabProduction Plan Task` MODIFY `name` varchar(140) NOT NULL")
+	frappe.reload_doc("upande_agriculture", "doctype", "production_plan_task")

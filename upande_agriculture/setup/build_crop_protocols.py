@@ -30,9 +30,18 @@ LENGTH_ALIAS = {"57": "57cm", "62": "62cm", "72": "72cm", "82": "82cm", "42": "4
 
 VARIETY_SOURCES = [
 	("Bed Range", "select distinct variety from `tabBed Range` where variety is not null and variety <> ''"),
-	("Crop Cycle Bed", "select distinct variety from `tabCrop Cycle Bed` where variety is not null and variety <> ''"),
-	("Crop Cycle Variety", "select distinct variety from `tabCrop Cycle Variety` where variety is not null and variety <> ''"),
-	("Production Projection", "select distinct crop_variety from `tabProduction Projection` where crop_variety is not null and crop_variety <> ''"),
+	(
+		"Crop Cycle Bed",
+		"select distinct variety from `tabCrop Cycle Bed` where variety is not null and variety <> ''",
+	),
+	(
+		"Crop Cycle Variety",
+		"select distinct variety from `tabCrop Cycle Variety` where variety is not null and variety <> ''",
+	),
+	(
+		"Production Projection",
+		"select distinct crop_variety from `tabProduction Projection` where crop_variety is not null and crop_variety <> ''",
+	),
 	("Harvest", "select distinct item_code from tabHarvest where item_code is not null and item_code <> ''"),
 ]
 
@@ -183,7 +192,9 @@ def as_percentages(grades):
 		return []
 	rows = []
 	for length, stems in grades.items():
-		rows.append({"stem_length": length, "percentage": round(100.0 * stems / total, 1), "sample_stems": int(stems)})
+		rows.append(
+			{"stem_length": length, "percentage": round(100.0 * stems / total, 1), "sample_stems": int(stems)}
+		)
 	rows.sort(key=lambda r: -r["percentage"])
 	residual = round(100.0 - sum(r["percentage"] for r in rows), 1)
 	if rows and residual:
@@ -263,10 +274,19 @@ def report():
 	print("varieties grown on this site: %d" % len(plan))
 	print("  not an Item (protocol cannot be created): %d" % len([p for p in plan if not p["is_item"]]))
 	print("  with a workbook group: %d" % len([p for p in plan if p["protocol_group"]]))
-	print("  with a crop type but no group: %d" % len([p for p in plan if p["crop_type"] and not p["protocol_group"]]))
+	print(
+		"  with a crop type but no group: %d"
+		% len([p for p in plan if p["crop_type"] and not p["protocol_group"]])
+	)
 	print("  crop type unknown: %d" % len([p for p in plan if not p["crop_type"]]))
-	print("  length distribution measured (Actual): %d" % len([p for p in plan if p["distribution"] and p["distribution"][0]["basis"] == "Actual"]))
-	print("  length distribution borrowed (Group Default): %d" % len([p for p in plan if p["distribution"] and p["distribution"][0]["basis"] == "Group Default"]))
+	print(
+		"  length distribution measured (Actual): %d"
+		% len([p for p in plan if p["distribution"] and p["distribution"][0]["basis"] == "Actual"])
+	)
+	print(
+		"  length distribution borrowed (Group Default): %d"
+		% len([p for p in plan if p["distribution"] and p["distribution"][0]["basis"] == "Group Default"])
+	)
 	print("  no length distribution at all: %d" % len([p for p in plan if not p["distribution"]]))
 	print()
 	for p in plan:

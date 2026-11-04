@@ -9,7 +9,7 @@ repos:
     hooks:
       - id: trailing-whitespace
         files: "upande_agriculture.*"
-        exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
+        exclude: ".*json$|.*txt$|.*csv|.*md|.*svg|upande_agriculture/public/lib/.*"
       - id: check-merge-conflict
       - id: check-ast
       - id: check-json
@@ -42,7 +42,10 @@ repos:
                 .*node_modules.*|
                 .*boilerplate.*|
                 upande_agriculture/templates/includes/.*|
-                upande_agriculture/public/js/lib/.*
+                upande_agriculture/public/js/lib/.*|
+                upande_agriculture/public/lib/.*|
+                # jinja {% include %} wrappers, not parseable JS
+                upande_agriculture/upande_agriculture/doctype/greenhouse_(5s|dms)_audit/greenhouse_(5s|dms)_audit\.js
             )$
 
 
@@ -60,7 +63,10 @@ repos:
                 .*node_modules.*|
                 .*boilerplate.*|
                 upande_agriculture/templates/includes/.*|
-                upande_agriculture/public/js/lib/.*
+                upande_agriculture/public/js/lib/.*|
+                upande_agriculture/public/lib/.*|
+                # jinja {% include %} wrappers, not parseable JS
+                upande_agriculture/upande_agriculture/doctype/greenhouse_(5s|dms)_audit/greenhouse_(5s|dms)_audit\.js
             )$
 
 ci:

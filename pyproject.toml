@@ -63,6 +63,22 @@ ignore = [
     "UP032", # Use f-string instead of `format` call (translations)
     "UP037", # quoted annotations
     "UP040", # Use type aliases instead of type annotations
+    # ── Pre-existing backlog, not a blessing ─────────────────────────────────
+    # All 71 hits predate the CI workflows (ruff has never gated this repo
+    # before). Muted so the linter can enforce everything else from today;
+    # clear them file-by-file and delete the codes as you go.
+    "B007", # unused loop control variable
+    "B905", # zip() without strict=
+    "E731", # lambda assignment
+    "F841", # assigned-but-unused local
+    "RUF001", # ambiguous unicode in a string (— · → are deliberate)
+    "RUF002", # ambiguous unicode in a docstring
+    "RUF005", # list concatenation instead of unpacking
+    "RUF012", # mutable class default
+    "RUF015", # next(iter(x)) instead of x[0]
+    "RUF046", # int() around an already-int value
+    "RUF057", # round() on an int
+    "RUF059", # unused unpacked variable
 ]
 typing-modules = ["frappe.types.DF"]
 

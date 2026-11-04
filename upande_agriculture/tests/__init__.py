@@ -8,109 +8,152 @@ here rather than being copy-pasted into every test module.
 tests in test_projection_calc can run without a bench.
 """
 
-def default_company() -> str:
-    import frappe
 
-    return (
-        frappe.db.get_single_value("Global Defaults", "default_company")
-        or frappe.db.get_value("Company", {}, "name")
-    )
+def default_company() -> str:
+	import frappe
+
+	return frappe.db.get_single_value("Global Defaults", "default_company") or frappe.db.get_value(
+		"Company", {}, "name"
+	)
 
 
 def default_uom() -> str:
-    """Not every site ships the ERPNext default 'Nos'."""
-    import frappe
+	"""Not every site ships the ERPNext default 'Nos'."""
+	import frappe
 
-    for candidate in ("Nos", "Piece", "Unit"):
-        if frappe.db.exists("UOM", candidate):
-            return candidate
-    return frappe.db.get_value("UOM", {}, "name")
+	for candidate in ("Nos", "Piece", "Unit"):
+		if frappe.db.exists("UOM", candidate):
+			return candidate
+	return frappe.db.get_value("UOM", {}, "name")
 
 
 def ensure_supervisor_field() -> None:
-    """Milestone ToDos need Warehouse.custom_supervisor (shipped by upande_core).
+	"""Milestone ToDos need Warehouse.custom_supervisor (shipped by upande_core).
 
-    Create it when absent so the milestone tests exercise the real path on a
-    bare site instead of silently asserting nothing.
-    """
-    import frappe
+	Create it when absent so the milestone tests exercise the real path on a
+	bare site instead of silently asserting nothing.
+	"""
+	import frappe
 
-    if frappe.get_meta("Warehouse").has_field("custom_supervisor"):
-        return
-    frappe.get_doc({
-        "doctype": "Custom Field",
-        "dt": "Warehouse",
-        "fieldname": "custom_supervisor",
-        "label": "Supervisor",
-        "fieldtype": "Link",
-        "options": "User",
-        "insert_after": "warehouse_name",
-    }).insert(ignore_permissions=True)
-    frappe.clear_cache(doctype="Warehouse")
+	if frappe.get_meta("Warehouse").has_field("custom_supervisor"):
+		return
+	frappe.get_doc(
+		{
+			"doctype": "Custom Field",
+			"dt": "Warehouse",
+			"fieldname": "custom_supervisor",
+			"label": "Supervisor",
+			"fieldtype": "Link",
+			"options": "User",
+			"insert_after": "warehouse_name",
+		}
+	).insert(ignore_permissions=True)
+	frappe.clear_cache(doctype="Warehouse")
 
 
 def farm_with_beds() -> str | None:
-    """A Farm whose Farm Type includes 'Has Beds'.
+	"""A Farm whose Farm Type includes 'Has Beds'.
 
-    upande_core refuses to create a Bed under a farm that isn't configured for
-    them, so bed tests need the right farm rather than whichever comes first.
-    """
-    import frappe
+	upande_core refuses to create a Bed under a farm that isn't configured for
+	them, so bed tests need the right farm rather than whichever comes first.
+	"""
+	import frappe
 
-    row = frappe.db.get_value(
-        "Farm Type Item", {"parenttype": "Farm", "farm_type": "Has Beds"}, "parent"
-    )
-    return row or frappe.db.get_value("Farm", {}, "name")
+	if not frappe.db.exists("DocType", "Farm"):
+		return None
+	row = frappe.db.get_value("Farm Type Item", {"parenttype": "Farm", "farm_type": "Has Beds"}, "parent")
+	if row:
+		return row
+	# A fresh CI site has no Farm at all, and Warehouse.custom_farm is mandatory,
+	# so build one rather than handing make_warehouse an empty value.
+	if not frappe.db.exists("Farm", "_Test Bed Farm"):
+		frappe.get_doc(
+			{
+				"doctype": "Farm",
+				"farm_name": "_Test Bed Farm",
+				"abbreviation": "TBF",
+				"company": default_company(),
+				"farm_type": [{"farm_type": _farm_type("Has Beds")}],
+			}
+		).insert(ignore_permissions=True)
+	ensure_farm_type("_Test Bed Farm", "Has Beds")
+	return "_Test Bed Farm"
+
+
+def _farm_type(name: str) -> str:
+	import frappe
+
+	if not frappe.db.exists("Farm Type", name):
+		frappe.get_doc({"doctype": "Farm Type", "farm_type_name": name}).insert(ignore_permissions=True)
+	return name
+
+
+def ensure_farm_type(farm: str, farm_type: str) -> None:
+	"""upande_core gates each structure level (Has Beds, Has Zones, ...) on the
+	Farm's types, so a test building that level needs its farm to carry it."""
+	import frappe
+
+	doc = frappe.get_doc("Farm", farm)
+	if farm_type in {r.farm_type for r in doc.farm_type}:
+		return
+	doc.append("farm_type", {"farm_type": _farm_type(farm_type)})
+	doc.save(ignore_permissions=True)
 
 
 def default_employee(user: str = "Administrator") -> str:
-    """An Employee linked to `user`, creating one if none exists yet.
+	"""An Employee linked to `user`, creating one if none exists yet.
 
-    Production Plan Task assigns work to an Employee, not a User directly --
-    tests that exercise that path need one to hand.
-    """
-    import frappe
+	Production Plan Task assigns work to an Employee, not a User directly --
+	tests that exercise that path need one to hand.
+	"""
+	import frappe
 
-    existing = frappe.db.get_value("Employee", {"user_id": user}, "name")
-    if existing:
-        return existing
-    return frappe.get_doc({
-        "doctype": "Employee",
-        "first_name": user.split("@")[0] if "@" in user else user,
-        "gender": frappe.db.get_value("Gender", {}, "name"),
-        "date_of_birth": "1990-01-01",
-        "date_of_joining": frappe.utils.nowdate(),
-        "company": default_company(),
-        "status": "Active",
-        "user_id": user,
-    }).insert(ignore_permissions=True).name
+	existing = frappe.db.get_value("Employee", {"user_id": user}, "name")
+	if existing:
+		return existing
+	return (
+		frappe.get_doc(
+			{
+				"doctype": "Employee",
+				"first_name": user.split("@")[0] if "@" in user else user,
+				"gender": frappe.db.get_value("Gender", {}, "name"),
+				"date_of_birth": "1990-01-01",
+				"date_of_joining": frappe.utils.nowdate(),
+				"company": default_company(),
+				"status": "Active",
+				"user_id": user,
+			}
+		)
+		.insert(ignore_permissions=True)
+		.name
+	)
 
 
 def make_warehouse(name: str, supervisor: str | None = None) -> str:
-    """Return a non-group Warehouse typed as a Greenhouse, creating it if needed."""
-    import frappe
+	"""Return a non-group Warehouse typed as a Greenhouse, creating it if needed."""
+	import frappe
 
-    if supervisor:
-        ensure_supervisor_field()
-    existing = frappe.db.get_value("Warehouse", {"warehouse_name": name}, "name")
-    if existing:
-        return existing
+	if supervisor:
+		ensure_supervisor_field()
+	existing = frappe.db.get_value("Warehouse", {"warehouse_name": name}, "name")
+	if existing:
+		return existing
 
-    doc = frappe.get_doc({
-        "doctype": "Warehouse",
-        "warehouse_name": name,
-        "company": default_company(),
-        "is_group": 0,
-    })
-    # Only set fields this site actually has — upande_core adds custom_farm
-    # and custom_supervisor; a bare ERPNext site has neither.
-    if doc.meta.has_field("custom_farm"):
-        doc.custom_farm = farm_with_beds()
-    # upande_core checks the warehouse role when validating bed structure.
-    if doc.meta.has_field("warehouse_type") and frappe.db.exists(
-        "Warehouse Type", "Greenhouse"
-    ):
-        doc.warehouse_type = "Greenhouse"
-    if supervisor and doc.meta.has_field("custom_supervisor"):
-        doc.custom_supervisor = supervisor
-    return doc.insert(ignore_permissions=True).name
+	doc = frappe.get_doc(
+		{
+			"doctype": "Warehouse",
+			"warehouse_name": name,
+			"company": default_company(),
+			"is_group": 0,
+		}
+	)
+	# Only set fields this site actually has — upande_core adds custom_farm
+	# and custom_supervisor; a bare ERPNext site has neither.
+	if doc.meta.has_field("custom_farm"):
+		doc.custom_farm = farm_with_beds()
+	# upande_core checks the warehouse role when validating bed structure.
+	if doc.meta.has_field("warehouse_type") and frappe.db.exists("Warehouse Type", "Greenhouse"):
+		doc.warehouse_type = "Greenhouse"
+	if supervisor and doc.meta.has_field("custom_supervisor"):
+		doc.custom_supervisor = supervisor
+	return doc.insert(ignore_permissions=True).name

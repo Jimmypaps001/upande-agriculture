@@ -2,4 +2,4 @@ from frappe.model.document import Document
 
 
 class CropCycleBed(Document):
-    pass
+	pass
