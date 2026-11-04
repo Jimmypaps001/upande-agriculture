@@ -1,0 +1,10 @@
+{
+  "name": "upande_agriculture",
+  "version": "0.0.1",
+  "description": "Floriculture planning (Crop Protocol, Crop Cycle, Flower Trial, Budget/Forecast/Plan) for Mona Flowers",
+  "private": true,
+  "author": "Upande LTD <dev@upande.com>",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {}
+}

@@ -1,0 +1,38 @@
+name: Agriculture Release Notes
+
+# Regenerates a release's notes via the GitHub API, stripping housekeeping
+# commits (chore/ci/test/docs/style) and "by @mergify" attribution.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag of release like v1.2.0"
+        required: true
+        type: string
+  release:
+    types: [released]
+
+permissions:
+  contents: write
+
+jobs:
+  regen-notes:
+    name: "Regenerate release notes"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.inputs.tag_name || github.event.release.tag_name }}
+        run: |
+          NEW_NOTES=$(gh api --method POST -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/releases/generate-notes -f tag_name="$RELEASE_TAG" \
+            | jq -r '.body' \
+            | sed -E '/^\* (chore|ci|test|docs|style)/d' \
+            | sed -E 's/by @mergify //')
+          RELEASE_ID=$(gh api -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/releases/tags/$RELEASE_TAG | jq -r '.id')
+          gh api --method PATCH -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/releases/$RELEASE_ID -f body="$NEW_NOTES"

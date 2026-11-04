@@ -1,0 +1,22 @@
+# semgrep's own defaults (a .semgrepignore replaces them)
+:include .gitignore
+node_modules/
+build/
+dist/
+vendor/
+.env/
+.venv/
+.tox/
+*.min.js
+.npm/
+.yarn/
+test/
+tests/
+.semgrep
+.semgrep_logs/
+
+# the rules CI clones next to the code
+frappe-semgrep-rules/
+
+# local-only dev scripts (docs/bucket-journey/jtest_*), never deployed
+docs/
