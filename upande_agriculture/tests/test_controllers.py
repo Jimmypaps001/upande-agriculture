@@ -7,7 +7,13 @@ from upande_agriculture.tests import default_company, default_employee, default_
 from upande_agriculture.upande_agriculture.doctype.crop_cycle.crop_cycle import parse_bed_range
 
 
-class TestCropCycle(FrappeTestCase):
+class CropCycleFixtures(FrappeTestCase):
+	"""Record builders shared by the Crop Cycle and Greenhouse suites.
+
+	Holds no tests of its own: TestGreenhouse used to subclass TestCropCycle
+	for these helpers, which re-ran every Crop Cycle test against the data
+	the first pass had already left behind."""
+
 	def _item(self, name="TEST-VARIETY-A"):
 		if not frappe.db.exists("Item", name):
 			frappe.get_doc(
@@ -63,6 +69,28 @@ class TestCropCycle(FrappeTestCase):
 		payload.update(kw)
 		return frappe.get_doc(payload).insert(ignore_permissions=True)
 
+	def _bed(self, house, n, length, width):
+		name = f"{house} - Bed {n}"
+		if frappe.db.exists("Bed", name):
+			frappe.delete_doc("Bed", name, force=True, ignore_permissions=True)
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Bed",
+					"greenhouse": house,
+					"unit_type": "Bed",
+					"bed": n,
+					"bed_length": length,
+					"bed_width": width,
+					"bed_area": length * width,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
+
+
+class TestCropCycle(CropCycleFixtures):
 	# -- uprooting and replanting ---------------------------------------
 
 	def test_end_date_ends_the_cycle(self):
@@ -117,26 +145,6 @@ class TestCropCycle(FrappeTestCase):
 
 	# -- the density guard ---------------------------------------------
 
-	def _bed(self, house, n, length, width):
-		name = f"{house} - Bed {n}"
-		if frappe.db.exists("Bed", name):
-			frappe.delete_doc("Bed", name, force=True, ignore_permissions=True)
-		return (
-			frappe.get_doc(
-				{
-					"doctype": "Bed",
-					"greenhouse": house,
-					"unit_type": "Bed",
-					"bed": n,
-					"bed_length": length,
-					"bed_width": width,
-					"bed_area": length * width,
-				}
-			)
-			.insert(ignore_permissions=True)
-			.name
-		)
-
 	def test_beds_roll_up_into_area_and_implied_plants(self):
 		house = make_warehouse("TEST GH BEDS")
 		beds = [self._bed(house, i, 20, 0.85) for i in (1, 2, 3)]
@@ -144,12 +152,20 @@ class TestCropCycle(FrappeTestCase):
 		self.assertAlmostEqual(c.planted_area, 3 * 20 * 0.85, places=2)
 		self.assertEqual(c.implied_plants, round(51 * 6))
 
-	def test_wrong_bed_length_is_rejected(self):
-		"""The 4m-vs-20m error: 50 beds of 4x0.85 cannot hold 10,000 plants."""
+	def test_wrong_bed_length_is_flagged(self):
+		"""The 4m-vs-20m error: 50 beds of 4x0.85 cannot hold 10,000 plants.
+
+		check_density warns rather than blocks -- a grower may plant off the
+		bed plan -- so the cycle saves but the mismatch must be shown."""
 		house = make_warehouse("TEST GH BADBEDS")
 		beds = [self._bed(house, i, 4, 0.85) for i in range(1, 6)]
-		with self.assertRaises(frappe.ValidationError):
-			self._cycle(house, qty_planted=10000, plants_per_sqm=7, beds=[{"bed": b} for b in beds])
+		frappe.clear_messages()
+		c = self._cycle(house, qty_planted=10000, plants_per_sqm=7, beds=[{"bed": b} for b in beds])
+		self.assertTrue(c.name)
+		self.assertTrue(
+			any("disagree" in str(m) for m in frappe.message_log),
+			"a bed area that can't hold the plant count must be warned about",
+		)
 
 	def test_plausible_density_passes(self):
 		house = make_warehouse("TEST GH GOODBEDS")
@@ -482,13 +498,51 @@ class TestCropCycle(FrappeTestCase):
 			.name
 		)
 
+	def _payable_account(self, company, currency):
+		"""A Payable ledger in the company's own currency, next to the existing one."""
+		parent = frappe.db.get_value(
+			"Account", {"company": company, "account_type": "Payable", "is_group": 0}, "parent_account"
+		) or frappe.db.get_value(
+			"Account", {"company": company, "root_type": "Liability", "is_group": 1}, "name"
+		)
+		return (
+			frappe.get_doc(
+				{
+					"doctype": "Account",
+					"account_name": f"Test Creditors {currency}",
+					"company": company,
+					"parent_account": parent,
+					"account_type": "Payable",
+					"account_currency": currency,
+				}
+			)
+			.insert(ignore_permissions=True)
+			.name
+		)
+
 	def _invoice(self, item, qty, rate, supplier=None):
 		supplier = supplier or self._supplier()
+		company = default_company()
+		currency = frappe.get_cached_value("Company", company, "default_currency")
+		# ERPNext's test company can carry a default Creditors account in another
+		# currency, which ERPNext then refuses for an invoice in company currency.
+		credit_to = frappe.db.get_value(
+			"Account",
+			{
+				"company": company,
+				"account_type": "Payable",
+				"is_group": 0,
+				"account_currency": currency,
+			},
+			"name",
+		) or self._payable_account(company, currency)
 		pi = frappe.get_doc(
 			{
 				"doctype": "Purchase Invoice",
 				"supplier": supplier,
-				"company": default_company(),
+				"company": company,
+				"currency": currency,
+				"credit_to": credit_to,
 				"update_stock": 0,
 				"items": [{"item_code": item, "qty": qty, "rate": rate}],
 			}
@@ -549,9 +603,9 @@ class TestCropCycle(FrappeTestCase):
 		)
 
 
-class TestGreenhouse(TestCropCycle):
+class TestGreenhouse(CropCycleFixtures):
 	"""Greenhouse is its own bed-by-bed ledger, independent of Crop Cycle --
-	only reuses TestCropCycle's _item() to create variety Items."""
+	only shares CropCycleFixtures' record builders."""
 
 	def _greenhouse(self, house, **kw):
 		payload = {"doctype": "Greenhouse", "greenhouse": house, "company": default_company()}

@@ -66,26 +66,38 @@ def farm_with_beds() -> str | None:
 		return row
 	# A fresh CI site has no Farm at all, and Warehouse.custom_farm is mandatory,
 	# so build one rather than handing make_warehouse an empty value.
-	if not frappe.db.exists("Farm Type", "Has Beds"):
-		frappe.get_doc({"doctype": "Farm Type", "farm_type_name": "Has Beds"}).insert(ignore_permissions=True)
-	if frappe.db.exists("Farm", "_Test Bed Farm"):
-		farm = frappe.get_doc("Farm", "_Test Bed Farm")
-		farm.append("farm_type", {"farm_type": "Has Beds"})
-		farm.save(ignore_permissions=True)
-		return farm.name
-	return (
+	if not frappe.db.exists("Farm", "_Test Bed Farm"):
 		frappe.get_doc(
 			{
 				"doctype": "Farm",
 				"farm_name": "_Test Bed Farm",
 				"abbreviation": "TBF",
 				"company": default_company(),
-				"farm_type": [{"farm_type": "Has Beds"}],
+				"farm_type": [{"farm_type": _farm_type("Has Beds")}],
 			}
-		)
-		.insert(ignore_permissions=True)
-		.name
-	)
+		).insert(ignore_permissions=True)
+	ensure_farm_type("_Test Bed Farm", "Has Beds")
+	return "_Test Bed Farm"
+
+
+def _farm_type(name: str) -> str:
+	import frappe
+
+	if not frappe.db.exists("Farm Type", name):
+		frappe.get_doc({"doctype": "Farm Type", "farm_type_name": name}).insert(ignore_permissions=True)
+	return name
+
+
+def ensure_farm_type(farm: str, farm_type: str) -> None:
+	"""upande_core gates each structure level (Has Beds, Has Zones, ...) on the
+	Farm's types, so a test building that level needs its farm to carry it."""
+	import frappe
+
+	doc = frappe.get_doc("Farm", farm)
+	if farm_type in {r.farm_type for r in doc.farm_type}:
+		return
+	doc.append("farm_type", {"farm_type": _farm_type(farm_type)})
+	doc.save(ignore_permissions=True)
 
 
 def default_employee(user: str = "Administrator") -> str:

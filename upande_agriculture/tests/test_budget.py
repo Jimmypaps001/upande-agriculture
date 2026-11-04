@@ -7,7 +7,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from upande_agriculture import budget
-from upande_agriculture.tests import default_uom, make_warehouse
+from upande_agriculture.tests import default_uom, ensure_farm_type, make_warehouse
 
 
 class TestBudget(FrappeTestCase):
@@ -483,6 +483,9 @@ class TestFarmMapGeometry(FrappeTestCase):
 		field = "geojson" if frappe.get_meta("Zone").has_field("geojson") else "raw_geojson"
 
 		house = make_warehouse("TEST GH ZONEMAP")
+		farm = frappe.db.get_value("Warehouse", house, "custom_farm")
+		if farm:
+			ensure_farm_type(farm, "Has Zones")
 		bed_name = f"{house} - Bed 99"
 		if frappe.db.exists("Bed", bed_name):
 			frappe.delete_doc("Bed", bed_name, force=True, ignore_permissions=True)

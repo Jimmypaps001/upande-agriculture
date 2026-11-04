@@ -338,12 +338,18 @@ def sync_bed_master(doc, method=None):
 	if not meta.has_field("status"):
 		return
 	has_plant_count = meta.has_field("plant_count")
+	# upande_core's Bed has no variety until add_bed_variety_field has run.
+	has_variety = meta.has_field("variety")
 	house = doc.get("greenhouse") or doc.name
 	ledger = {int(b.bed_number): b for b in (doc.individual_beds or []) if b.bed_number}
 	if not ledger:
 		return
 
-	fields = ["name", "bed", "status", "variety"] + (["plant_count"] if has_plant_count else [])
+	fields = (
+		["name", "bed", "status"]
+		+ (["variety"] if has_variety else [])
+		+ (["plant_count"] if has_plant_count else [])
+	)
 	for bed in frappe.get_all("Bed", filters={"greenhouse": house}, fields=fields):
 		row = ledger.get(int(bed.bed))
 		if not row:
@@ -353,7 +359,7 @@ def sync_bed_master(doc, method=None):
 		updates = {}
 		if (row.status or "") != (bed.status or ""):
 			updates["status"] = row.status
-		if (variety or "") != (bed.variety or ""):
+		if has_variety and (variety or "") != (bed.variety or ""):
 			updates["variety"] = variety
 		if has_plant_count:
 			plants = int(row.plant_count or 0) if occupied else 0

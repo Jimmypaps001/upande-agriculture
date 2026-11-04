@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "day",
+  "assigned_task",
   "task_name",
   "variety",
   "purpose",
@@ -96,7 +97,7 @@
    "options": "Warehouse"
   },
   {
-   "description": "Which beds this job is on \u2014 numbers and ranges, e.g. 3, 7-12. Blank means the whole house.",
+   "description": "Which beds this job is on — numbers and ranges, e.g. 3, 7-12. Blank means the whole house.",
    "fieldname": "beds",
    "fieldtype": "Data",
    "hidden": 1,
@@ -161,17 +162,22 @@
   },
   {
    "columns": 2,
-   "fieldname": "task_name",
+   "fieldname": "assigned_task",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Assigned Task",
-   "options": "Task",
-   "reqd": 1
+   "options": "Task"
+  },
+  {
+   "description": "Filled from the Assigned Task's subject when left blank. Auto-generated and mobile tasks set it directly.",
+   "fieldname": "task_name",
+   "fieldtype": "Data",
+   "label": "Task"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-11-03 22:15:50.304196",
+ "modified": "2026-11-04 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Upande Agriculture",
  "name": "Production Plan Task",
