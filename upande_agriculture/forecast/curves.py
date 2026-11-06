@@ -10,14 +10,16 @@ BASE_TEMP = 5.3  # °C: roses do not develop below this
 
 # The farm's stages (Bilashaka, 2026-10-14). The farm manager gives the days
 # from ENTERING a stage to the knife (colour break -> cut in 7 days, bud -> 14,
-# pea -> 21), so a bud seen at a stage is anywhere in that stage's window:
-# colour break 0-7 days out, bud 7-14, pea 14-21, maroon shoot 21-56 (it lasts
-# ~5 weeks), eye pop-up ~8-10 days after the cut, i.e. ~56-59 days out. Each
+# pea -> 21, maroon shoot -> 35), so a bud seen at a stage is anywhere in that
+# stage's window: colour break 0-7 days out, bud 7-14, pea 14-21, maroon shoot
+# 21-35 ("from maroon to harvest is 5 weeks": the stage itself is ~2 weeks, not
+# 5; corrected 2026-11-06), eye pop-up ~8-10 days after the cut, i.e. ~56-59
+# days out. Each
 # stage is the middle of its window +- half of it. The share that reaches the
 # knife is per stage. Each variety's Crop Protocol overrides these.
 DEFAULT_STAGES = [
 	{"stage_name": "Eye pop-up", "days_to_harvest": 57.5, "spread_days": 1.5, "survival": 0.80},
-	{"stage_name": "Maroon shoot", "days_to_harvest": 38.5, "spread_days": 17.5, "survival": 0.85},
+	{"stage_name": "Maroon shoot", "days_to_harvest": 28, "spread_days": 7, "survival": 0.85},
 	{"stage_name": "Pea", "days_to_harvest": 17.5, "spread_days": 3.5, "survival": 0.93},
 	{"stage_name": "Bud", "days_to_harvest": 10.5, "spread_days": 3.5, "survival": 0.97},
 	{"stage_name": "Colour break", "days_to_harvest": 3.5, "spread_days": 3.5, "survival": 0.99},

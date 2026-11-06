@@ -31,13 +31,13 @@ class TestCurves(unittest.TestCase):
 		self.assertEqual(list(p), ["Eye pop-up", "Maroon shoot", "Pea", "Bud", "Colour break"])
 		# each stage is the middle of its window: colour break 0-7 d, bud 7-14, pea 14-21,
 		# maroon 21-56, eye pop-up 56-59
-		self.assertEqual(p, {"Eye pop-up": (57.5, 1.5, 0.8), "Maroon shoot": (38.5, 17.5, 0.85),
+		self.assertEqual(p, {"Eye pop-up": (57.5, 1.5, 0.8), "Maroon shoot": (28, 7, 0.85),
 			"Pea": (17.5, 3.5, 0.93), "Bud": (10.5, 3.5, 0.97), "Colour break": (3.5, 3.5, 0.99)})
 
 	def test_protocol_naming_new_stages_takes_their_days_and_survival(self):
 		p = curves.stage_params([{"stage_name": "maroon shoot"}, {"stage_name": "Colour break", "survival": 0.9}])
 		self.assertEqual(p["maroon shoot"][2], 0.85)
-		self.assertEqual(p["maroon shoot"][:2], (38.5, 17.5))  # blank spread: midpoint band to colour break (21-56), mirrored
+		self.assertEqual(p["maroon shoot"][:2], (28.0, 12.25))  # blank spread: midpoint band to colour break (15.75-40.25), mirrored
 		self.assertEqual(p["Colour break"][2], 0.9)
 
 	def test_legacy_stage_rows(self):
