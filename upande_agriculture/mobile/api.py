@@ -1931,7 +1931,7 @@ def plan_approval_info(doc):
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def productionPlanAction():
 	"""Moves a plan through its approval workflow: Submit for Approval,
 	Approve, Reject, Submit for Verification or Verify. A rejection needs a
@@ -3963,7 +3963,7 @@ def productionGetAudit():
 		frappe.response["data"] = {"error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def productionSaveAudit():
 	# sections: {table fieldname: [{score, comments}, ...]} in checklist order.
 	data = frappe.request.get_json() or {}
