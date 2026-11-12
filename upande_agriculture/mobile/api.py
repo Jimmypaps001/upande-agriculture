@@ -1161,14 +1161,16 @@ def amendHarvestEntry():
 	final_head_size = new_head_size or current_head_size
 	final_qty = new_qty if new_qty is not None else current_qty
 
-	# A change to a variety that needs a head size must bring one.
-	if (
-		final_variety != current_variety
-		and not final_head_size
-		and variety_needs_head_size(final_variety, original.custom_greenhouse)
-	):
-		frappe.response["data"] = {"error": "Head size is required for " + final_variety + "."}
-		return
+	# A change to a variety that needs a head size takes its default head size when none
+	# is given (as createHarvestStockEntry does); only with no default is it refused.
+	if final_variety != current_variety and not final_head_size:
+		needs_head_size, head_size_default = head_size_rule(final_variety, original.custom_greenhouse)
+		if needs_head_size:
+			if head_size_default and frappe.db.exists("Head Size", head_size_default):
+				final_head_size = head_size_default
+			else:
+				frappe.response["data"] = {"error": "Head size is required for " + final_variety + "."}
+				return
 
 	if (
 		final_variety == current_variety
@@ -1400,7 +1402,8 @@ def getGreenhouseData():
 			"employees": employees,
 			"cut_stages": cut_stages,
 			"head_sizes": head_sizes,
-			"head_size_mandatory": head_size_mandatory(),
+			# Older app builds read only this flag: on when any variety here needs a head size.
+			"head_size_mandatory": head_size_mandatory() or any(v["head_size_mandatory"] for v in varieties),
 			"default_head_size": head_size_rules[2],
 			"notice": notice,
 		}
