@@ -116,7 +116,7 @@ def validate_bucket_stem_limit(item_code, bucket_id, new_stems, exclude_stock_en
 
 	try:
 		new_stems = float(new_stems or 0)
-	except (TypeError, ValueError):
+	except TypeError, ValueError:
 		return f"'{new_stems}' isn't a number of stems."
 	total = existing_stems + new_stems
 	if total > float(max_limit):
@@ -517,10 +517,90 @@ def createGradingStockEntry():
 
 
 def head_size_mandatory():
-	"""Production Settings > Production > Enable Head Size Mandatory."""
+	"""Production Settings > Production > Enable Head Size Mandatory: every variety."""
 	if not frappe.get_meta("Production Settings").has_field("enable_head_size_mandatory"):
 		return False
 	return bool(frappe.db.get_single_value("Production Settings", "enable_head_size_mandatory"))
+
+
+def default_head_size():
+	"""Production Settings > Production > Default Head Size: every variety without its own."""
+	if not frappe.get_meta("Production Settings").has_field("default_head_size"):
+		return ""
+	return frappe.db.get_single_value("Production Settings", "default_head_size") or ""
+
+
+def head_size_mandatory_rules():
+	"""(every variety, rows, default head size) from Production Settings: Enable Head Size
+	Mandatory, the Head Size Mandatory For rows as (greenhouse, variety, item group lft/rgt,
+	head size), and Default Head Size.
+
+	A row covers a harvest when its greenhouse is that greenhouse or blank (every
+	greenhouse), and its variety is the harvested one -- or, with no variety, the harvested
+	variety's item group is the row's item group or sits under it."""
+	if not frappe.get_meta("Production Settings").has_field("head_size_mandatory_for"):
+		return head_size_mandatory(), [], default_head_size()
+	has_head_size = frappe.get_meta("Head Size Mandatory Item").has_field("head_size")
+	rows = frappe.get_all(
+		"Head Size Mandatory Item",
+		filters={"parent": "Production Settings", "parenttype": "Production Settings"},
+		fields=["greenhouse", "item_group", "variety"] + (["head_size"] if has_head_size else []),
+		order_by="idx asc",
+	)
+	groups = {r.item_group for r in rows if r.item_group and not r.variety}
+	bounds = (
+		{
+			g.name: (g.lft, g.rgt)
+			for g in frappe.get_all(
+				"Item Group", filters={"name": ["in", list(groups)]}, fields=["name", "lft", "rgt"]
+			)
+		}
+		if groups
+		else {}
+	)
+	return (
+		head_size_mandatory(),
+		[
+			(
+				r.greenhouse or "",
+				r.variety or "",
+				None if r.variety else bounds.get(r.item_group),
+				r.get("head_size") or "",
+			)
+			for r in rows
+			if r.variety or bounds.get(r.item_group)
+		],
+		default_head_size(),
+	)
+
+
+def head_size_rule(item_code, greenhouse=None, rules=None):
+	"""(mandatory, default head size) for a harvest of item_code in greenhouse (see
+	head_size_mandatory_rules). The default is the closest matching row's head size -- the
+	variety before its item group, this greenhouse before every greenhouse, the narrowest
+	item group first -- else Default Head Size."""
+	every, rows, fallback = rules or head_size_mandatory_rules()
+	rows = [r for r in rows if not r[0] or r[0] == (greenhouse or "")]
+	matches = []
+	if rows and item_code:
+		matches = [(0, 0 if r[0] else 1, 0, r[3]) for r in rows if r[1] == item_code]
+		if any(r[2] for r in rows):
+			group = frappe.db.get_value("Item", item_code, "item_group")
+			at = frappe.db.get_value("Item Group", group, ["lft", "rgt"], as_dict=True) if group else None
+			if at:
+				matches += [
+					(1, 0 if r[0] else 1, -r[2][0], r[3])
+					for r in rows
+					if r[2] and r[2][0] <= at.lft and at.rgt <= r[2][1]
+				]
+	matches.sort(key=lambda m: m[:3])
+	default = next((m[3] for m in matches if m[3]), "") or fallback
+	return bool(every or matches), default
+
+
+def variety_needs_head_size(item_code, greenhouse=None, rules=None):
+	"""True when a harvest of item_code in greenhouse must carry a head size."""
+	return head_size_rule(item_code, greenhouse, rules)[0]
 
 
 @frappe.whitelist()
@@ -564,7 +644,7 @@ def createHarvestStockEntry():
 		# reject it explicitly and by name before it gets that far.
 		try:
 			quantity = int(quantity)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			frappe.throw(_(f"Quantity must be a whole number of stems, got '{quantity}'."))
 
 		# Handle both string and JSON dict formats for bucket_id
@@ -604,8 +684,10 @@ def createHarvestStockEntry():
 		stock_entry.custom_stem_length = stem_length
 		if cut_stage and frappe.db.exists("Cut Stage", cut_stage):
 			stock_entry.custom_cut_stage = cut_stage
-		if not head_size and head_size_mandatory():
-			frappe.throw(_("Head size is required."))
+		needs_head_size, head_size_default = head_size_rule(item_code, greenhouse)
+		head_size = head_size or head_size_default
+		if not head_size and needs_head_size:
+			frappe.throw(_(f"Head size is required for {item_code}."))
 		if head_size:
 			if not frappe.db.exists("Head Size", head_size):
 				frappe.throw(_(f"Head size '{head_size}' does not exist."))
@@ -1026,7 +1108,7 @@ def amendHarvestEntry():
 	if raw_qty is not None and str(raw_qty).strip() != "":
 		try:
 			new_qty = float(raw_qty)
-		except (TypeError, ValueError):
+		except TypeError, ValueError:
 			frappe.response["data"] = {"error": "Quantity must be a number."}
 			return
 		if new_qty <= 0:
@@ -1078,6 +1160,15 @@ def amendHarvestEntry():
 	final_cut_stage = new_cut_stage or current_cut_stage
 	final_head_size = new_head_size or current_head_size
 	final_qty = new_qty if new_qty is not None else current_qty
+
+	# A change to a variety that needs a head size must bring one.
+	if (
+		final_variety != current_variety
+		and not final_head_size
+		and variety_needs_head_size(final_variety, original.custom_greenhouse)
+	):
+		frappe.response["data"] = {"error": "Head size is required for " + final_variety + "."}
+		return
 
 	if (
 		final_variety == current_variety
@@ -1238,11 +1329,13 @@ def getGreenhouseData():
 			fields=["variety", "area_m2"],
 			order_by="area_m2 desc",
 		)
+		head_size_rules = head_size_mandatory_rules()
 		for r in vg_rows:
 			v = r.get("variety")
 			if v and v not in seen:
 				seen.append(v)
 				item_group = frappe.db.get_value("Item", v, "item_group")
+				needs_head_size, head_size_default = head_size_rule(v, greenhouse_name, head_size_rules)
 				# A real ancestor-aware check, not a string match against
 				# item_group -- callers that need "Standard Roses only"
 				# (the harvest form) can't safely filter on item_group
@@ -1254,6 +1347,8 @@ def getGreenhouseData():
 						"area": r.get("area_m2"),
 						"item_group": item_group,
 						"is_spray_rose": item_group_is_under(v, "Spray Roses"),
+						"head_size_mandatory": needs_head_size,
+						"default_head_size": head_size_default,
 					}
 				)
 
@@ -1306,6 +1401,7 @@ def getGreenhouseData():
 			"cut_stages": cut_stages,
 			"head_sizes": head_sizes,
 			"head_size_mandatory": head_size_mandatory(),
+			"default_head_size": head_size_rules[2],
 			"notice": notice,
 		}
 	except Exception as e:
