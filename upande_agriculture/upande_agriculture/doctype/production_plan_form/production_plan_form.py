@@ -4,7 +4,16 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint, flt, getdate, nowdate
+from frappe.utils import cint, flt, getdate, now_datetime, nowdate
+
+APPROVAL_WORKFLOW = "Production Plan Approval"
+DRAFT = "Draft"
+PENDING_APPROVAL = "Pending Approval"
+APPROVED = "Approved"
+PENDING_VERIFICATION = "Pending Verification"
+VERIFIED = "Verified"
+REJECTED = "Rejected"
+FINISHED_TASK_STATUSES = ("Done", "Skipped")
 
 
 def ensure_plan_editable(doc):
@@ -13,6 +22,21 @@ def ensure_plan_editable(doc):
 		frappe.throw(_("Production Plan {0} is submitted. Amend it to change its tasks.").format(doc.name))
 	if doc.docstatus == 2:
 		frappe.throw(_("Production Plan {0} is cancelled.").format(doc.name))
+
+
+def can_edit_plan(doc):
+	"""Tasks and targets can change before the plan is approved (or after a
+	rejection of a plan that was never approved). No workflow state means the
+	approval workflow isn't installed on this site yet."""
+	state = doc.get("workflow_state")
+	return not state or state == DRAFT or (state == REJECTED and not doc.get("approved_by"))
+
+
+def can_enter_actuals(doc):
+	"""Actuals are keyed in once the plan is approved, and again after the
+	manager rejects them at verification."""
+	state = doc.get("workflow_state")
+	return not state or state == APPROVED or (state == REJECTED and bool(doc.get("approved_by")))
 
 
 class ProductionPlanForm(Document):
@@ -49,6 +73,41 @@ class ProductionPlanForm(Document):
 			if not task.task_name:
 				frappe.throw(_("Row {0}: set the Assigned Task.").format(task.idx))
 			task.check_beds_exist()
+		self.validate_workflow_step()
+
+	def validate_workflow_step(self):
+		before = self.get_doc_before_save()
+		previous = before.get("workflow_state") if before else None
+		state = self.get("workflow_state")
+		if not state or state == previous:
+			return
+		if state == REJECTED:
+			if not (self.manager_comments or "").strip():
+				frappe.throw(_("Add a comment on why this plan is rejected."))
+		elif state == APPROVED:
+			self.approved_by = frappe.session.user
+			self.approved_on = now_datetime()
+		elif state == PENDING_VERIFICATION:
+			if not self.tasks:
+				frappe.throw(_("Add tasks before submitting actuals."))
+			open_tasks = [t.task_name or t.idx for t in self.tasks if t.status not in FINISHED_TASK_STATUSES]
+			if open_tasks:
+				frappe.throw(
+					_(
+						"Mark every task Done or Skipped before submitting for verification. Still open: {0}"
+					).format(", ".join(str(t) for t in open_tasks))
+				)
+		elif state == VERIFIED:
+			self.verified_by = frappe.session.user
+			self.verified_on = now_datetime()
+
+	def on_update(self):
+		before = self.get_doc_before_save()
+		if (
+			self.get("workflow_state") == REJECTED
+			and (before.get("workflow_state") if before else None) != REJECTED
+		):
+			self.add_comment("Comment", _("Rejected: {0}").format(self.manager_comments))
 
 	def sync_task(self, task, day_changed):
 		from upande_agriculture.plan import DAYS, _date_for_day

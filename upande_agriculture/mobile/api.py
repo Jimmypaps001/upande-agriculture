@@ -13,6 +13,8 @@ import frappe
 from frappe import _
 
 from upande_agriculture.upande_agriculture.doctype.production_plan_form.production_plan_form import (
+	can_edit_plan,
+	can_enter_actuals,
 	ensure_plan_editable,
 )
 
@@ -514,6 +516,13 @@ def createGradingStockEntry():
 		frappe.response["error"] = str(e)
 
 
+def head_size_mandatory():
+	"""Production Settings > Production > Enable Head Size Mandatory."""
+	if not frappe.get_meta("Production Settings").has_field("enable_head_size_mandatory"):
+		return False
+	return bool(frappe.db.get_single_value("Production Settings", "enable_head_size_mandatory"))
+
+
 @frappe.whitelist()
 def createHarvestStockEntry():
 	try:
@@ -537,6 +546,7 @@ def createHarvestStockEntry():
 		quantity = data.get("quantity")
 		bucket_data = data.get("bucket_id")
 		cut_stage = data.get("cut_stage")
+		head_size = data.get("head_size")
 
 		# Resolve harvester to an Employee id. custom_harvester is a Link to
 		# Employee, so it needs the id; accept an employee_name too (older app
@@ -594,6 +604,12 @@ def createHarvestStockEntry():
 		stock_entry.custom_stem_length = stem_length
 		if cut_stage and frappe.db.exists("Cut Stage", cut_stage):
 			stock_entry.custom_cut_stage = cut_stage
+		if not head_size and head_size_mandatory():
+			frappe.throw(_("Head size is required."))
+		if head_size:
+			if not frappe.db.exists("Head Size", head_size):
+				frappe.throw(_(f"Head size '{head_size}' does not exist."))
+			stock_entry.custom_head_size = head_size
 
 		# create bucket if it does not exist
 		if not frappe.db.exists("Bucket QR Code", bucket_id):
@@ -868,6 +884,7 @@ def getBucketStatus():
 			"creation",
 			"custom_receiving_entry",
 			"custom_cut_stage",
+			"custom_head_size",
 			"custom_harvester",
 		],
 		order_by="creation desc",
@@ -946,6 +963,7 @@ def getBucketStatus():
 					"stem_length": h.get("custom_stem_length") or "Unspecified",
 					"greenhouse": h.get("custom_greenhouse") or "Unspecified",
 					"cut_stage": h.get("custom_cut_stage") or "Unspecified",
+					"head_size": h.get("custom_head_size") or "Unspecified",
 					"harvester": harvester_names.get(h.get("custom_harvester"))
 					or h.get("custom_harvester")
 					or "Unspecified",
@@ -982,7 +1000,7 @@ def amendHarvestEntry():
 	is the real, persisted link between the two (see
 	add_harvest_grading_link_fields), so when it's set this cascades the
 	same correction to that Grading entry too, via its own cancel+amend.
-	Variety/stem_length/cut_stage carry over as-is (same field, same value on
+	Variety/stem_length/cut_stage/head_size carry over as-is (same field, same value on
 	both docs); qty does not -- the Harvesting item is always in raw stems,
 	while the Grading item is in bunches (qty * conversion_factor = stems),
 	so the corrected stem qty is converted back to bunches using that same
@@ -1002,6 +1020,7 @@ def amendHarvestEntry():
 	new_variety = (data.get("variety") or "").strip() or None
 	new_stem_length = (data.get("stem_length") or "").strip() or None
 	new_cut_stage = (data.get("cut_stage") or "").strip() or None
+	new_head_size = (data.get("head_size") or "").strip() or None
 	raw_qty = data.get("qty")
 	new_qty = None
 	if raw_qty is not None and str(raw_qty).strip() != "":
@@ -1017,10 +1036,19 @@ def amendHarvestEntry():
 	if not stock_entry_name:
 		frappe.response["data"] = {"error": "stock_entry_name is required."}
 		return
-	if not new_variety and not new_stem_length and not new_cut_stage and new_qty is None:
+	if (
+		not new_variety
+		and not new_stem_length
+		and not new_cut_stage
+		and not new_head_size
+		and new_qty is None
+	):
 		frappe.response["data"] = {
-			"error": "Nothing to change -- provide a variety, stem_length, cut_stage and/or qty."
+			"error": "Nothing to change -- provide a variety, stem_length, cut_stage, head_size and/or qty."
 		}
+		return
+	if new_head_size and not frappe.db.exists("Head Size", new_head_size):
+		frappe.response["data"] = {"error": "Head size " + new_head_size + " does not exist."}
 		return
 	if not frappe.db.exists("Stock Entry", stock_entry_name):
 		frappe.response["data"] = {"error": "Stock Entry " + stock_entry_name + " does not exist."}
@@ -1043,16 +1071,19 @@ def amendHarvestEntry():
 	current_variety = original.items[0].item_code if original.items else None
 	current_stem_length = original.custom_stem_length
 	current_cut_stage = original.custom_cut_stage
+	current_head_size = original.custom_head_size
 	current_qty = original.items[0].qty if original.items else None
 	final_variety = new_variety or current_variety
 	final_stem_length = new_stem_length or current_stem_length
 	final_cut_stage = new_cut_stage or current_cut_stage
+	final_head_size = new_head_size or current_head_size
 	final_qty = new_qty if new_qty is not None else current_qty
 
 	if (
 		final_variety == current_variety
 		and final_stem_length == current_stem_length
 		and final_cut_stage == current_cut_stage
+		and final_head_size == current_head_size
 		and final_qty == current_qty
 	):
 		# Nothing actually changed -- skip the cancel+amend churn entirely.
@@ -1061,6 +1092,7 @@ def amendHarvestEntry():
 			"variety": current_variety,
 			"stem_length": current_stem_length,
 			"cut_stage": current_cut_stage,
+			"head_size": current_head_size,
 			"qty": current_qty,
 			"amended": False,
 		}
@@ -1111,6 +1143,7 @@ def amendHarvestEntry():
 		amended.items[0].qty = final_qty
 	amended.custom_stem_length = final_stem_length
 	amended.custom_cut_stage = final_cut_stage
+	amended.custom_head_size = final_head_size
 	amended.insert(ignore_permissions=True)
 	amended.submit()
 
@@ -1146,6 +1179,7 @@ def amendHarvestEntry():
 					grading_amended.items[0].qty = final_qty / conversion_factor
 			grading_amended.custom_stem_length = final_stem_length
 			grading_amended.custom_cut_stage = final_cut_stage
+			grading_amended.custom_head_size = final_head_size
 			grading_amended.custom_harvest_entry = amended.name
 			grading_amended.insert(ignore_permissions=True)
 			grading_amended.submit()
@@ -1177,6 +1211,7 @@ def amendHarvestEntry():
 		"variety": final_variety,
 		"stem_length": final_stem_length,
 		"cut_stage": final_cut_stage,
+		"head_size": final_head_size,
 		"qty": final_qty,
 		"amended": True,
 	}
@@ -1257,6 +1292,10 @@ def getGreenhouseData():
 			if v and v not in cut_stages:
 				cut_stages.append(v)
 
+		head_sizes = []
+		if frappe.db.table_exists("Head Size"):
+			head_sizes = frappe.get_all("Head Size", pluck="name", order_by="name asc")
+
 		notice = None
 		if not varieties:
 			notice = "Nothing is standing in this greenhouse yet. Create a crop cycle to load its varieties."
@@ -1265,11 +1304,43 @@ def getGreenhouseData():
 			"varieties": varieties,
 			"employees": employees,
 			"cut_stages": cut_stages,
+			"head_sizes": head_sizes,
+			"head_size_mandatory": head_size_mandatory(),
 			"notice": notice,
 		}
 	except Exception as e:
 		frappe.log_error(message=e, title="Get greenhouse data error")
 		frappe.throw(_("Error fetching greenhouse data: ") + str(e))
+
+
+def forecast_lock_weeks():
+	"""Production Settings > Production > Forecast Locked for the Next (Weeks).
+	Defaults to 5 when the setting is missing or blank."""
+	if not frappe.get_meta("Production Settings").has_field("forecast_lock_weeks"):
+		return 5
+	# get_single_value turns a never-saved Int into 0; read the raw row so an
+	# unset value falls back to the default instead of unlocking everything.
+	rows = frappe.db.sql(
+		"select value from `tabSingles` where doctype = 'Production Settings' and field = 'forecast_lock_weeks'"
+	)
+	value = rows[0][0] if rows else None
+	if value is None or value == "":
+		return 5
+	return max(0, frappe.utils.cint(value))
+
+
+def forecast_week_editable(year, week, lock_weeks=None):
+	"""A revised forecast can only change for weeks more than `lock_weeks`
+	ahead of the current week -- e.g. in week 30 with 5, weeks 36 onward."""
+	if lock_weeks is None:
+		lock_weeks = forecast_lock_weeks()
+	try:
+		target = datetime.date.fromisocalendar(int(year), int(week), 1)
+	except ValueError:
+		return False
+	today = frappe.utils.getdate(frappe.utils.nowdate())
+	this_monday = today - datetime.timedelta(days=today.weekday())
+	return (target - this_monday).days // 7 > lock_weeks
 
 
 def _forecast_window(year):
@@ -1381,6 +1452,7 @@ def getProductionProjection():
 			weeknums.append(wk)
 	weeknums = sorted(weeknums)
 
+	lock_weeks = forecast_lock_weeks()
 	weeks = []
 	for wk in weeknums:
 		fr = fcrows.get(wk)
@@ -1396,6 +1468,7 @@ def getProductionProjection():
 				"actual_harvest": actuals_map.get(wk, int(fr.get("actual_stems") or 0) if fr else 0),
 				"revised_forecast": int(fr.get("revised_forecast_stems") or 0) if fr else 0,
 				"custom_comment": (fr.get("note") or "") if fr else "",
+				"editable": forecast_week_editable(year, wk, lock_weeks),
 			}
 		)
 
@@ -1820,9 +1893,80 @@ def productionGetPlanForm():
 				"plan_period": doc.plan_period or "",
 				"tasks": tasks,
 				"varieties": varieties,
+				**plan_approval_info(doc),
 			}
 	except Exception as e:
 		frappe.log_error("productionGetPlanForm error: " + str(e))
+		frappe.response["data"] = {"error": str(e)}
+
+
+def plan_approval_info(doc):
+	"""Workflow state, the actions this user can take now, and the manager's review."""
+	from frappe.model.workflow import get_transitions
+
+	state = doc.get("workflow_state") or ""
+	actions = []
+	if state:
+		try:
+			for t in get_transitions(doc):
+				if t.get("action") not in actions:
+					actions.append(t.get("action"))
+		except Exception:
+			actions = []
+
+	def user_name(user):
+		return (frappe.db.get_value("User", user, "full_name") or user) if user else ""
+
+	return {
+		"workflow_state": state,
+		"actions": actions,
+		"can_edit_plan": doc.docstatus == 0 and can_edit_plan(doc),
+		"can_enter_actuals": doc.docstatus == 0 and can_enter_actuals(doc),
+		"approved_by": user_name(doc.get("approved_by")),
+		"approved_on": str(doc.get("approved_on") or ""),
+		"verified_by": user_name(doc.get("verified_by")),
+		"verified_on": str(doc.get("verified_on") or ""),
+		"quality_rating": doc.get("quality_rating") or 0,
+		"manager_comments": doc.get("manager_comments") or "",
+	}
+
+
+@frappe.whitelist(methods=["POST"])
+def productionPlanAction():
+	"""Moves a plan through its approval workflow: Submit for Approval,
+	Approve, Reject, Submit for Verification or Verify. A rejection needs a
+	comment; the manager can rate the quality of the work (0-5 stars)."""
+	from frappe.model.workflow import apply_workflow
+
+	data = frappe.request.get_json() or {}
+	name = (data.get("name") or "").strip()
+	action = (data.get("action") or "").strip()
+	comment = (data.get("comment") or "").strip()
+	rating = data.get("rating")
+	try:
+		if not name or not action:
+			frappe.throw(_("name and action are required."))
+		if action == "Reject" and not comment:
+			frappe.throw(_("Add a comment on why this plan is rejected."))
+		updates = {}
+		if comment:
+			updates["manager_comments"] = comment
+		if rating not in (None, ""):
+			stars = max(0, min(5, int(rating)))
+			updates["quality_rating"] = stars / 5.0
+		if updates:
+			frappe.db.set_value("Production Plan Form", name, updates, update_modified=False)
+		doc = apply_workflow(frappe.get_doc("Production Plan Form", name), action)
+		frappe.db.commit()
+		doc = frappe.get_doc("Production Plan Form", name)
+		frappe.response["data"] = {
+			"status": "success",
+			"name": name,
+			"message": _("Plan {0} is now {1}.").format(name, doc.workflow_state),
+			**plan_approval_info(doc),
+		}
+	except Exception as e:
+		frappe.db.rollback()
 		frappe.response["data"] = {"error": str(e)}
 
 
@@ -1851,20 +1995,27 @@ def productionHarvestReport():
 					varieties_out = []
 					group_stems = 0
 					for variety in sorted(agg[group].keys()):
-						sl_map = agg[group][variety]
+						sl_map = agg[group][variety]["stem_lengths"]
+						hs_map = agg[group][variety]["head_sizes"]
 						sl_out = []
 						variety_stems = 0
 						for sl in sorted(sl_map.keys()):
 							sl_out.append({"stem_length": sl, "stems": sl_map[sl]})
 							variety_stems = variety_stems + sl_map[sl]
+						hs_out = [{"head_size": hs, "stems": hs_map[hs]} for hs in sorted(hs_map.keys())]
 						varieties_out.append(
-							{"variety": variety, "stems": variety_stems, "stem_lengths": sl_out}
+							{
+								"variety": variety,
+								"stems": variety_stems,
+								"stem_lengths": sl_out,
+								"head_sizes": hs_out,
+							}
 						)
 						group_stems = group_stems + variety_stems
 					out.append({group_key: group, "stems": group_stems, "varieties": varieties_out})
 				return out
 
-			def aggregate(entry_type):
+			def aggregate(entry_type, by_head_size=False):
 				se_filters = {
 					"stock_entry_type": entry_type,
 					"docstatus": 1,
@@ -1875,7 +2026,7 @@ def productionHarvestReport():
 				entries = frappe.get_all(
 					"Stock Entry",
 					filters=se_filters,
-					fields=["name", "farm", "custom_greenhouse", "custom_stem_length"],
+					fields=["name", "farm", "custom_greenhouse", "custom_stem_length", "custom_head_size"],
 				)
 				meta = {}
 				for e in entries:
@@ -1888,6 +2039,7 @@ def productionHarvestReport():
 						"farm": e.get("farm") or "Unspecified",
 						"greenhouse": e.get("custom_greenhouse") or "Unspecified",
 						"stem_length": e.get("custom_stem_length") or "Unspecified",
+						"head_size": e.get("custom_head_size") or "Unspecified",
 					}
 				rows = []
 				if meta:
@@ -1913,16 +2065,23 @@ def productionHarvestReport():
 					sl = r.get("custom_stem_length") or info.get("stem_length") or "Unspecified"
 					qty = int(r.get("qty") or 0)
 					total = total + qty
+					# Head size is captured on the Harvesting entry only; Receiving
+					# entries don't carry it, so their breakdown is left empty.
+					hs = info.get("head_size") or "Unspecified"
 					for agg, group in ((agg_farm, farm), (agg_greenhouse, greenhouse)):
-						vbucket = agg.setdefault(group, {}).setdefault(variety, {})
-						vbucket[sl] = vbucket.get(sl, 0) + qty
+						vbucket = agg.setdefault(group, {}).setdefault(
+							variety, {"stem_lengths": {}, "head_sizes": {}}
+						)
+						vbucket["stem_lengths"][sl] = vbucket["stem_lengths"].get(sl, 0) + qty
+						if by_head_size:
+							vbucket["head_sizes"][hs] = vbucket["head_sizes"].get(hs, 0) + qty
 				return {
 					"total": total,
 					"farms": build_groups(agg_farm, "farm"),
 					"greenhouses": build_groups(agg_greenhouse, "greenhouse"),
 				}
 
-			harvested = aggregate("Harvesting")
+			harvested = aggregate("Harvesting", by_head_size=True)
 			received = aggregate("Receiving")
 			frappe.response["data"] = {
 				"date": from_date,
@@ -2321,6 +2480,10 @@ def productionListPlanForms():
 		limit = 500
 	try:
 		filters = {"docstatus": ["<", 2]}
+		workflow_states = [w for w in (data.get("workflow_states") or []) if w]
+		has_workflow = frappe.get_meta("Production Plan Form").has_field("workflow_state")
+		if workflow_states and has_workflow:
+			filters["workflow_state"] = ["in", workflow_states]
 		if greenhouse:
 			greenhouses.append(greenhouse)
 		if greenhouses:
@@ -2348,7 +2511,8 @@ def productionListPlanForms():
 				"plan_year",
 				"plan_week",
 				"plan_period",
-			],
+			]
+			+ (["workflow_state"] if has_workflow else []),
 			order_by="plan_year desc, plan_week desc, modified desc",
 			limit=limit,
 		)
@@ -2401,6 +2565,7 @@ def productionListPlanForms():
 					"tasks_open": st["open"],
 					"tasks_done": st["done"],
 					"planned_stems": stems.get(r.get("name"), 0),
+					"workflow_state": r.get("workflow_state") or "",
 				}
 			)
 		frappe.response["data"] = {"count": len(out), "plans": out}
@@ -2997,6 +3162,12 @@ def productionSavePlanForm():
 					created = 1
 		if greenhouse is not None or name:
 			ensure_plan_editable(doc)
+			if not doc.is_new() and not can_edit_plan(doc):
+				frappe.throw(
+					_("Plan {0} is {1}. Tasks can only change before it is approved.").format(
+						doc.name, doc.workflow_state
+					)
+				)
 			if company:
 				doc.company = company
 			if farm:
@@ -3153,7 +3324,6 @@ def productionUpdatePlanTask():
 	completion_note = (data.get("completion_note") or "").strip()
 	supervisors_remarks = data.get("supervisors_remarks")
 	actual = data.get("actual")
-	submit = bool(data.get("submit"))
 
 	if not plan:
 		frappe.response["data"] = {"error": "plan is required."}
@@ -3172,6 +3342,12 @@ def productionUpdatePlanTask():
 				frappe.response["data"] = {"error": "Task " + task + " not found on " + plan + "."}
 			else:
 				ensure_plan_editable(doc)
+				if not can_enter_actuals(doc):
+					frappe.throw(
+						_("Plan {0} is {1}. Actuals can be keyed in once it is approved.").format(
+							plan, doc.workflow_state
+						)
+					)
 				row.status = status
 				now = frappe.utils.now()
 				if status == "In Progress" and not row.started_at:
@@ -3186,20 +3362,17 @@ def productionUpdatePlanTask():
 					row.supervisors_remarks = supervisors_remarks
 				if actual is not None and actual != "":
 					row.actual = int(actual or 0)
+				# Finishing tasks never submits the plan: actuals go to the
+				# manager through "Submit for Verification". Older app builds
+				# still send submit=true with "Mark done"; it is ignored.
 				doc.save(ignore_permissions=True)
-				if submit:
-					doc.submit()
 				frappe.db.commit()
 				frappe.response["data"] = {
 					"status": "success",
 					"name": plan,
 					"task": task,
 					"docstatus": doc.docstatus,
-					"message": (row.task_name or "Task")
-					+ " marked "
-					+ status
-					+ "."
-					+ (" Plan " + plan + " submitted." if submit else ""),
+					"message": (row.task_name or "Task") + " marked " + status + ".",
 				}
 		except Exception as e:
 			frappe.db.rollback()
@@ -3429,6 +3602,7 @@ def getWeekForecast():
 				actual[key] = actual.get(key, 0) + frappe.utils.flt(r.stems)
 
 	startweek, lastweek = _forecast_window(year)
+	editable = forecast_week_editable(year, week)
 	comment_week = week == current_week - 1
 	rows = []
 	for key in pairs:
@@ -3456,6 +3630,7 @@ def getWeekForecast():
 					"actual_harvest": harvested,
 					"revised_forecast": frappe.utils.cint(fr.revised_forecast_stems) if fr else 0,
 					"custom_comment": (fr.note or "") if fr else "",
+					"editable": editable,
 				},
 			}
 		)
@@ -3481,6 +3656,7 @@ def getWeekForecast():
 		"total": len(rows),
 		"start": start,
 		"filled": sum(1 for r in rows if r["week"]["revised_forecast"] > 0),
+		"editable": editable,
 		"rows": page,
 	}
 
@@ -3504,8 +3680,10 @@ def updateRevisedForecast():
 	for w in doc.weeks:
 		week_map[w.name] = w
 
+	lock_weeks = forecast_lock_weeks()
 	updated = 0
 	skipped = 0
+	locked = 0
 	for entry in weeks:
 		row_name = entry.get("name")
 		row = week_map.get(row_name)
@@ -3514,8 +3692,13 @@ def updateRevisedForecast():
 			continue
 		changed = 0
 		if "revised_forecast" in entry:
-			row.revised_forecast_stems = frappe.utils.cint(entry.get("revised_forecast"))
-			changed = 1
+			if forecast_week_editable(doc.forecast_year, row.week_number, lock_weeks):
+				row.revised_forecast_stems = frappe.utils.cint(entry.get("revised_forecast"))
+				changed = 1
+			elif frappe.utils.cint(entry.get("revised_forecast")) != frappe.utils.cint(
+				row.revised_forecast_stems
+			):
+				locked = locked + 1
 		if "custom_comment" in entry:
 			row.note = entry.get("custom_comment")
 			changed = 1
@@ -3530,7 +3713,16 @@ def updateRevisedForecast():
 	msg = str(updated) + " week(s) updated successfully"
 	if skipped:
 		msg = msg + " (" + str(skipped) + " outside the forecast window were skipped)"
-	frappe.response["message"] = {"status": "success", "updated": updated, "message": msg}
+	if locked:
+		msg = (
+			msg
+			+ ". "
+			+ str(locked)
+			+ " week(s) within the next "
+			+ str(lock_weeks)
+			+ " weeks are locked and were not changed"
+		)
+	frappe.response["message"] = {"status": "success", "updated": updated, "locked": locked, "message": msg}
 
 
 @frappe.whitelist()
@@ -3771,7 +3963,7 @@ def productionGetAudit():
 		frappe.response["data"] = {"error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def productionSaveAudit():
 	# sections: {table fieldname: [{score, comments}, ...]} in checklist order.
 	data = frappe.request.get_json() or {}

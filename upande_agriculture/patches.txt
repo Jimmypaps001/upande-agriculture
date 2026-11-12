@@ -18,3 +18,4 @@ upande_agriculture.patches.v1_0.set_greenhouse_audit_template_type
 upande_agriculture.patches.v1_0.seed_greenhouse_audit_scores
 upande_agriculture.patches.v1_0.move_crop_cycle_beds_to_beds_field
 upande_agriculture.patches.v1_0.reclaim_shipped_doctypes
+upande_agriculture.patches.v1_0.production_plan_approval_workflow
