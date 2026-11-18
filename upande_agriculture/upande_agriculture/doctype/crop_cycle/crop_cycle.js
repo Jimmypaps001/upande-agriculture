@@ -14,7 +14,17 @@ frappe.ui.form.on("Crop Cycle", {
     refresh(frm) {
         bed_range_hint(frm);
         cost_hint(frm);
-        if (frm.is_new()) return;
+        if (frm.is_new()) {
+            // Onboarding, suggested not forced: a house not set up yet is
+            // created here (warehouse + Greenhouse record) instead of
+            // sending the user off to Stock Settings first.
+            frm.add_custom_button(__("New Greenhouse…"), () => new_greenhouse(frm));
+            if (!frm.doc.greenhouse) {
+                frm.set_intro(__("Greenhouse not in the list yet? Use <b>New Greenhouse…</b> to create it — "
+                    + "the warehouse and its Greenhouse record. This cycle's variety then shows on it once you save."), "blue");
+            }
+            return;
+        }
 
         if (frm.doc.status === "Ended") {
             frm.add_custom_button(__("Replant"), () => replant(frm), __("Actions"));
@@ -355,4 +365,24 @@ function run_budget(frm, values) {
             });
         },
     });
+}
+
+function new_greenhouse(frm) {
+    frappe.prompt([
+        { fieldname: "greenhouse_name", fieldtype: "Data", label: __("Greenhouse name"), reqd: 1,
+          description: __("As it should read everywhere, e.g. Main GH 22. The company suffix is added for you.") },
+        { fieldname: "farm", fieldtype: "Link", options: "Farm", label: __("Farm"), default: frm.doc.farm },
+        { fieldname: "gross_area", fieldtype: "Float", label: __("Gross area (m2)"),
+          description: __("Optional, can be filled in on the Greenhouse later.") },
+    ], (v) => {
+        frappe.call({
+            method: "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.create_greenhouse",
+            args: v,
+            freeze: true,
+        }).then(({ message: warehouse }) => {
+            frm.set_value("greenhouse", warehouse);
+            frm.set_intro("");
+            frappe.show_alert({ message: __("{0} created: warehouse and Greenhouse record.", [warehouse]), indicator: "green" }, 6);
+        });
+    }, __("New Greenhouse"), __("Create"));
 }

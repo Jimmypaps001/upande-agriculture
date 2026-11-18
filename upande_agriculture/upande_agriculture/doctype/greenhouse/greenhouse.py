@@ -265,6 +265,20 @@ class Greenhouse(Document):
             v["area_m2"] += float(b.area_m2 or 0)
             v["plants"] += int(b.plant_count or 0)
 
+        # A Crop Cycle saved without beds still grows here: list it from the
+        # cycle itself (no beds, its planted area and plants) so the varieties
+        # section is complete from the first planting, beds or not.
+        for c in frappe.get_all(
+            "Crop Cycle",
+            filters={"greenhouse": self.greenhouse, "status": ("!=", "Ended")},
+            fields=["name", "variety", "planted_area", "plants_standing", "qty_planted"],
+        ) if self.greenhouse else []:
+            if not c.variety or frappe.db.exists("Crop Cycle Bed", {"parent": c.name, "parenttype": "Crop Cycle"}):
+                continue
+            v = varieties.setdefault(c.variety, {"beds": 0, "area_m2": 0.0, "plants": 0})
+            v["area_m2"] += float(c.planted_area or 0)
+            v["plants"] += int(c.plants_standing or c.qty_planted or 0)
+
         self.varieties_grown = []
         for variety, v in sorted(varieties.items()):
             self.append("varieties_grown", {
@@ -488,3 +502,40 @@ def _sync_replant_row(doc, row, owners: dict[int, str]) -> bool:
         indicator="green", alert=True,
     )
     return True
+
+
+@frappe.whitelist()
+def create_greenhouse(greenhouse_name: str, farm: str | None = None, company: str | None = None,
+                      gross_area: float | None = None, with_ledger: int = 1) -> str:
+    """Onboard a greenhouse in one step: its Warehouse (type Greenhouse, on
+    the farm) and, unless the Greenhouse form itself is asking, its
+    Greenhouse record. Either that already exists is left as it is."""
+    greenhouse_name = (greenhouse_name or "").strip()
+    if not greenhouse_name:
+        frappe.throw(_("Give the greenhouse a name, e.g. Main GH 22."))
+    frappe.has_permission("Warehouse", "create", throw=True)
+    company = (company or frappe.defaults.get_user_default("Company")
+               or frappe.db.get_single_value("Global Defaults", "default_company"))
+    if not company:
+        frappe.throw(_("Set a default Company first."))
+    abbr = frappe.get_cached_value("Company", company, "abbr")
+    warehouse = f"{greenhouse_name} - {abbr}" if abbr and not greenhouse_name.endswith(f" - {abbr}") else greenhouse_name
+
+    if not frappe.db.exists("Warehouse", warehouse):
+        if not frappe.db.exists("Warehouse Type", "Greenhouse"):
+            frappe.get_doc({"doctype": "Warehouse Type", "name": "Greenhouse"}).insert(ignore_permissions=True)
+        wh = frappe.get_doc({
+            "doctype": "Warehouse", "warehouse_name": warehouse.removesuffix(f" - {abbr}"),
+            "company": company, "warehouse_type": "Greenhouse",
+        })
+        if farm and frappe.get_meta("Warehouse").has_field("custom_farm"):
+            wh.custom_farm = farm
+        wh.insert()
+        warehouse = wh.name
+    elif frappe.db.get_value("Warehouse", warehouse, "warehouse_type") != "Greenhouse":
+        frappe.throw(_("{0} already exists and is not a greenhouse warehouse.").format(warehouse))
+
+    if int(with_ledger or 0) and not frappe.db.exists("Greenhouse", warehouse):
+        frappe.get_doc({"doctype": "Greenhouse", "greenhouse": warehouse,
+                        "gross_area": float(gross_area or 0)}).insert()
+    return warehouse

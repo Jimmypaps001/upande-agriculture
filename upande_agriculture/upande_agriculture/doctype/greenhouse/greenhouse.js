@@ -5,7 +5,16 @@
 
 frappe.ui.form.on("Greenhouse", {
     refresh(frm) {
-        if (frm.is_new()) return;
+        if (frm.is_new()) {
+            // The Greenhouse record hangs off a Greenhouse-type warehouse; a
+            // new house can make that warehouse right here.
+            frm.add_custom_button(__("Create the greenhouse warehouse…"), () => new_greenhouse_warehouse(frm));
+            if (!frm.doc.greenhouse) {
+                frm.set_intro(__("New house? <b>Create the greenhouse warehouse…</b> sets it up, then pick it here. "
+                    + "Varieties fill in from its Crop Cycles."), "blue");
+            }
+            return;
+        }
         frm.add_custom_button(__("Plant Beds…"), () => plant_beds(frm), __("Actions"));
         // Replant/Uproot pick from what's standing right now -- a stale copy
         // (this form left open since an earlier action, or changed elsewhere
@@ -226,4 +235,22 @@ function uproot_beds(frm) {
         },
     });
     dialog.show();
+}
+
+function new_greenhouse_warehouse(frm) {
+    frappe.prompt([
+        { fieldname: "greenhouse_name", fieldtype: "Data", label: __("Greenhouse name"), reqd: 1,
+          description: __("e.g. Main GH 22. The company suffix is added for you.") },
+        { fieldname: "farm", fieldtype: "Link", options: "Farm", label: __("Farm") },
+    ], (v) => {
+        frappe.call({
+            method: "upande_agriculture.upande_agriculture.doctype.greenhouse.greenhouse.create_greenhouse",
+            args: Object.assign(v, { with_ledger: 0 }),
+            freeze: true,
+        }).then(({ message: warehouse }) => {
+            frm.set_value("greenhouse", warehouse);
+            frm.set_intro("");
+            frappe.show_alert({ message: __("Warehouse {0} created. Save to finish.", [warehouse]), indicator: "green" }, 6);
+        });
+    }, __("New Greenhouse"), __("Create"));
 }
