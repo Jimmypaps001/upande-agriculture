@@ -8,6 +8,12 @@ HORIZON = 63  # 9 weeks: the counts see the whole regrowth cycle, eye pop-up ~56
 STALE_DAYS = 7
 RATIO_WINDOW, RATIO_MIN_DAYS, RATIO_MIN_STEMS = 21, 10, 300
 RATIO_CLAMP, RATIO_OK = (0.5, 2.0), (0.8, 1.25)
+# A unit with no fresh bed count still has a harvest rate: its last RATE_DAYS
+# of cuts carry it RATE_SPAN days ahead (backtest Nov 2026: 45% WAPE per unit
+# over 7 days, vs a blank 0 before).
+# ponytail: flat run-rate, misses flush turns; the regrowth curve takes over
+# once 65+ days of cuts exist.
+RATE_DAYS, RATE_SPAN = 3, 14
 
 
 def section_ratio(greenhouse, section, variety, as_of):
@@ -44,10 +50,15 @@ def forecast_section(row, start=None, days=HORIZON, as_of=None):
 	res = engine.section_forecast(start, days, plants, rnd, stages, history, prm, tf)
 	ratio, ratio_days = section_ratio(row.greenhouse, row.section, row.variety, as_of)
 	m = ratio or 1.0
+	stale = bool(rnd and (as_of - rnd["date"]).days > STALE_DAYS)
+	rate = sum(history.get(add_days(as_of, -k), 0) for k in range(1, RATE_DAYS + 1)) / RATE_DAYS
+	by_rate = rate > 0 and (rnd is None or stale)
 	daily = []
 	for i, stems in enumerate(res["stems"]):
 		lo, hi = curves.band((start - as_of).days + i, prm["error_bands"])
 		stems *= m
+		if by_rate and (start - as_of).days + i < RATE_SPAN:
+			stems = max(stems, rate)
 		daily.append({"date": add_days(start, i), "stems": stems, "low": stems * lo, "high": stems * hi,
 			"buds": res["buds"][i] * m, "regrowth": res["regrowth"][i] * m})
 	return {
@@ -55,8 +66,8 @@ def forecast_section(row, start=None, days=HORIZON, as_of=None):
 		"variety": row.variety, "employee": row.employee, "employee_name": row.employee_name,
 		"plants": plants, "last_count": rnd["date"] if rnd else None, "model_version": prm["model_version"],
 		"ratio": ratio, "ratio_days": ratio_days,
-		"flags": {"no_plants": not plants, "no_count": rnd is None,
-			"stale_count": bool(rnd and (as_of - rnd["date"]).days > STALE_DAYS),
+		"basis": "harvest rate" if by_rate else "bed counts",
+		"flags": {"no_plants": not plants, "no_count": rnd is None, "stale_count": stale,
 			"unrepresentative": bool(ratio and not RATIO_OK[0] <= ratio <= RATIO_OK[1])},
 		"daily": daily,
 	}

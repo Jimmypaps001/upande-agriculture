@@ -48,6 +48,17 @@ class TestForecastService(FrappeTestCase):
 		self.assertTrue(f["flags"]["stale_count"])
 		self.assertEqual(f["last_count"], add_days(self.today, -9))
 
+	def test_uncounted_unit_runs_on_recent_harvest_rate(self):
+		for k in (1, 2, 3):
+			make_harvest(self.gh, V1, V1, add_days(self.today, -k), 300)
+		f = service.forecast_section(_row(self.gh, V1))
+		self.assertEqual(f["basis"], "harvest rate")
+		self.assertAlmostEqual(f["daily"][0]["stems"], 300, delta=1)
+		self.assertAlmostEqual(f["daily"][13]["stems"], 300, delta=1)
+		self.assertLess(f["daily"][14]["stems"], 300)
+		make_count(make_plot(self.gh, V1), self.today, {"Colour break": 10})
+		self.assertEqual(service.forecast_section(_row(self.gh, V1))["basis"], "bed counts")
+
 	def test_forecast_all_covers_sections(self):
 		got = {(f["greenhouse"], f["section"]) for f in service.forecast_all(greenhouse=self.gh)}
 		self.assertEqual(got, {(self.gh, V1), (self.gh, V2)})
