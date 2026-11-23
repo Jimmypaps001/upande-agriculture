@@ -203,6 +203,7 @@ def cleanup_bucket_reuse_anomalies(bucket_id, farm, greenhouse, variety, harvest
 
 	Best-effort: a cleanup hiccup must never block the harvest itself.
 	"""
+	close_stale_transfers(bucket_id, greenhouse, harvest_stock_entry_name)
 	try:
 		stale_shelf_items = frappe.get_all(
 			"Shelf Item",
@@ -250,6 +251,104 @@ def cleanup_bucket_reuse_anomalies(bucket_id, farm, greenhouse, variety, harvest
 		frappe.db.commit()
 	except Exception:
 		frappe.log_error(title=f"Bucket reuse cleanup failed for {bucket_id}")
+
+
+#: A pick list row still waiting to move its bucket to the order's sales farm.
+TRANSFER_FLAGS = ("awaiting_transfer", "loaded_in_trolley", "in_transit")
+
+
+def stale_transfer_rows(bucket_id):
+	"""Order pick list rows still waiting to move this bucket (awaiting transfer, in a trolley or on a
+	truck), not issued and not already marked not found. A bucket being harvested again is back in the
+	greenhouse, so none of these transfers can still happen."""
+	if not frappe.db.exists("DocType", "Order Pick List"):
+		return []
+	if not all(frappe.db.has_column("Pick List Item", f) for f in (*TRANSFER_FLAGS, "not_found")):
+		return []
+	flagged = " OR ".join(f"IFNULL(pli.{f}, 0) = 1" for f in TRANSFER_FLAGS)
+	return frappe.db.sql(
+		f"""SELECT pli.name, pli.parent AS opl, o.docstatus, pli.item_code, pli.stock_qty, pli.shelf,
+		       pli.source_warehouse, IFNULL(pli.in_transit, 0) AS in_transit
+		FROM `tabPick List Item` pli
+		INNER JOIN `tabOrder Pick List` o ON o.name = pli.parent
+		WHERE pli.parenttype = 'Order Pick List' AND pli.bucket = %(b)s AND o.docstatus < 2
+		  AND IFNULL(pli.issued, 0) = 0 AND IFNULL(pli.not_found, 0) = 0 AND ({flagged})""",
+		{"b": bucket_id},
+		as_dict=True,
+	)  # nosemgrep: the f-string holes are fixed field names, values are bound
+
+
+def close_stale_transfers(bucket_id, greenhouse, harvest_stock_entry_name):
+	"""A reused bucket label still booked on an order's transfer from its previous fill: that transfer
+	never happened (the bucket is back in the greenhouse). Each such row is marked not found -- through
+	the packhouse's own not-found step for a pick list still in draft, so its trip expects one bucket
+	fewer and the order can go on or take a replacement -- and a Bucket Reuse Anomaly records it per
+	order. Without this, shelving the new fill reads the old fill's receiving (wrong variety, old
+	harvest date). Best-effort: never blocks the harvest."""
+	try:
+		rows = stale_transfer_rows(bucket_id)
+		if not rows:
+			return
+		now, user = frappe.utils.now(), frappe.session.user
+		by_opl = {}
+		for r in rows:
+			by_opl.setdefault(r.opl, []).append(r)
+		for opl, opl_rows in by_opl.items():
+			if not _not_found_via_packhouse(opl_rows):
+				for r in opl_rows:
+					frappe.db.set_value(
+						"Pick List Item",
+						r.name,
+						{
+							**{f: 0 for f in TRANSFER_FLAGS},
+							"not_found": 1,
+							"not_found_at": now,
+							"not_found_by": user,
+						},
+						update_modified=False,
+					)
+			first = opl_rows[0]
+			frappe.get_doc(
+				{
+					"doctype": "Bucket Reuse Anomaly",
+					"bucket_id": bucket_id,
+					"skipped_step": "Reused Before Transfer",
+					"detected_on": now,
+					"farm": _farm_of(first.source_warehouse),
+					"greenhouse": greenhouse,
+					"variety": first.item_code,
+					"stems": int(sum(frappe.utils.flt(r.stock_qty) for r in opl_rows)),
+					"previous_shelf": first.shelf,
+					"order_pick_list": opl,
+					"harvest_stock_entry": harvest_stock_entry_name,
+				}
+			).insert(ignore_permissions=True)
+			frappe.get_doc("Order Pick List", opl).add_comment(
+				"Info",
+				f"Bucket {bucket_id} was harvested again before its transfer happened: marked not found.",
+			)
+		frappe.db.commit()
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title=f"Stale transfer cleanup failed for {bucket_id}")
+
+
+def _not_found_via_packhouse(rows):
+	"""A draft pick list's rows go through the packhouse's own not-found step (trip and order kept in
+	step). True when it took them."""
+	if any(r.docstatus != 0 or r.in_transit for r in rows):
+		return False
+	try:
+		from upande_packhouse.api.remote_transfer.transfer_scheduling import mark_bucket_not_found
+	except ImportError:
+		return False
+	out = mark_bucket_not_found(rows[0].name, "Bucket harvested again before this transfer happened.")
+	return (out or {}).get("status") == "success"
+
+
+def _farm_of(warehouse):
+	farm = (warehouse or "").split(" ", 1)[0]
+	return farm if farm and frappe.db.exists("Farm", farm) else None
 
 
 @frappe.whitelist()
