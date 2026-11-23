@@ -265,17 +265,18 @@ def stale_transfer_rows(bucket_id):
 		return []
 	if not all(frappe.db.has_column("Pick List Item", f) for f in (*TRANSFER_FLAGS, "not_found")):
 		return []
-	flagged = " OR ".join(f"IFNULL(pli.{f}, 0) = 1" for f in TRANSFER_FLAGS)
 	return frappe.db.sql(
-		f"""SELECT pli.name, pli.parent AS opl, o.docstatus, pli.item_code, pli.stock_qty, pli.shelf,
+		"""SELECT pli.name, pli.parent AS opl, o.docstatus, pli.item_code, pli.stock_qty, pli.shelf,
 		       pli.source_warehouse, IFNULL(pli.in_transit, 0) AS in_transit
 		FROM `tabPick List Item` pli
 		INNER JOIN `tabOrder Pick List` o ON o.name = pli.parent
 		WHERE pli.parenttype = 'Order Pick List' AND pli.bucket = %(b)s AND o.docstatus < 2
-		  AND IFNULL(pli.issued, 0) = 0 AND IFNULL(pli.not_found, 0) = 0 AND ({flagged})""",
+		  AND IFNULL(pli.issued, 0) = 0 AND IFNULL(pli.not_found, 0) = 0
+		  AND (IFNULL(pli.awaiting_transfer, 0) = 1 OR IFNULL(pli.loaded_in_trolley, 0) = 1
+		       OR IFNULL(pli.in_transit, 0) = 1)""",
 		{"b": bucket_id},
 		as_dict=True,
-	)  # nosemgrep: the f-string holes are fixed field names, values are bound
+	)
 
 
 def close_stale_transfers(bucket_id, greenhouse, harvest_stock_entry_name):
