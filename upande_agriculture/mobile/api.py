@@ -2864,8 +2864,10 @@ def planned_only(orders):
 	today = str(frappe.utils.today())
 	out = []
 	for o in orders:
-		# a delivery date that has passed: no longer harvested for
+		# a delivery date that has passed: no longer harvested for; not sequenced on Allocation Planning: not yet
 		if o["delivery_date"] and o["delivery_date"] < today:
+			continue
+		if not o.get("sequence"):
 			continue
 		items = [i for i in o["items"] if any(p["stems"] > 0 for p in i.get("plan") or [])]
 		if items:
