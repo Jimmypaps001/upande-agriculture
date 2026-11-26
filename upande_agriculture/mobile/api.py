@@ -2706,12 +2706,40 @@ def open_sea_freight_orders(limit=200):
 			"status",
 			"company",
 			*(["custom_order_name"] if frappe.db.has_column("Sales Order", "custom_order_name") else []),
+			*(
+				["custom_allocation_sequence"]
+				if frappe.db.has_column("Sales Order", "custom_allocation_sequence")
+				else []
+			),
 		],
 		order_by="delivery_date asc, name asc",
 		limit=limit,
 	)
 	if not orders:
 		return []
+	# harvested in the order Allocation Planning sequenced them: each delivery day's orders by their number (the
+	# ones not planned yet last), each with the team that packs it
+	orders.sort(
+		key=lambda o: (
+			str(o.delivery_date or ""),
+			int(o.get("custom_allocation_sequence") or 0) <= 0,
+			int(o.get("custom_allocation_sequence") or 0),
+			o.name,
+		)
+	)
+	teams = {}
+	if frappe.db.table_exists("Allocation Confirmation"):
+		for r in frappe.get_all(
+			"Allocation Confirmation",
+			filters={
+				"sales_order": ["in", [o.name for o in orders]],
+				"status": ["in", ["Planned", "Reserved", "Partly Fulfilled", "Broken", "Fulfilled"]],
+				"team": ["is", "set"],
+			},
+			fields=["sales_order", "team"],
+			order_by="modified desc",
+		):
+			teams.setdefault(r.sales_order, r.team)
 	lines = frappe.get_all(
 		"Sales Order Item",
 		filters={"parent": ["in", [o.name for o in orders]]},
@@ -2768,6 +2796,8 @@ def open_sea_freight_orders(limit=200):
 				"order_date": str(o.transaction_date or ""),
 				"status": o.status,
 				"company": o.company,
+				"sequence": int(o.get("custom_allocation_sequence") or 0),
+				"team": teams.get(o.name, ""),
 				"ordered_stems": sum(i["ordered_stems"] for i in items),
 				"harvested_stems": sum(i["harvested_stems"] for i in items),
 				"items": items,
