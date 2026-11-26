@@ -2697,8 +2697,10 @@ def sea_freight_plans(so_items):
 	return out
 
 
-def open_sea_freight_orders(limit=200):
-	"""Open sea freight Sales Orders with their lines and stems harvested so far, soonest delivery first."""
+def open_sea_freight_orders(limit=200, include_harvested=False):
+	"""Open sea freight Sales Orders with their lines and stems harvested so far, soonest delivery first.
+	`include_harvested`: the ones whose harvesting is finished too (flagged harvest_done)."""
+	has_done = frappe.db.has_column("Sales Order", "custom_sea_freight_harvested")
 	orders = frappe.get_all(
 		"Sales Order",
 		filters={
@@ -2706,11 +2708,7 @@ def open_sea_freight_orders(limit=200):
 			"custom_mode_of_transport": SEA_FREIGHT,
 			"status": ["not in", list(SEA_FREIGHT_CLOSED_STATUSES)],
 			"per_delivered": ["<", 100],
-			**(
-				{"custom_sea_freight_harvested": 0}
-				if frappe.db.has_column("Sales Order", "custom_sea_freight_harvested")
-				else {}
-			),
+			**({"custom_sea_freight_harvested": 0} if has_done and not include_harvested else {}),
 		},
 		fields=[
 			"name",
@@ -2721,6 +2719,7 @@ def open_sea_freight_orders(limit=200):
 			"status",
 			"company",
 			*(["custom_order_name"] if frappe.db.has_column("Sales Order", "custom_order_name") else []),
+			*(["custom_sea_freight_harvested"] if has_done else []),
 			*(
 				["custom_allocation_sequence"]
 				if frappe.db.has_column("Sales Order", "custom_allocation_sequence")
@@ -2812,6 +2811,7 @@ def open_sea_freight_orders(limit=200):
 				"status": o.status,
 				"company": o.company,
 				"sequence": int(o.get("custom_allocation_sequence") or 0),
+				"harvest_done": bool(o.get("custom_sea_freight_harvested")),
 				"team": teams.get(o.name, ""),
 				"ordered_stems": sum(i["ordered_stems"] for i in items),
 				"harvested_stems": sum(i["harvested_stems"] for i in items),
@@ -2857,15 +2857,15 @@ def auto_mark_sea_freight_done(name):
 
 
 def planned_only(orders):
-	"""The orders still to deliver (delivery today or later) with their lines planned to a greenhouse (Sea Freight
-	Greenhouse Plan); none of them on a site without the plan table."""
+	"""The orders delivering tomorrow or later with their lines planned to a greenhouse (Sea Freight Greenhouse
+	Plan); none of them on a site without the plan table."""
 	if not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
 		return []
-	today = str(frappe.utils.today())
+	tomorrow = str(frappe.utils.add_days(frappe.utils.today(), 1))
 	out = []
 	for o in orders:
-		# a delivery date that has passed: no longer harvested for; not sequenced on Allocation Planning: not yet
-		if o["delivery_date"] and o["delivery_date"] < today:
+		# delivering today or earlier: no longer harvested for; not sequenced on Allocation Planning: not yet
+		if not o["delivery_date"] or o["delivery_date"] < tomorrow:
 			continue
 		if not o.get("sequence"):
 			continue
@@ -2943,13 +2943,19 @@ def productionListUnderHarvestReasons():
 
 @frappe.whitelist(methods=["POST"])
 def productionListSeaFreightOrders():
-	"""Open sea freight orders (Mode Of Transport = Sea Freight) for the app's Sea Freight tab: only what Allocation
-	Planning has planned -- each order with its planned lines, an order with none left out."""
+	"""Sea freight orders (Mode Of Transport = Sea Freight) delivering tomorrow or later for the app's Sea Freight
+	tab: only what Allocation Planning has sequenced and planned -- each order with its planned lines and its state
+	(pending, in progress, done)."""
 	try:
 		orders = []
-		for o in planned_only(open_sea_freight_orders()):
-			if not short_lines(o) and auto_mark_sea_freight_done(o["name"]):
-				continue
+		for o in planned_only(open_sea_freight_orders(include_harvested=True)):
+			# harvested to plan but not marked yet: marked now
+			if not o["harvest_done"] and not short_lines(o) and auto_mark_sea_freight_done(o["name"]):
+				o["harvest_done"] = True
+			# done (harvested to plan, or finished under harvest), in progress (some harvested) or pending
+			o["state"] = (
+				"done" if o["harvest_done"] else "in_progress" if o["harvested_stems"] > 0 else "pending"
+			)
 			orders.append(o)
 		frappe.db.commit()
 		frappe.response["data"] = {"orders": orders}
