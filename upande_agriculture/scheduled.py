@@ -106,10 +106,6 @@ def release_stale_buckets() -> int:
 		update_modified=False,
 	)
 	frappe.db.commit()
-	frappe.log_error(
-		title="Released {0} stale bucket(s)".format(len(stuck)),
-		message=", ".join(stuck[:200]),
-	)
 	return len(stuck)
 
 

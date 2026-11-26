@@ -375,8 +375,6 @@ def createGradingStockEntry():
 		raw_bunch_size = bunch_qr_doc.bunch_size
 		bucket_id = data.get("bucket_id")
 
-		frappe.log_error("Grading Payload", data)
-
 		# --- Spray bucket stem limit validation (Production Settings) ---
 		# Spray roses are graded straight from the greenhouse: each scan harvests a bunch
 		# into the physical bucket. Enforce the per-bucket spray maximum cumulatively across
@@ -415,8 +413,8 @@ def createGradingStockEntry():
 					if digits:
 						bunch_size = int(digits)
 					else:
-						frappe.throw(f"Invalid bunch size: '{raw_bunch_size}'")
 						frappe.log_error("Invalid bunch size", raw_bunch_size)
+						frappe.throw(f"Invalid bunch size: '{raw_bunch_size}'")
 
 					farm_doc = frappe.get_doc("Farm", farm)
 					company = farm_doc.company
@@ -428,9 +426,6 @@ def createGradingStockEntry():
 							new_bucket = frappe.new_doc("Bucket QR Code")
 							new_bucket.id = bucket_id
 							new_bucket.insert()
-							frappe.log_error(
-								"Grading Debug", f"Submitted new Bucket QR Code: {new_bucket.name}"
-							)
 
 						harvest_doc = frappe.new_doc("Stock Entry")
 						harvest_doc.stock_entry_type = "Harvesting"
@@ -454,7 +449,6 @@ def createGradingStockEntry():
 						)
 						harvest_doc.insert(ignore_permissions=True)
 						harvest_doc.submit()
-						frappe.log_error("Grading Debug", f"Harvest Stock Entry created: {harvest_doc.name}")
 
 						# Spray roses skip createHarvestStockEntry entirely (this
 						# IS the harvest, done in the field during grading), so it
@@ -514,18 +508,6 @@ def createGradingStockEntry():
 						mapped_source_wh = row.get("source_warehouse")
 						mapped_target_wh = source_warehouse
 
-					frappe.log_error(
-						"Grading Debug - Stock Entry",
-						json.dumps(
-							{
-								"mapped_source_wh": mapped_source_wh,
-								"mapped_target_wh": mapped_target_wh,
-								"qty": qty,
-							},
-							default=str,
-						),
-					)
-
 					ref_harvest = None
 					if bucket_id:
 						ref_harvest = frappe.db.get_value(
@@ -571,7 +553,6 @@ def createGradingStockEntry():
 					)
 					se.insert(ignore_permissions=True)
 					se.submit()
-					frappe.log_error("Grading Debug", f"Final Stock Entry created: {se.name}")
 
 					if rose_type == "Spray Roses":
 						# Real, persisted link between the two entries this
@@ -716,8 +697,6 @@ def createHarvestStockEntry():
 		# quantity
 
 		data = frappe.request.get_json()
-		frappe.log_error("harvest payload", data)
-
 		farm = data.get("farm")
 		greenhouse = data.get("greenhouse")
 		harvester = data.get("harvester")
