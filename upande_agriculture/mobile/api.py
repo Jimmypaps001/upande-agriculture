@@ -184,6 +184,20 @@ def validate_variety_planted_in_greenhouse(variety, greenhouse):
 	return None
 
 
+def _release_stale_holds(bucket_id, harvest_stock_entry_name):
+	"""Let go of what orders and transfers still hold of this bucket's last life. Upande Packhouse owns
+	allocation and transfers; a site without it has nothing to release. Never blocks the harvest."""
+	try:
+		from upande_packhouse.bucket_reuse import release_on_harvest
+	except ImportError:
+		return None
+	try:
+		return release_on_harvest(bucket_id, harvest_stock_entry_name)
+	except Exception:
+		frappe.log_error(title=f"Release of stale allocations at harvest failed for {bucket_id}")
+		return None
+
+
 def cleanup_bucket_reuse_anomalies(bucket_id, farm, greenhouse, variety, harvest_stock_entry_name):
 	"""Port of v15's bucket-reuse cleanup (see upande-quality's legacy
 	kaitet-web/harvestingStockEntry.py, "RE-USE CLEANUP"). A bucket that's
@@ -201,8 +215,14 @@ def cleanup_bucket_reuse_anomalies(bucket_id, farm, greenhouse, variety, harvest
 	every grading scan, since a bucket mid-session hasn't left and come
 	back.
 
+	It also gives back what orders and transfers still hold of the bucket's last life (Upande Packhouse): each
+	stale allocation's row in Bucket Allocation Status (the status itself when nothing is left on it) and the
+	line's row on the Order Pick List are deleted, and the bucket is recorded as Issuing Skipped, or Transfer
+	Incomplete when it was part of a transfer that never finished.
+
 	Best-effort: a cleanup hiccup must never block the harvest itself.
 	"""
+	_release_stale_holds(bucket_id, harvest_stock_entry_name)
 	try:
 		stale_shelf_items = frappe.get_all(
 			"Shelf Item",
