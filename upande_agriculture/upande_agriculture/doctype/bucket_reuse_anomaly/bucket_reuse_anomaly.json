@@ -18,7 +18,8 @@
   "previous_shelf",
   "order_pick_list",
   "discard_request",
-  "harvest_stock_entry"
+  "harvest_stock_entry",
+  "sales_order"
  ],
  "fields": [
   {
@@ -36,7 +37,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Skipped Step",
-   "options": "Issuing Skipped\nDiscarding Skipped\nSkipped Transfer\nReused Before Transfer\nStale Allocation",
+   "options": "Issuing Skipped\nDiscarding Skipped\nSkipped Transfer\nReused Before Transfer\nStale Allocation\nTransfer Incomplete",
    "reqd": 1
   },
   {
@@ -103,12 +104,18 @@
    "fieldtype": "Link",
    "label": "Harvest Stock Entry",
    "options": "Stock Entry"
+  },
+  {
+   "description": "The order whose hold on the bucket was released.",
+   "fieldname": "sales_order",
+   "fieldtype": "Data",
+   "label": "Sales Order"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-23 23:00:00.000000",
+ "modified": "2026-11-27 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Upande Agriculture",
  "name": "Bucket Reuse Anomaly",
