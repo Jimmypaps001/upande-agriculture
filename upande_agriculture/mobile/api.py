@@ -745,8 +745,9 @@ def createHarvestStockEntry():
 
 		# Block Spray Roses -- they're harvested on the grading page instead
 		# (see item_group_is_under's docstring for why this used to be a
-		# flat, always-false check).
-		if item_group_is_under(item_code, "Spray Roses"):
+		# flat, always-false check). A sea freight harvest is the exception: it
+		# is cut for its order line and goes to the packhouse as harvested.
+		if item_group_is_under(item_code, "Spray Roses") and not (sea_freight_order or sea_freight_item):
 			frappe.log_error("Attempt to harvest sprays from the harvest form", data)
 			frappe.throw(_("Spray Roses can only be harvested on the grading page"))
 
@@ -803,7 +804,8 @@ def createHarvestStockEntry():
 		last_farm = ""
 		last_receiving_date = ""
 
-		if last_se:
+		# a bucket whose last entry no longer exists (cancelled and deleted) starts afresh
+		if last_se and frappe.db.exists("Stock Entry", last_se):
 			last_se_doc = frappe.get_doc("Stock Entry", last_se)
 			last_farm = last_se_doc.custom_farm
 
@@ -947,6 +949,16 @@ def createHarvestStockEntry():
 
 			frappe.response["message"] = "Harvesting Stock Entry submitted successfully"
 			frappe.response["stock_entry"] = stock_entry.name
+			if sea_freight_order:
+				try:
+					if auto_mark_sea_freight_done(sea_freight_order):
+						frappe.db.commit()
+						frappe.response["sea_freight_done"] = 1
+						frappe.response["message"] = _("Harvest saved. {0} is fully harvested.").format(
+							sea_freight_order
+						)
+				except Exception:
+					frappe.log_error("Sea freight auto harvest done failed", frappe.get_traceback())
 
 	except frappe.PermissionError as e:
 		# frappe.log_error("Permission Error - Stock Entry Creation", f"User {frappe.session.user} does not have permission to create Stock Entry")
@@ -2521,25 +2533,58 @@ def validate_sea_freight_line(sales_order, so_item, item_code):
 		frappe.throw(_("That line is not on Sales Order {0}.").format(sales_order))
 	if item_code and line.item_code != item_code:
 		frappe.throw(_("That order line is for {0}, not {1}.").format(line.item_code, item_code))
+	# harvested only once Allocation Planning has planned it to a greenhouse
+	if not sea_freight_plans([line.name]).get(line.name):
+		frappe.throw(_("That order line is not planned yet."))
 	return line
 
 
 def greenhouses_growing(varieties):
-	"""variety -> the greenhouses with a running (not Ended) Crop Cycle of it: [{name, label, farm, area}]."""
+	"""variety -> the greenhouses growing it: [{name, label, farm, area}]. The same rule a harvest is checked by
+	(validate_variety_planted_in_greenhouse): a greenhouse's Varieties Grown ledger, and for a greenhouse with no
+	ledger its running (not Ended) Crop Cycles."""
 	if not varieties:
 		return {}
-	cycles = frappe.get_all(
+	varieties = list(set(varieties))
+	found = {}  # (variety, greenhouse) -> area
+
+	ledger_houses = set()
+	# a site without the Greenhouse ledger: its crop cycles alone
+	if frappe.db.exists("DocType", "Greenhouse Variety"):
+		ledger_houses = set(
+			frappe.get_all(
+				"Greenhouse Variety",
+				filters={"parenttype": "Greenhouse", "parentfield": "varieties_grown"},
+				pluck="parent",
+				distinct=True,
+			)
+		)
+		for r in frappe.get_all(
+			"Greenhouse Variety",
+			filters={
+				"parenttype": "Greenhouse",
+				"parentfield": "varieties_grown",
+				"variety": ["in", varieties],
+			},
+			fields=["parent", "variety", "area_m2"],
+			limit=0,
+		):
+			found[(r.variety, r.parent)] = found.get((r.variety, r.parent), 0.0) + float(r.area_m2 or 0)
+	for c in frappe.get_all(
 		"Crop Cycle",
-		filters={
-			"variety": ["in", list(set(varieties))],
-			"status": ["!=", "Ended"],
-			"greenhouse": ["is", "set"],
-		},
-		fields=["variety", "greenhouse", "farm", "planted_area"],
+		filters={"variety": ["in", varieties], "status": ["!=", "Ended"], "greenhouse": ["is", "set"]},
+		fields=["variety", "greenhouse", "planted_area"],
 		limit=0,
-	)
-	houses = {c.greenhouse for c in cycles}
-	info = {}
+	):
+		# a greenhouse with a ledger is read from it alone
+		if c.greenhouse in ledger_houses:
+			continue
+		found[(c.variety, c.greenhouse)] = found.get((c.variety, c.greenhouse), 0.0) + float(
+			c.planted_area or 0
+		)
+
+	houses = {g for _v, g in found}
+	info, farms = {}, {}
 	if houses:
 		for w in frappe.get_all(
 			"Warehouse",
@@ -2547,21 +2592,23 @@ def greenhouses_growing(varieties):
 			fields=["name", "warehouse_name", "custom_farm"],
 		):
 			info[w.name] = w
+		if frappe.db.exists("DocType", "Greenhouse"):
+			for g in frappe.get_all(
+				"Greenhouse", filters={"name": ["in", list(houses)]}, fields=["name", "farm"]
+			):
+				farms[g.name] = g.farm
 	out = {}
-	for c in cycles:
-		w = info.get(c.greenhouse) or {}
-		rows = out.setdefault(c.variety, {})
-		row = rows.setdefault(
-			c.greenhouse,
+	for (variety, house), area in found.items():
+		w = info.get(house) or {}
+		out.setdefault(variety, []).append(
 			{
-				"name": c.greenhouse,
-				"label": w.get("warehouse_name") or c.greenhouse,
-				"farm": c.farm or w.get("custom_farm") or "",
-				"area": 0.0,
-			},
+				"name": house,
+				"label": w.get("warehouse_name") or house,
+				"farm": farms.get(house) or w.get("custom_farm") or "",
+				"area": area,
+			}
 		)
-		row["area"] = row["area"] + float(c.planted_area or 0)
-	return {v: sorted(rows.values(), key=lambda r: r["label"]) for v, rows in out.items()}
+	return {v: sorted(rows, key=lambda r: r["label"]) for v, rows in out.items()}
 
 
 def sea_freight_line_specs(lines):
@@ -2642,8 +2689,50 @@ def sea_freight_harvested(so_items):
 	return {r.so_item: int(r.stems or 0) for r in rows}
 
 
-def open_sea_freight_orders(limit=200):
-	"""Open sea freight Sales Orders with their lines and stems harvested so far, soonest delivery first."""
+def sea_freight_plans(so_items):
+	"""so_item -> [{greenhouse, stems, harvested}]: the greenhouses Allocation Planning planned each sea freight
+	line to (upande_packhouse Sea Freight Greenhouse Plan), with the stems harvested in each so far."""
+	if not so_items or not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
+		return {}
+	plans = frappe.db.sql(
+		"""SELECT p.sales_order_item AS so_item, r.greenhouse, r.stems
+		FROM `tabSea Freight Greenhouse Plan` p
+		JOIN `tabSea Freight Greenhouse Plan Row` r ON r.parent = p.name AND r.parenttype = 'Sea Freight Greenhouse Plan'
+		WHERE p.sales_order_item IN %(i)s ORDER BY r.idx""",
+		{"i": tuple(so_items)},
+		as_dict=True,
+	)
+	if not plans:
+		return {}
+	done = {}
+	if frappe.db.has_column("Stock Entry", "custom_sea_freight_item") and frappe.db.has_column(
+		"Stock Entry", "custom_greenhouse"
+	):
+		for r in frappe.db.sql(
+			"""SELECT se.custom_sea_freight_item AS so_item, se.custom_greenhouse AS greenhouse, SUM(sed.qty) AS stems
+			FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+			WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting' AND se.custom_sea_freight_item IN %(i)s
+			GROUP BY se.custom_sea_freight_item, se.custom_greenhouse""",
+			{"i": tuple(so_items)},
+			as_dict=True,
+		):
+			done[(r.so_item, r.greenhouse)] = int(r.stems or 0)
+	out = {}
+	for r in plans:
+		out.setdefault(r.so_item, []).append(
+			{
+				"greenhouse": r.greenhouse,
+				"stems": int(r.stems or 0),
+				"harvested": done.get((r.so_item, r.greenhouse), 0),
+			}
+		)
+	return out
+
+
+def open_sea_freight_orders(limit=200, include_harvested=False):
+	"""Open sea freight Sales Orders with their lines and stems harvested so far, soonest delivery first.
+	`include_harvested`: the ones whose harvesting is finished too (flagged harvest_done)."""
+	has_done = frappe.db.has_column("Sales Order", "custom_sea_freight_harvested")
 	orders = frappe.get_all(
 		"Sales Order",
 		filters={
@@ -2651,11 +2740,7 @@ def open_sea_freight_orders(limit=200):
 			"custom_mode_of_transport": SEA_FREIGHT,
 			"status": ["not in", list(SEA_FREIGHT_CLOSED_STATUSES)],
 			"per_delivered": ["<", 100],
-			**(
-				{"custom_sea_freight_harvested": 0}
-				if frappe.db.has_column("Sales Order", "custom_sea_freight_harvested")
-				else {}
-			),
+			**({"custom_sea_freight_harvested": 0} if has_done and not include_harvested else {}),
 		},
 		fields=[
 			"name",
@@ -2666,12 +2751,41 @@ def open_sea_freight_orders(limit=200):
 			"status",
 			"company",
 			*(["custom_order_name"] if frappe.db.has_column("Sales Order", "custom_order_name") else []),
+			*(["custom_sea_freight_harvested"] if has_done else []),
+			*(
+				["custom_allocation_sequence"]
+				if frappe.db.has_column("Sales Order", "custom_allocation_sequence")
+				else []
+			),
 		],
 		order_by="delivery_date asc, name asc",
 		limit=limit,
 	)
 	if not orders:
 		return []
+	# harvested in the order Allocation Planning sequenced them: each delivery day's orders by their number (the
+	# ones not planned yet last), each with the team that packs it
+	orders.sort(
+		key=lambda o: (
+			str(o.delivery_date or ""),
+			int(o.get("custom_allocation_sequence") or 0) <= 0,
+			int(o.get("custom_allocation_sequence") or 0),
+			o.name,
+		)
+	)
+	teams = {}
+	if frappe.db.table_exists("Allocation Confirmation"):
+		for r in frappe.get_all(
+			"Allocation Confirmation",
+			filters={
+				"sales_order": ["in", [o.name for o in orders]],
+				"status": ["in", ["Planned", "Reserved", "Partly Fulfilled", "Broken", "Fulfilled"]],
+				"team": ["is", "set"],
+			},
+			fields=["sales_order", "team"],
+			order_by="modified desc",
+		):
+			teams.setdefault(r.sales_order, r.team)
 	lines = frappe.get_all(
 		"Sales Order Item",
 		filters={"parent": ["in", [o.name for o in orders]]},
@@ -2691,6 +2805,7 @@ def open_sea_freight_orders(limit=200):
 		limit=0,
 	)
 	harvested = sea_freight_harvested([ln.name for ln in lines])
+	planned = sea_freight_plans([ln.name for ln in lines])
 	growing = greenhouses_growing([ln.item_code for ln in lines])
 	wanted = sea_freight_line_specs(lines)
 	by_order = {}
@@ -2711,6 +2826,8 @@ def open_sea_freight_orders(limit=200):
 				"harvested_stems": done,
 				"remaining_stems": max(ordered - done, 0),
 				"greenhouses": growing.get(ln.item_code, []),
+				# the greenhouses the line is planned to (empty: not planned yet)
+				"plan": planned.get(ln.name, []),
 			}
 		)
 	out = []
@@ -2725,6 +2842,9 @@ def open_sea_freight_orders(limit=200):
 				"order_date": str(o.transaction_date or ""),
 				"status": o.status,
 				"company": o.company,
+				"sequence": int(o.get("custom_allocation_sequence") or 0),
+				"harvest_done": bool(o.get("custom_sea_freight_harvested")),
+				"team": teams.get(o.name, ""),
 				"ordered_stems": sum(i["ordered_stems"] for i in items),
 				"harvested_stems": sum(i["harvested_stems"] for i in items),
 				"items": items,
@@ -2733,44 +2853,144 @@ def open_sea_freight_orders(limit=200):
 	return out
 
 
+def planned_target(item):
+	"""The stems a sea freight line is planned to have harvested: its greenhouses' stems together."""
+	return sum(p["stems"] for p in item.get("plan") or [])
+
+
+def short_lines(order):
+	"""The planned lines of an order not harvested up to their planned stems."""
+	return [i for i in order["items"] if planned_target(i) > 0 and i["harvested_stems"] < planned_target(i)]
+
+
+def mark_sea_freight_harvested(name, note=None):
+	"""The order's harvesting is finished: it leaves the production list and the packhouse can receive it."""
+	frappe.db.set_value(
+		"Sales Order",
+		name,
+		{
+			"custom_sea_freight_harvested": 1,
+			"custom_sea_freight_harvested_on": frappe.utils.now_datetime(),
+			"custom_sea_freight_harvested_by": frappe.session.user,
+		},
+	)
+	if note:
+		frappe.get_doc("Sales Order", name).add_comment("Comment", note)
+
+
+def auto_mark_sea_freight_done(name):
+	"""Every planned line harvested to its planned stems: the order is marked harvested without being asked.
+	Returns True when it was."""
+	order = next((o for o in open_sea_freight_orders() if o["name"] == name), None)
+	if not order or not any(planned_target(i) > 0 for i in order["items"]) or short_lines(order):
+		return False
+	mark_sea_freight_harvested(name)
+	return True
+
+
+def planned_only(orders):
+	"""The orders delivering tomorrow or later with their lines planned to a greenhouse (Sea Freight Greenhouse
+	Plan); none of them on a site without the plan table."""
+	if not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
+		return []
+	tomorrow = str(frappe.utils.add_days(frappe.utils.today(), 1))
+	out = []
+	for o in orders:
+		# delivering today or earlier: no longer harvested for; not sequenced on Allocation Planning: not yet
+		if not o["delivery_date"] or o["delivery_date"] < tomorrow:
+			continue
+		if not o.get("sequence"):
+			continue
+		items = [i for i in o["items"] if any(p["stems"] > 0 for p in i.get("plan") or [])]
+		if items:
+			out.append(
+				{
+					**o,
+					"items": items,
+					"ordered_stems": sum(i["ordered_stems"] for i in items),
+					"harvested_stems": sum(i["harvested_stems"] for i in items),
+				}
+			)
+	return out
+
+
 @frappe.whitelist(methods=["POST"])
 def productionMarkSeaFreightDone():
-	"""Harvesting for a sea freight order is finished: every line is 100% harvested. The order leaves the
-	production list and the packhouse can receive it."""
+	"""Harvesting for a sea freight order is finished. Done on its own once every planned line is harvested to its
+	planned stems (auto_mark_sea_freight_done); short of that, only as an under harvest: with a reason (Under Pack
+	Reason), recorded on the order with the lines left short."""
 	data = frappe.request.get_json() or {}
 	name = (data.get("sales_order") or "").strip()
+	reason = (data.get("reason") or "").strip()
+	notes = (data.get("notes") or "").strip()
 	try:
 		order = next((o for o in open_sea_freight_orders() if o["name"] == name), None)
 		if not order:
 			frappe.throw(_("{0} is not an open sea freight order still being harvested.").format(name))
-		short = [i for i in order["items"] if i["harvested_stems"] < i["ordered_stems"]]
-		if short:
-			frappe.throw(
-				_("Not fully harvested yet: {0}").format(
-					", ".join(f"{i['item_name']} {i['harvested_stems']}/{i['ordered_stems']}" for i in short)
-				)
-			)
-		frappe.db.set_value(
-			"Sales Order",
-			name,
-			{
-				"custom_sea_freight_harvested": 1,
-				"custom_sea_freight_harvested_on": frappe.utils.now_datetime(),
-				"custom_sea_freight_harvested_by": frappe.session.user,
-			},
+		if not any(planned_target(i) > 0 for i in order["items"]):
+			frappe.throw(_("{0} has no line planned to a greenhouse yet.").format(name))
+		short = short_lines(order)
+		shortfall = ", ".join(
+			"{0} {1}/{2}".format(i["item_name"], int(i["harvested_stems"]), int(planned_target(i)))
+			for i in short
 		)
+		if short and not reason:
+			frappe.throw(_("Not fully harvested yet: {0}").format(shortfall))
+		if (
+			reason
+			and frappe.db.table_exists("Under Pack Reason")
+			and not frappe.db.exists("Under Pack Reason", reason)
+		):
+			frappe.throw(_("{0} is not an under pack reason.").format(reason))
+		note = (
+			_("Under harvest: {0}{1}. Short: {2}").format(
+				reason, (" -- " + notes) if notes else "", shortfall
+			)
+			if short
+			else None
+		)
+		mark_sea_freight_harvested(name, note)
 		frappe.db.commit()
-		frappe.response["data"] = {"status": "success", "message": _("{0} marked as harvested.").format(name)}
+		frappe.response["data"] = {
+			"status": "success",
+			"message": _("{0} finished under harvest.").format(name)
+			if short
+			else _("{0} marked as harvested.").format(name),
+		}
 	except Exception as e:
 		frappe.db.rollback()
 		frappe.response["data"] = {"error": str(e)}
 
 
 @frappe.whitelist(methods=["POST"])
+def productionListUnderHarvestReasons():
+	"""The reasons a sea freight order may be finished under harvest: the Under Pack Reason list."""
+	rows = (
+		frappe.get_all("Under Pack Reason", fields=["name", "reason"], order_by="reason asc")
+		if frappe.db.table_exists("Under Pack Reason")
+		else []
+	)
+	frappe.response["data"] = {"reasons": [{"name": r.name, "label": r.reason or r.name} for r in rows]}
+
+
+@frappe.whitelist(methods=["POST"])
 def productionListSeaFreightOrders():
-	"""Open sea freight orders (Mode Of Transport = Sea Freight) for the app's Sea Freight tab."""
+	"""Sea freight orders (Mode Of Transport = Sea Freight) delivering tomorrow or later for the app's Sea Freight
+	tab: only what Allocation Planning has sequenced and planned -- each order with its planned lines and its state
+	(pending, in progress, done)."""
 	try:
-		frappe.response["data"] = {"orders": open_sea_freight_orders()}
+		orders = []
+		for o in planned_only(open_sea_freight_orders(include_harvested=True)):
+			# harvested to plan but not marked yet: marked now
+			if not o["harvest_done"] and not short_lines(o) and auto_mark_sea_freight_done(o["name"]):
+				o["harvest_done"] = True
+			# done (harvested to plan, or finished under harvest), in progress (some harvested) or pending
+			o["state"] = (
+				"done" if o["harvest_done"] else "in_progress" if o["harvested_stems"] > 0 else "pending"
+			)
+			orders.append(o)
+		frappe.db.commit()
+		frappe.response["data"] = {"orders": orders}
 	except Exception as e:
 		frappe.log_error("productionListSeaFreightOrders error: " + str(e))
 		frappe.response["data"] = {"error": str(e)}
@@ -4135,7 +4355,7 @@ def getWeekForecast():
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def updateRevisedForecast():
 	projection_name = frappe.form_dict.get("projection_name")
 	weeks = frappe.form_dict.get("weeks")
