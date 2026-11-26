@@ -2837,15 +2837,19 @@ def planned_only(orders):
 
 @frappe.whitelist(methods=["POST"])
 def productionMarkSeaFreightDone():
-	"""Harvesting for a sea freight order is finished: every line is 100% harvested. The order leaves the
-	production list and the packhouse can receive it."""
+	"""Harvesting for a sea freight order is finished: every line planned to a greenhouse is 100% harvested (the
+	lines the app shows; one not planned is not harvested for the order). The order leaves the production list and
+	the packhouse can receive it."""
 	data = frappe.request.get_json() or {}
 	name = (data.get("sales_order") or "").strip()
 	try:
 		order = next((o for o in open_sea_freight_orders() if o["name"] == name), None)
 		if not order:
 			frappe.throw(_("{0} is not an open sea freight order still being harvested.").format(name))
-		short = [i for i in order["items"] if i["harvested_stems"] < i["ordered_stems"]]
+		planned = [i for i in order["items"] if any(p["stems"] > 0 for p in i.get("plan") or [])]
+		if not planned:
+			frappe.throw(_("{0} has no line planned to a greenhouse yet.").format(name))
+		short = [i for i in planned if i["harvested_stems"] < i["ordered_stems"]]
 		if short:
 			frappe.throw(
 				_("Not fully harvested yet: {0}").format(
