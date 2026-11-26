@@ -2521,6 +2521,9 @@ def validate_sea_freight_line(sales_order, so_item, item_code):
 		frappe.throw(_("That line is not on Sales Order {0}.").format(sales_order))
 	if item_code and line.item_code != item_code:
 		frappe.throw(_("That order line is for {0}, not {1}.").format(line.item_code, item_code))
+	# harvested only once Allocation Planning has planned it to a greenhouse
+	if not sea_freight_plans([line.name]).get(line.name):
+		frappe.throw(_("That order line is not planned yet."))
 	return line
 
 
@@ -2806,6 +2809,26 @@ def open_sea_freight_orders(limit=200):
 	return out
 
 
+def planned_only(orders):
+	"""The orders with their lines planned to a greenhouse (Sea Freight Greenhouse Plan); none of them on a site
+	without the plan table."""
+	if not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
+		return []
+	out = []
+	for o in orders:
+		items = [i for i in o["items"] if any(p["stems"] > 0 for p in i.get("plan") or [])]
+		if items:
+			out.append(
+				{
+					**o,
+					"items": items,
+					"ordered_stems": sum(i["ordered_stems"] for i in items),
+					"harvested_stems": sum(i["harvested_stems"] for i in items),
+				}
+			)
+	return out
+
+
 @frappe.whitelist(methods=["POST"])
 def productionMarkSeaFreightDone():
 	"""Harvesting for a sea freight order is finished: every line is 100% harvested. The order leaves the
@@ -2841,9 +2864,10 @@ def productionMarkSeaFreightDone():
 
 @frappe.whitelist(methods=["POST"])
 def productionListSeaFreightOrders():
-	"""Open sea freight orders (Mode Of Transport = Sea Freight) for the app's Sea Freight tab."""
+	"""Open sea freight orders (Mode Of Transport = Sea Freight) for the app's Sea Freight tab: only what Allocation
+	Planning has planned -- each order with its planned lines, an order with none left out."""
 	try:
-		frappe.response["data"] = {"orders": open_sea_freight_orders()}
+		frappe.response["data"] = {"orders": planned_only(open_sea_freight_orders())}
 	except Exception as e:
 		frappe.log_error("productionListSeaFreightOrders error: " + str(e))
 		frappe.response["data"] = {"error": str(e)}
