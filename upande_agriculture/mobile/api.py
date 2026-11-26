@@ -4315,7 +4315,7 @@ def getWeekForecast():
 	}
 
 
-@frappe.whitelist()
+@frappe.whitelist(methods=["POST"])
 def updateRevisedForecast():
 	projection_name = frappe.form_dict.get("projection_name")
 	weeks = frappe.form_dict.get("weeks")
