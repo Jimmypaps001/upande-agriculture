@@ -804,7 +804,8 @@ def createHarvestStockEntry():
 		last_farm = ""
 		last_receiving_date = ""
 
-		if last_se:
+		# a bucket whose last entry no longer exists (cancelled and deleted) starts afresh
+		if last_se and frappe.db.exists("Stock Entry", last_se):
 			last_se_doc = frappe.get_doc("Stock Entry", last_se)
 			last_farm = last_se_doc.custom_farm
 
