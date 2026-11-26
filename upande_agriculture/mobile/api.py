@@ -2540,21 +2540,51 @@ def validate_sea_freight_line(sales_order, so_item, item_code):
 
 
 def greenhouses_growing(varieties):
-	"""variety -> the greenhouses with a running (not Ended) Crop Cycle of it: [{name, label, farm, area}]."""
+	"""variety -> the greenhouses growing it: [{name, label, farm, area}]. The same rule a harvest is checked by
+	(validate_variety_planted_in_greenhouse): a greenhouse's Varieties Grown ledger, and for a greenhouse with no
+	ledger its running (not Ended) Crop Cycles."""
 	if not varieties:
 		return {}
-	cycles = frappe.get_all(
+	varieties = list(set(varieties))
+	found = {}  # (variety, greenhouse) -> area
+
+	ledger_houses = set()
+	# a site without the Greenhouse ledger: its crop cycles alone
+	if frappe.db.exists("DocType", "Greenhouse Variety"):
+		ledger_houses = set(
+			frappe.get_all(
+				"Greenhouse Variety",
+				filters={"parenttype": "Greenhouse", "parentfield": "varieties_grown"},
+				pluck="parent",
+				distinct=True,
+			)
+		)
+		for r in frappe.get_all(
+			"Greenhouse Variety",
+			filters={
+				"parenttype": "Greenhouse",
+				"parentfield": "varieties_grown",
+				"variety": ["in", varieties],
+			},
+			fields=["parent", "variety", "area_m2"],
+			limit=0,
+		):
+			found[(r.variety, r.parent)] = found.get((r.variety, r.parent), 0.0) + float(r.area_m2 or 0)
+	for c in frappe.get_all(
 		"Crop Cycle",
-		filters={
-			"variety": ["in", list(set(varieties))],
-			"status": ["!=", "Ended"],
-			"greenhouse": ["is", "set"],
-		},
-		fields=["variety", "greenhouse", "farm", "planted_area"],
+		filters={"variety": ["in", varieties], "status": ["!=", "Ended"], "greenhouse": ["is", "set"]},
+		fields=["variety", "greenhouse", "planted_area"],
 		limit=0,
-	)
-	houses = {c.greenhouse for c in cycles}
-	info = {}
+	):
+		# a greenhouse with a ledger is read from it alone
+		if c.greenhouse in ledger_houses:
+			continue
+		found[(c.variety, c.greenhouse)] = found.get((c.variety, c.greenhouse), 0.0) + float(
+			c.planted_area or 0
+		)
+
+	houses = {g for _v, g in found}
+	info, farms = {}, {}
 	if houses:
 		for w in frappe.get_all(
 			"Warehouse",
@@ -2562,21 +2592,23 @@ def greenhouses_growing(varieties):
 			fields=["name", "warehouse_name", "custom_farm"],
 		):
 			info[w.name] = w
+		if frappe.db.exists("DocType", "Greenhouse"):
+			for g in frappe.get_all(
+				"Greenhouse", filters={"name": ["in", list(houses)]}, fields=["name", "farm"]
+			):
+				farms[g.name] = g.farm
 	out = {}
-	for c in cycles:
-		w = info.get(c.greenhouse) or {}
-		rows = out.setdefault(c.variety, {})
-		row = rows.setdefault(
-			c.greenhouse,
+	for (variety, house), area in found.items():
+		w = info.get(house) or {}
+		out.setdefault(variety, []).append(
 			{
-				"name": c.greenhouse,
-				"label": w.get("warehouse_name") or c.greenhouse,
-				"farm": c.farm or w.get("custom_farm") or "",
-				"area": 0.0,
-			},
+				"name": house,
+				"label": w.get("warehouse_name") or house,
+				"farm": farms.get(house) or w.get("custom_farm") or "",
+				"area": area,
+			}
 		)
-		row["area"] = row["area"] + float(c.planted_area or 0)
-	return {v: sorted(rows.values(), key=lambda r: r["label"]) for v, rows in out.items()}
+	return {v: sorted(rows, key=lambda r: r["label"]) for v, rows in out.items()}
 
 
 def sea_freight_line_specs(lines):
