@@ -2642,6 +2642,46 @@ def sea_freight_harvested(so_items):
 	return {r.so_item: int(r.stems or 0) for r in rows}
 
 
+def sea_freight_plans(so_items):
+	"""so_item -> [{greenhouse, stems, harvested}]: the greenhouses Allocation Planning planned each sea freight
+	line to (upande_packhouse Sea Freight Greenhouse Plan), with the stems harvested in each so far."""
+	if not so_items or not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
+		return {}
+	plans = frappe.db.sql(
+		"""SELECT p.sales_order_item AS so_item, r.greenhouse, r.stems
+		FROM `tabSea Freight Greenhouse Plan` p
+		JOIN `tabSea Freight Greenhouse Plan Row` r ON r.parent = p.name AND r.parenttype = 'Sea Freight Greenhouse Plan'
+		WHERE p.sales_order_item IN %(i)s ORDER BY r.idx""",
+		{"i": tuple(so_items)},
+		as_dict=True,
+	)
+	if not plans:
+		return {}
+	done = {}
+	if frappe.db.has_column("Stock Entry", "custom_sea_freight_item") and frappe.db.has_column(
+		"Stock Entry", "custom_greenhouse"
+	):
+		for r in frappe.db.sql(
+			"""SELECT se.custom_sea_freight_item AS so_item, se.custom_greenhouse AS greenhouse, SUM(sed.qty) AS stems
+			FROM `tabStock Entry` se JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+			WHERE se.docstatus = 1 AND se.stock_entry_type = 'Harvesting' AND se.custom_sea_freight_item IN %(i)s
+			GROUP BY se.custom_sea_freight_item, se.custom_greenhouse""",
+			{"i": tuple(so_items)},
+			as_dict=True,
+		):
+			done[(r.so_item, r.greenhouse)] = int(r.stems or 0)
+	out = {}
+	for r in plans:
+		out.setdefault(r.so_item, []).append(
+			{
+				"greenhouse": r.greenhouse,
+				"stems": int(r.stems or 0),
+				"harvested": done.get((r.so_item, r.greenhouse), 0),
+			}
+		)
+	return out
+
+
 def open_sea_freight_orders(limit=200):
 	"""Open sea freight Sales Orders with their lines and stems harvested so far, soonest delivery first."""
 	orders = frappe.get_all(
@@ -2691,6 +2731,7 @@ def open_sea_freight_orders(limit=200):
 		limit=0,
 	)
 	harvested = sea_freight_harvested([ln.name for ln in lines])
+	planned = sea_freight_plans([ln.name for ln in lines])
 	growing = greenhouses_growing([ln.item_code for ln in lines])
 	wanted = sea_freight_line_specs(lines)
 	by_order = {}
@@ -2711,6 +2752,8 @@ def open_sea_freight_orders(limit=200):
 				"harvested_stems": done,
 				"remaining_stems": max(ordered - done, 0),
 				"greenhouses": growing.get(ln.item_code, []),
+				# the greenhouses the line is planned to (empty: not planned yet)
+				"plan": planned.get(ln.name, []),
 			}
 		)
 	out = []
