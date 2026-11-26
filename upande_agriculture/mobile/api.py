@@ -745,8 +745,9 @@ def createHarvestStockEntry():
 
 		# Block Spray Roses -- they're harvested on the grading page instead
 		# (see item_group_is_under's docstring for why this used to be a
-		# flat, always-false check).
-		if item_group_is_under(item_code, "Spray Roses"):
+		# flat, always-false check). A sea freight harvest is the exception: it
+		# is cut for its order line and goes to the packhouse as harvested.
+		if item_group_is_under(item_code, "Spray Roses") and not (sea_freight_order or sea_freight_item):
 			frappe.log_error("Attempt to harvest sprays from the harvest form", data)
 			frappe.throw(_("Spray Roses can only be harvested on the grading page"))
 
