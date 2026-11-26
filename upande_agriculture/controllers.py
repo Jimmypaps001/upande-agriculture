@@ -308,22 +308,36 @@ def _autoseed_milestone_tasks(doc):
 
 
 def stock_entry_on_submit(doc, method=None):
-	"""A submitted harvest feeds the forecast immediately.
+	"""A submitted harvest feeds the forecast within seconds, outside the harvest's own save.
 
-	The nightly rollup still runs as the safety net, but a grower checking
-	the forecast minutes after scanning buckets should already see the
-	stems. Cancel goes through the same path so a reversed entry pulls the
-	number back down. Best-effort: forecast bookkeeping must never block a
-	harvest from being recorded.
+	The refresh rebuilds every open forecast of the greenhouse and variety from the year's harvests. Run
+	inside the submit, it held the Stock Entry naming lock for seconds, so every harvest, grading,
+	receiving and shelving save across the farms queued behind it. It is queued to run after the harvest
+	commits instead; harvests to the same greenhouse while one is waiting share it. Cancel goes through
+	the same path so a reversed entry pulls the number back down. The nightly rollup stays the safety net.
 	"""
 	if doc.stock_entry_type != "Harvesting":
 		return
 	house = doc.get("custom_greenhouse") or doc.get("to_warehouse")
 	if not house:
 		return
-	varieties = {d.item_code for d in (doc.items or []) if d.item_code}
+	varieties = sorted({d.item_code for d in (doc.items or []) if d.item_code})
 	if not varieties:
 		return
+	frappe.enqueue(
+		"upande_agriculture.controllers.refresh_live_forecasts",
+		queue="short",
+		job_id="pf_live_refresh:{0}:{1}".format(house, ",".join(varieties)),
+		deduplicate=True,
+		enqueue_after_commit=True,
+		house=house,
+		varieties=varieties,
+	)
+
+
+def refresh_live_forecasts(house, varieties):
+	"""Pull the actuals into every open forecast of the greenhouse for these varieties. Best-effort:
+	forecast bookkeeping never blocks or fails a harvest."""
 	forecasts = frappe.get_all(
 		"Production Forecast",
 		filters={"greenhouse": house, "variety": ("in", list(varieties)), "status": ("!=", "Closed")},
