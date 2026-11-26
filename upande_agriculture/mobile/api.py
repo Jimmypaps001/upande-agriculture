@@ -2810,12 +2810,16 @@ def open_sea_freight_orders(limit=200):
 
 
 def planned_only(orders):
-	"""The orders with their lines planned to a greenhouse (Sea Freight Greenhouse Plan); none of them on a site
-	without the plan table."""
+	"""The orders still to deliver (delivery today or later) with their lines planned to a greenhouse (Sea Freight
+	Greenhouse Plan); none of them on a site without the plan table."""
 	if not frappe.db.table_exists("Sea Freight Greenhouse Plan"):
 		return []
+	today = str(frappe.utils.today())
 	out = []
 	for o in orders:
+		# a delivery date that has passed: no longer harvested for
+		if o["delivery_date"] and o["delivery_date"] < today:
+			continue
 		items = [i for i in o["items"] if any(p["stems"] > 0 for p in i.get("plan") or [])]
 		if items:
 			out.append(
